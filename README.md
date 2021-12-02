@@ -5,7 +5,7 @@ It isn't intended for fully standalone use. Please see the [main project README.
 
 ## Setup
 
-Run the CARLA server (optional) & the container with our code (`pedestrians-video-2-carla-client-1`).
+Run the CARLA server (optional) & the container with our code (`carla-pedestrians-client-1`).
 
 If you don't have the Nvidia GPU, there is CPU-only version available `docker-compose.cpu.yml`.
 Please note that currently running CARLA server requires GPU, so without it the `source_carla`
