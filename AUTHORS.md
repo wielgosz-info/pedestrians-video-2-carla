@@ -1,3 +1,3 @@
 # Contributors
 
-* Maciej Wielgosz <wielgosz@agh.edu.pl>
+* Maciej Wielgosz <wielgosz@cvc.uab.cat>

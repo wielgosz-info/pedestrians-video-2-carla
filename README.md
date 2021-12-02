@@ -1,7 +1,19 @@
 # pedestrians-video-2-carla
 
 This is a part of the bigger project to bring the more realistic pedestrian movements to CARLA.
-It isn't intended for fully standalone use. Please see the main project README.md for details.
+It isn't intended for fully standalone use. Please see the [main project README.md](https://github.com/wielgosz-info/carla-pedestrians/blob/main/README.md) for details.
+
+## Setup
+
+Run the CARLA server (optional) & the container with our code (`pedestrians-video-2-carla-client-1`).
+
+If you don't have the Nvidia GPU, there is CPU-only version available `docker-compose.cpu.yml`.
+Please note that currently running CARLA server requires GPU, so without it the `source_carla`
+`carla` renderers shouldn't be used, since it would result in errors.
+
+```sh
+COMMIT=$(git rev-parse --short HEAD) docker-compose -f "docker-compose.yml" --env-file .env up -d --build
+```
 
 ## Running
 
@@ -64,24 +76,38 @@ python3 -m pedestrians_video_2_carla \
 
 The preferred way of running is via Docker. If conda is used, in addition to creating the env from the provided `environment.yml` file, following steps need to be done:
 
-1. Copy the `carla-0.9.11-py3.7-linux-x86_64.egg` into `${CONDA_ENV_ROOT}/lib/python3.8/site-packages/`. It can be found e.g. in `carlasim/carla:0.9.11` container in `/home/carla/PythonAPI/carla/dist/`.
-2. Edit `${CONDA_ENV_ROOT}/lib/python3.8/site-packages/easy_install.pth` and add:
-
-    ```python
-    import sys; sys.__plen = len(sys.path)
-    ./carla-0.9.11-py3.7-linux-x86_64.egg
-    import sys; new=sys.path[sys.__plen:]; del sys.path[sys.__plen:]; p=getattr(sys,'__egginsert',0); sys.path[p:p]=new; sys.__egginsert = p+len(new)
+1. Create and activate conda environment with the following command:
+   
+    ```sh
+    conda create -f environment.yml
+    conda activate pedestrians
     ```
-
-3. Install the `pedestrians_video_2_carla` package with:
+    
+2. Install the `pedestrians_video_2_carla` package with:
 
     ```sh
     COMMIT=$(git rev-parse --short HEAD) SETUPTOOLS_SCM_PRETEND_VERSION="0.0.post0.dev38+${COMMIT}.dirty" pip install -e .
     ```
 
-4. Run `pytest tests` to see if everything is working.
+3. Run `pytest tests` to see if everything is working.
 
-Please note that conda env is not actively maintained.
+**Please note that conda env is not actively maintained.**
+
+## Reference skeletons
+Reference skeleton data in `src/pedestrians_video_2_carla/reference_skeletons` are extracted form [CARLA project Walkers *.uasset files](https://bitbucket.org/carla-simulator/carla-content).
+
+## License
+[MIT License](https://github.com/wielgosz-info/pedestrians-video-2-carla/blob/main/LICENSE)
+
+This project uses videos and annotations from [JAAD dataset](https://data.nvision2.eecs.yorku.ca/JAAD_dataset/), created by Amir Rasouli, Iuliia Kotseruba, and John K. Tsotsos, to extract pedestrians movements and attributes. The videos and annotations are released under [MIT License](https://github.com/ykotseruba/JAAD/blob/JAAD_2.0/LICENSE).
+
+This project uses [OpenPose](https://github.com/CMU-Perceptual-Computing-Lab/openpose), created by Ginés Hidalgo, Zhe Cao, Tomas Simon, Shih-En Wei, Yaadhav Raaj, Hanbyul Joo, and Yaser Sheikh, to extract pedestrians skeletons from videos. OpenPose has its [own licensing](https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/LICENSE) (basically, academic or non-profit organization noncommercial research use only).
+
+## Funding
+
+|                                                                                                                                                        |                                                                                                                                                |                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <img src="docs/_static/images/logos/Logo Tecniospring INDUSTRY_white.JPG" alt="Tecniospring INDUSTRY" style="height: 24px;"> | <img src="docs/_static/images/logos/ACCIO_horizontal.PNG" alt="ACCIÓ Government of Catalonia" style="height: 35px;"> | <img src="docs/_static/images/logos/EU_emblem_and_funding_declaration_EN.PNG" alt="This project has received funding from the European Union's Horizon 2020 research and innovation programme under Marie Skłodowska-Curie grant agreement No. 801342 (Tecniospring INDUSTRY) and the Government of Catalonia's Agency for Business Competitiveness (ACCIÓ)." style="height: 70px;"> |
 
 <!-- pyscaffold-notes -->
 
