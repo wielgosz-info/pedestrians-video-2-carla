@@ -22,7 +22,7 @@ def calculate_loss_pose_changes(criterion: loss._Loss, pose_inputs: Tensor, targ
 
     loss = criterion(
         pose_inputs,
-        targets['pose_inputs']
+        targets['pose_changes']
     )
 
     return loss
