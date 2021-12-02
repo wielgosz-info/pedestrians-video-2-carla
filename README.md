@@ -94,7 +94,7 @@ The preferred way of running is via Docker. If conda is used, in addition to cre
 **Please note that conda env is not actively maintained.**
 
 ## Reference skeletons
-Reference skeleton data in `src/pedestrians_video_2_carla/reference_skeletons` are extracted form [CARLA project Walkers *.uasset files](https://bitbucket.org/carla-simulator/carla-content).
+Reference skeleton data in `src/pedestrians_video_2_carla/skeletons/reference` are extracted form [CARLA project Walkers *.uasset files](https://bitbucket.org/carla-simulator/carla-content).
 
 ## License
 [MIT License](https://github.com/wielgosz-info/pedestrians-video-2-carla/blob/main/LICENSE)
