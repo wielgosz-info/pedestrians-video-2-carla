@@ -319,12 +319,16 @@ class LitBaseMapper(pl.LightningModule):
 
         # sometimes we need absolute target world loc/rot, which is not saved in data
         # so we need to compute it here and then slice appropriately
-        target_world_loc, target_world_rot = calculate_world_from_changes(
-            absolute_pose_loc.shape, absolute_pose_loc.device,
-            targets['world_loc_changes'], targets['world_rot_changes']
-        )
-        sliced['targets']['world_loc'] = target_world_loc[eval_slice]
-        sliced['targets']['world_rot'] = target_world_rot[eval_slice]
+        # caveat - dataset needst to provide those targets in the first place
+        try:
+            target_world_loc, target_world_rot = calculate_world_from_changes(
+                absolute_pose_loc.shape, absolute_pose_loc.device,
+                targets['world_loc_changes'], targets['world_rot_changes']
+            )
+            sliced['targets']['world_loc'] = target_world_loc[eval_slice]
+            sliced['targets']['world_rot'] = target_world_rot[eval_slice]
+        except KeyError:
+            pass
         return sliced
 
     def _eval_step_end(self, outputs, stage):

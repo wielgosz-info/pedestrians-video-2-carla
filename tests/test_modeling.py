@@ -15,6 +15,8 @@ def test_flow(test_logs_dir, test_outputs_dir, loss_mode, movements_output_type)
         "--data_module_name=Carla2D3D",
         "--movements_model_name=Linear",
         "--batch_size=2",
+        "--val_set_size=2",
+        "--test_set_size=2",
         "--num_workers=0",
         "--clip_length=32",
         "--input_nodes=CARLA_SKELETON",
