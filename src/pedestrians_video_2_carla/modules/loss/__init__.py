@@ -11,6 +11,7 @@ from .loc_2d_3d import calculate_loss_loc_2d_3d
 from .cum_pose_changes import calculate_loss_cum_pose_changes
 from .rot_3d import calculate_loss_rot_3d
 from .loc_2d_loc_rot_3d import calculate_loss_loc_2d_loc_rot_3d
+from .weighted_loc_2d_loc_rot_3d import calculate_loss_weighted_loc_2d_loc_rot_3d
 
 
 class LossModes(Enum):
@@ -37,6 +38,9 @@ class LossModes(Enum):
     loc_2d_loc_rot_3d = (calculate_loss_loc_2d_loc_rot_3d, None, [
         'common_loc_2d', 'loc_3d', 'rot_3d'
     ])
+    weighted_loc_2d_loc_rot_3d = (calculate_loss_weighted_loc_2d_loc_rot_3d, None, [
+        'common_loc_2d', 'loc_3d', 'rot_3d'
+    ])
 
     @staticmethod
     def get_supported_loss_modes(movements_output_type: MovementsModelOutputType):
@@ -51,6 +55,7 @@ class LossModes(Enum):
                 LossModes.rot_3d,
                 LossModes.loc_2d_3d,
                 LossModes.loc_2d_loc_rot_3d,
+                LossModes.weighted_loc_2d_loc_rot_3d
             ],
             MovementsModelOutputType.absolute_loc: [
                 LossModes.common_loc_2d,

@@ -182,3 +182,40 @@ def test_models(test_logs_dir, test_outputs_dir, movements_model_name, trajector
         "--outputs_dir={}".format(test_outputs_dir),
         "--logs_dir={}".format(test_logs_dir)
     ])
+
+
+def test_weighted_loss(test_logs_dir, test_outputs_dir):
+    """
+    Test the overall flow using Linear model.
+    """
+    main([
+        "--data_module_name=Carla2D3D",
+        "--movements_model_name=Linear",
+        "--batch_size=2",
+        "--val_set_size=2",
+        "--test_set_size=2",
+        "--num_workers=0",
+        "--clip_length=32",
+        "--input_nodes=CARLA_SKELETON",
+        "--output_nodes=CARLA_SKELETON",
+        "--max_epochs=1",
+        "--limit_val_batches=1",
+        "--limit_train_batches=1",
+        "--loss_modes",
+        'weighted_loc_2d_loc_rot_3d',
+        "--loss_weights",
+        "common_loc_2d=1.0",
+        "loc_3d=1.0",
+        "rot_3d=3.0",
+        "--renderers",
+        "none",
+        "--movements_output_type=absolute_loc_rot",
+        "--outputs_dir={}".format(test_outputs_dir),
+        "--logs_dir={}".format(test_logs_dir)
+    ])
+
+    experiment_dir = os.path.join(
+        test_logs_dir, "Carla2D3DDataModule", "ZeroTrajectory", "Linear", "version_0")
+
+    # assert the experiments log dir exists
+    assert os.path.exists(experiment_dir), 'Experiment logs dir was not created'

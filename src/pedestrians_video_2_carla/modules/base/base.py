@@ -1,6 +1,6 @@
 
 import platform
-from typing import Any, List
+from typing import Any, Dict, List
 
 import pytorch_lightning as pl
 import torch
@@ -18,6 +18,7 @@ from pedestrians_video_2_carla.modules.movements.zero import ZeroMovements
 from pedestrians_video_2_carla.modules.trajectory.zero import ZeroTrajectory
 from pedestrians_video_2_carla.skeletons.nodes import get_skeleton_type_by_name
 from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
+from pedestrians_video_2_carla.utils.argparse import DictAction
 from pedestrians_video_2_carla.walker_control.torch.world import \
     calculate_world_from_changes
 from pytorch_lightning.utilities import rank_zero_only
@@ -40,6 +41,7 @@ class LitBaseMapper(pl.LightningModule):
         movements_model: MovementsModel = None,
         trajectory_model: TrajectoryModel = None,
         loss_modes: List[LossModes] = None,
+        loss_weights: Dict[str, Tensor] = None,
         **kwargs
     ):
         super().__init__()
@@ -59,6 +61,10 @@ class LitBaseMapper(pl.LightningModule):
         )
 
         # losses
+        if loss_weights is None:
+            loss_weights = {}
+        self.loss_weights = loss_weights
+
         if loss_modes is None or len(loss_modes) == 0:
             loss_modes = [LossModes.common_loc_2d]
         self._loss_modes = loss_modes
@@ -91,6 +97,7 @@ class LitBaseMapper(pl.LightningModule):
         self.save_hyperparameters({
             'host': platform.node(),
             'loss_modes': [mode.name for mode in self._loss_modes],
+            'loss_weights': self.loss_weights,
             **self.movements_model.hparams,
             **self.trajectory_model.hparams,
         })
@@ -141,6 +148,19 @@ class LitBaseMapper(pl.LightningModule):
             nargs="+",
             action="extend",
             type=LossModes.__getitem__
+        )
+        parser.add_argument(
+            '--loss_weights',
+            help="""
+                Set loss weights for each loss part when using weighted loss.
+                Example: --loss_weights common_loc_2d=1.0 loc_3d=1.0 rot_3d=3.0
+                Default: ANY_LOSS=1.0
+                """,
+            metavar="WEIGHT",
+            default={},
+            nargs="+",
+            action=DictAction,
+            value_type=float
         )
 
         return parent_parser
@@ -283,6 +303,7 @@ class LitBaseMapper(pl.LightningModule):
                     for k, v in loss_dict.items()
                     if k.name in mode.value[2]
                 } if len(mode.value) > 2 else None,
+                loss_weights=self.loss_weights,
                 **sliced
             )
             if loss is not None and not torch.isnan(loss):
