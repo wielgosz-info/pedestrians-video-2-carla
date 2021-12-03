@@ -77,6 +77,24 @@ class PoseFormer(MovementsModel):
             'drop_path_rate': drop_path_rate,
         }
 
+    @staticmethod
+    def add_model_specific_args(parent_parser):
+        parent_parser = MovementsModel.add_model_specific_args(parent_parser)
+
+        parser = parent_parser.add_argument_group("PoseFormer Movements Module")
+        parser.add_argument(
+            '--single_joint_embeddings_size',
+            default=32,
+            type=int,
+        )
+        parser.add_argument(
+            '--receptive_frames',
+            default=9,
+            type=int,
+        )
+
+        return parent_parser
+
     @property
     def output_type(self) -> MovementsModelOutputType:
         return MovementsModelOutputType.absolute_loc
