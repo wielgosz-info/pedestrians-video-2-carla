@@ -6,7 +6,7 @@ import sys
 from typing import List
 
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, DeviceStatsMonitor
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from pytorch_lightning.utilities.warnings import rank_zero_warn
 
@@ -225,12 +225,13 @@ def main(args: List[str]):
         save_top_k=1,
     )
     lr_monitor = LearningRateMonitor(logging_interval="step")
+    device_stats_monitor = DeviceStatsMonitor()
 
     # training
     trainer = pl.Trainer.from_argparse_args(
         args,
         logger=[tb_logger, pedestrian_logger, ],
-        callbacks=[checkpoint_callback, lr_monitor],
+        callbacks=[checkpoint_callback, lr_monitor, device_stats_monitor],
     )
 
     if args.mode == "train":
