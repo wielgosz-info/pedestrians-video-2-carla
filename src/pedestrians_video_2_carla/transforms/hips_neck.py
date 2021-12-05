@@ -24,6 +24,9 @@ class HipsNeckNormalize(object):
         self.extractor = extractor
         self.__near_zero = near_zero
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(extractor={self.extractor.__class__.__name__})'
+
     def __call__(self, sample: Tensor, dim=2, *args: Any, **kwargs: Any) -> Tensor:
         hips = self.extractor.get_hips_point(sample)[..., 0:dim]
         neck = self.extractor.get_neck_point(sample)[..., 0:dim]

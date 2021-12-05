@@ -107,7 +107,8 @@ RUN pip install --no-cache-dir \
     scipy==1.7.2 \
     timm==0.4.12 \
     torchmetrics==0.6.0 \
-    tqdm==4.62.3
+    tqdm==4.62.3 \
+    wandb==0.12.7
 
 # Copy client files so that we can do editable pip install
 COPY . /app

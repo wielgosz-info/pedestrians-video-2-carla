@@ -6,8 +6,15 @@ import sys
 from typing import List
 
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, DeviceStatsMonitor
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
+
+try:
+    import wandb
+    from pytorch_lightning.loggers.wandb import WandbLogger
+except ImportError:
+    WandbLogger = None
+
 from pytorch_lightning.utilities.warnings import rank_zero_warn
 
 from pedestrians_video_2_carla import __version__
@@ -195,16 +202,28 @@ def main(args: List[str]):
         **dict_args
     )
 
-    # loggers - use TensorBoardLogger log dir as default for all loggers & checkpoints
-    tb_logger = TensorBoardLogger(
-        args.logs_dir,
-        name=os.path.join(
+    # loggers - try to use WandbLogger or fallback to TensorBoardLogger
+    # the primary logger log dir is used as default for all loggers & checkpoints
+    common_logger_kwargs = {
+        "save_dir": args.logs_dir,
+        "name": os.path.join(
             dm.__class__.__name__,
             trajectory_model.__class__.__name__,
             movements_model.__class__.__name__
-        ),
-        default_hp_metric=False
-    )
+        )
+    }
+    if WandbLogger is not None and "PYTEST_CURRENT_TEST" not in os.environ:
+        logger = WandbLogger(
+            **common_logger_kwargs,
+            project='pose-lifting'
+        )
+        log_dir = os.path.realpath(os.path.join(logger.experiment.dir, '..'))
+    else:
+        logger = TensorBoardLogger(
+            **common_logger_kwargs,
+            default_hp_metric=False
+        )
+        log_dir = logger.log_dir
 
     # some models support this as a CLI option
     # so we only add it if it's not already set
@@ -212,32 +231,33 @@ def main(args: List[str]):
                          movements_model.output_type)
 
     pedestrian_logger = PedestrianLogger(
-        save_dir=os.path.join(tb_logger.log_dir, "videos"),
-        name=tb_logger.name,
-        version=tb_logger.version,
+        save_dir=os.path.join(log_dir, "videos"),
+        name=logger.name,
+        version=logger.version,
         **dict_args
     )
 
     checkpoint_callback = ModelCheckpoint(
-        dirpath=os.path.join(tb_logger.log_dir, "checkpoints"),
+        dirpath=os.path.join(log_dir, "checkpoints"),
         monitor="val_loss/primary",
         mode="min",
         save_top_k=1,
     )
     lr_monitor = LearningRateMonitor(logging_interval="step")
-    device_stats_monitor = DeviceStatsMonitor()
 
     # training
     trainer = pl.Trainer.from_argparse_args(
         args,
-        logger=[tb_logger, pedestrian_logger, ],
-        callbacks=[checkpoint_callback, lr_monitor, device_stats_monitor],
+        logger=[logger, pedestrian_logger],
+        callbacks=[checkpoint_callback, lr_monitor],
     )
 
     if args.mode == "train":
         trainer.fit(model=model, datamodule=dm)
     elif args.mode == "test":
         trainer.test(model=model, datamodule=dm)
+
+    return log_dir
 
 
 def run():

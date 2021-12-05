@@ -3,6 +3,7 @@ import platform
 from typing import Any, Dict, List
 
 import pytorch_lightning as pl
+from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 import torch
 from pedestrians_video_2_carla.metrics.fb import *
 from pedestrians_video_2_carla.metrics.mpjpe import MPJPE
@@ -167,19 +168,28 @@ class LitBaseMapper(pl.LightningModule):
 
     @rank_zero_only
     def on_train_start(self):
+        additional_config = {
+            'train_set_size': getattr(
+                self.trainer.datamodule.train_set,
+                '__len__',
+                lambda: self.trainer.limit_train_batches*self.trainer.datamodule.batch_size
+            )()
+        }
+
+        if not isinstance(self.logger[0], TensorBoardLogger):
+            try:
+                self.logger[0].experiment.config.update(additional_config)
+            except:
+                pass
+            return
+
         # We need to manually add the datamodule hparams,
         # because the merge is automatically handled only for initial_hparams
         # in the Trainer.
         hparams = self.hparams
         hparams.update(self.trainer.datamodule.hparams)
         # additionally, store info on train set size for easy access
-        hparams.update({
-            'train_set_size': getattr(
-                self.trainer.datamodule.train_set,
-                '__len__',
-                lambda: self.trainer.limit_train_batches*self.trainer.datamodule.batch_size
-            )()
-        })
+        hparams.update(additional_config)
 
         self.logger[0].log_hyperparams(hparams, {
             "hp/{}".format(k): 0

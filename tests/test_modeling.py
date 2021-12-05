@@ -33,12 +33,6 @@ def test_flow(test_logs_dir, test_outputs_dir, loss_mode, movements_output_type)
         "--logs_dir={}".format(test_logs_dir)
     ])
 
-    experiment_dir = os.path.join(
-        test_logs_dir, "Carla2D3DDataModule", "ZeroTrajectory", "Linear", "version_0")
-
-    # assert the experiments log dir exists
-    assert os.path.exists(experiment_dir), 'Experiment logs dir was not created'
-
 
 def test_flow_needs_confidence(test_logs_dir, test_outputs_dir, movements_output_type):
     """
@@ -67,18 +61,12 @@ def test_flow_needs_confidence(test_logs_dir, test_outputs_dir, movements_output
         "--logs_dir={}".format(test_logs_dir)
     ])
 
-    experiment_dir = os.path.join(
-        test_logs_dir, "Carla2D3DDataModule", "ZeroTrajectory", "Linear", "version_0")
-
-    # assert the experiments log dir exists
-    assert os.path.exists(experiment_dir), 'Experiment logs dir was not created'
-
 
 def test_renderer(test_logs_dir, test_outputs_dir, renderer):
     """
     Test the renderers using Linear model.
     """
-    main([
+    experiment_dir = main([
         "--data_module_name=Carla2D3D",
         "--movements_model_name=Linear",
         "--batch_size=2",
@@ -98,9 +86,6 @@ def test_renderer(test_logs_dir, test_outputs_dir, renderer):
         "--outputs_dir={}".format(test_outputs_dir),
         "--logs_dir={}".format(test_logs_dir)
     ])
-
-    experiment_dir = os.path.join(
-        test_logs_dir, "Carla2D3DDataModule", "ZeroTrajectory", "Linear", "version_0")
 
     # assert the experiments log dir exists
     assert os.path.exists(experiment_dir), 'Experiment logs dir was not created'
@@ -126,7 +111,7 @@ def test_source_videos_jaad(test_logs_dir, test_outputs_dir):
     # We're not going to include the videos in the repo, so optionally provide the path
     source_videos_dir = os.getenv('JAAD_SOURCE_VIDEOS_DIR', '/datasets/JAAD/videos')
 
-    main([
+    experiment_dir = main([
         "--data_module_name=JAADOpenPose",
         "--movements_model_name=Linear",
         "--batch_size=8",
@@ -147,8 +132,7 @@ def test_source_videos_jaad(test_logs_dir, test_outputs_dir):
         "--logs_dir={}".format(test_logs_dir)
     ])
 
-    video_dir = os.path.join(
-        test_logs_dir, "JAADOpenPoseDataModule", "ZeroTrajectory", "Linear", "version_0", "videos", "val")
+    video_dir = os.path.join(experiment_dir, "videos", "val")
 
     assert os.path.exists(video_dir), 'Videos dir was not created'
 
@@ -213,9 +197,3 @@ def test_weighted_loss(test_logs_dir, test_outputs_dir):
         "--outputs_dir={}".format(test_outputs_dir),
         "--logs_dir={}".format(test_logs_dir)
     ])
-
-    experiment_dir = os.path.join(
-        test_logs_dir, "Carla2D3DDataModule", "ZeroTrajectory", "Linear", "version_0")
-
-    # assert the experiments log dir exists
-    assert os.path.exists(experiment_dir), 'Experiment logs dir was not created'
