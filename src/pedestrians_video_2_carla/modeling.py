@@ -215,9 +215,10 @@ def main(args: List[str]):
     if WandbLogger is not None and "PYTEST_CURRENT_TEST" not in os.environ:
         logger = WandbLogger(
             **common_logger_kwargs,
-            project='pose-lifting'
+            project='pose-lifting',
+            entity='carla-pedestrians',
         )
-        log_dir = os.path.realpath(os.path.join(logger.experiment.dir, '..'))
+        log_dir = os.path.realpath(os.path.join(str(logger.experiment.dir), '..'))
     else:
         logger = TensorBoardLogger(
             **common_logger_kwargs,
