@@ -33,14 +33,16 @@ class PoseFormer(MovementsModel):
                  drop_rate=0,
                  attn_drop_rate=0,
                  drop_path_rate=0.2,
+                 input_features=2,
+                 output_features=3,
                  **kwargs):
         super().__init__(**kwargs)
 
         self.__input_nodes_len = len(self.input_nodes)
-        self.__input_features = 2  # (x, y) points
+        self.__input_features = input_features  # (x, y) points
 
         self.__output_nodes_len = len(self.output_nodes)
-        self.__output_features = 3  # (x, y, z) joints points
+        self.__output_features = output_features  # (x, y, z) joints points
 
         self.__clip_length = clip_length
         self.__receptive_frames = receptive_frames
