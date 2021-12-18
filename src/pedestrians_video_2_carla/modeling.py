@@ -15,6 +15,8 @@ try:
 except ImportError:
     WandbLogger = None
 
+import randomname
+
 from pytorch_lightning.utilities.warnings import rank_zero_warn
 
 from pedestrians_video_2_carla import __version__
@@ -121,6 +123,12 @@ def add_program_args():
         default=os.path.join(os.getcwd(), "lightning_logs"),
         type=str,
     )
+    parser.add_argument(
+        "--prefer-tensorboard",
+        dest="prefer_tensorboard",
+        action="store_true",
+        default=False
+    )
     return parser
 
 
@@ -204,24 +212,26 @@ def main(args: List[str]):
 
     # loggers - try to use WandbLogger or fallback to TensorBoardLogger
     # the primary logger log dir is used as default for all loggers & checkpoints
-    common_logger_kwargs = {
-        "save_dir": args.logs_dir,
-        "name": os.path.join(
-            dm.__class__.__name__,
-            trajectory_model.__class__.__name__,
-            movements_model.__class__.__name__
-        )
-    }
-    if WandbLogger is not None and "PYTEST_CURRENT_TEST" not in os.environ:
+    version = randomname.get_name()
+    if WandbLogger is not None and "PYTEST_CURRENT_TEST" not in os.environ and not args.prefer_tensorboard:
+        wandb.init()
         logger = WandbLogger(
-            **common_logger_kwargs,
+            save_dir=args.logs_dir,
+            name=version,
+            version=version,
             project='pose-lifting',
             entity='carla-pedestrians',
         )
         log_dir = os.path.realpath(os.path.join(str(logger.experiment.dir), '..'))
     else:
         logger = TensorBoardLogger(
-            **common_logger_kwargs,
+            save_dir=args.logs_dir,
+            name=os.path.join(
+                dm.__class__.__name__,
+                trajectory_model.__class__.__name__,
+                movements_model.__class__.__name__
+            ),
+            version=version,
             default_hp_metric=False
         )
         log_dir = logger.log_dir

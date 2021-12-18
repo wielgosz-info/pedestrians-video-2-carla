@@ -98,11 +98,12 @@ RUN pip install --no-cache-dir \
     moviepy==1.0.3 \
     numpy==1.21.4 \
     opencv-python-headless==4.5.4.58 \
-    pandas==1.3.4 \
+    pandas==1.3.5 \
     Pillow==8.4.0 \
     pims==0.5 \
     pytorch-lightning==1.5.2 \
     pyyaml==6.0 \
+    randomname==0.1.5 \
     scikit-image==0.18.3 \
     scipy==1.7.2 \
     timm==0.4.12 \

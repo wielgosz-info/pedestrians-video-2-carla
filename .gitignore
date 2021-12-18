@@ -54,3 +54,6 @@ MANIFEST
 
 # Env
 .env
+
+# Logs
+lightning_logs/*
