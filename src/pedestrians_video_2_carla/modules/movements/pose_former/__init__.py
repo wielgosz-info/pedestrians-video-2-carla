@@ -14,3 +14,4 @@ year={2021}
 """
 
 from .pose_former import PoseFormer
+from .pose_former_rot import PoseFormerRot
