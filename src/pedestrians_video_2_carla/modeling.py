@@ -22,8 +22,7 @@ from pytorch_lightning.utilities.warnings import rank_zero_warn
 from pedestrians_video_2_carla import __version__
 from pedestrians_video_2_carla.data.datamodules import DATA_MODULES
 from pedestrians_video_2_carla.data.datamodules.base import BaseDataModule
-from pedestrians_video_2_carla.data.datamodules.carla_2d_3d import \
-    Carla2D3DDataModule
+from pedestrians_video_2_carla.data.datamodules.carla_2d_3d import Carla2D3DDataModule
 from pedestrians_video_2_carla.loggers.pedestrian import PedestrianLogger
 from pedestrians_video_2_carla.modules.base.base import LitBaseMapper
 from pedestrians_video_2_carla.modules.base.movements import MovementsModel
@@ -127,13 +126,10 @@ def add_program_args():
         "--prefer-tensorboard",
         dest="prefer_tensorboard",
         action="store_true",
-        default=False
+        default=False,
     )
     parser.add_argument(
-        "--seed",
-        dest="seed",
-        type=int,
-        default=42,
+        "--seed", dest="seed", type=int, default=42,
     )
     return parser
 
@@ -187,6 +183,8 @@ def main(args: List[str]):
 
     parser = PedestrianLogger.add_logger_specific_args(parser)
 
+    print(f"node={os.environ.get('SLURMD_NODENAME')}")
+
     args = parser.parse_args(args)
     setup_logging(args.loglevel)
 
@@ -195,27 +193,29 @@ def main(args: List[str]):
         rank = os.environ.get(key)
         print(f"{key}={rank}")
 
-    print('===========================================')
+    print("===========================================")
 
     # prevent accidental infinite training
     if data_module_cls == Carla2D3DDataModule:
         if args.limit_train_batches < 0:
             args.limit_train_batches = 1.0
-        elif isinstance(args.limit_train_batches, float) and args.limit_train_batches <= 1.0:
+        elif (
+            isinstance(args.limit_train_batches, float)
+            and args.limit_train_batches <= 1.0
+        ):
             args.limit_train_batches = math.ceil(
-                (4 * args.val_set_size) / args.batch_size)
+                (4 * args.val_set_size) / args.batch_size
+            )
             rank_zero_warn(
                 f"""No limit on train batches was set or it was specified as a fraction (--limit_train_batches), this will result in infinite training (never-ending epoch 0).
     If you really want to do this, set --limit_train_batches=-1.0 and I will not bother you anymore.
-    For now, I set it to `(4 * val_set_size) / batch_size = {args.limit_train_batches}` for you.""")
+    For now, I set it to `(4 * val_set_size) / batch_size = {args.limit_train_batches}` for you."""
+            )
 
     dict_args = vars(args)
 
     # get random version name before seeding
     version = randomname.get_name()
-
-    # seeding
-    pl.seed_everything(args.seed)
 
     # data
     dm = data_module_cls(**dict_args)
@@ -224,45 +224,46 @@ def main(args: List[str]):
     movements_model = movements_model_cls(**dict_args)
     trajectory_model = trajectory_model_cls(**dict_args)
     model = base_model_cls(
-        movements_model=movements_model,
-        trajectory_model=trajectory_model,
-        **dict_args
+        movements_model=movements_model, trajectory_model=trajectory_model, **dict_args
     )
 
     # loggers - try to use WandbLogger or fallback to TensorBoardLogger
     # the primary logger log dir is used as default for all loggers & checkpoints
-    if WandbLogger is not None and "PYTEST_CURRENT_TEST" not in os.environ and not args.prefer_tensorboard:
+    if (
+        WandbLogger is not None
+        and "PYTEST_CURRENT_TEST" not in os.environ
+        and not args.prefer_tensorboard
+    ):
         logger = WandbLogger(
             save_dir=args.logs_dir,
             name=version,
             version=version,
-            project='pose-lifting',
-            entity='carla-pedestrians',
+            project="pose-lifting",
+            entity="carla-pedestrians",
         )
-        log_dir = os.path.realpath(os.path.join(str(logger.experiment.dir), '..'))
+        log_dir = os.path.realpath(os.path.join(str(logger.experiment.dir), ".."))
     else:
         logger = TensorBoardLogger(
             save_dir=args.logs_dir,
             name=os.path.join(
                 dm.__class__.__name__,
                 trajectory_model.__class__.__name__,
-                movements_model.__class__.__name__
+                movements_model.__class__.__name__,
             ),
             version=version,
-            default_hp_metric=False
+            default_hp_metric=False,
         )
         log_dir = logger.log_dir
 
     # some models support this as a CLI option
     # so we only add it if it's not already set
-    dict_args.setdefault("movements_output_type",
-                         movements_model.output_type)
+    dict_args.setdefault("movements_output_type", movements_model.output_type)
 
     pedestrian_logger = PedestrianLogger(
         save_dir=os.path.join(log_dir, "videos"),
         name=logger.name,
         version=logger.version,
-        **dict_args
+        **dict_args,
     )
 
     checkpoint_callback = ModelCheckpoint(
