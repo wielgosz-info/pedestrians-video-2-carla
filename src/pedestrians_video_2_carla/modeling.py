@@ -129,6 +129,12 @@ def add_program_args():
         action="store_true",
         default=False
     )
+    parser.add_argument(
+        "--seed",
+        dest="seed",
+        type=int,
+        default=42,
+    )
     return parser
 
 
@@ -184,6 +190,13 @@ def main(args: List[str]):
     args = parser.parse_args(args)
     setup_logging(args.loglevel)
 
+    rank_keys = ("RANK", "SLURM_PROCID", "LOCAL_RANK")
+    for key in rank_keys:
+        rank = os.environ.get(key)
+        print(f"{key}={rank}")
+
+    print('===========================================')
+
     # prevent accidental infinite training
     if data_module_cls == Carla2D3DDataModule:
         if args.limit_train_batches < 0:
@@ -197,6 +210,9 @@ def main(args: List[str]):
     For now, I set it to `(4 * val_set_size) / batch_size = {args.limit_train_batches}` for you.""")
 
     dict_args = vars(args)
+
+    # seeding
+    pl.seed_everything(args.seed)
 
     # data
     dm = data_module_cls(**dict_args)
@@ -214,7 +230,6 @@ def main(args: List[str]):
     # the primary logger log dir is used as default for all loggers & checkpoints
     version = randomname.get_name()
     if WandbLogger is not None and "PYTEST_CURRENT_TEST" not in os.environ and not args.prefer_tensorboard:
-        wandb.init()
         logger = WandbLogger(
             save_dir=args.logs_dir,
             name=version,
