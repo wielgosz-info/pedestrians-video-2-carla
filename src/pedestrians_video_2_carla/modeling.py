@@ -183,17 +183,8 @@ def main(args: List[str]):
 
     parser = PedestrianLogger.add_logger_specific_args(parser)
 
-    print(f"node={os.environ.get('SLURMD_NODENAME')}")
-
     args = parser.parse_args(args)
     setup_logging(args.loglevel)
-
-    rank_keys = ("RANK", "SLURM_PROCID", "LOCAL_RANK")
-    for key in rank_keys:
-        rank = os.environ.get(key)
-        print(f"{key}={rank}")
-
-    print("===========================================")
 
     # prevent accidental infinite training
     if data_module_cls == Carla2D3DDataModule:
