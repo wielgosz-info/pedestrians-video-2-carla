@@ -211,6 +211,9 @@ def main(args: List[str]):
 
     dict_args = vars(args)
 
+    # get random version name before seeding
+    version = randomname.get_name()
+
     # seeding
     pl.seed_everything(args.seed)
 
@@ -228,7 +231,6 @@ def main(args: List[str]):
 
     # loggers - try to use WandbLogger or fallback to TensorBoardLogger
     # the primary logger log dir is used as default for all loggers & checkpoints
-    version = randomname.get_name()
     if WandbLogger is not None and "PYTEST_CURRENT_TEST" not in os.environ and not args.prefer_tensorboard:
         logger = WandbLogger(
             save_dir=args.logs_dir,
