@@ -3,13 +3,14 @@ version: "3.9"
 services:
   server:
     image: carlasim/carla:0.9.11
-    entrypoint: ["/bin/bash", "/home/carla/CarlaUE4.sh"]
-    command: [
-      "-opengl",
-      "-carla-rpc-port=${CARLA_SERVER_PORT:-2000}",
-      "-carla-streaming-port=${CARLA_STREAMING_PORT:-2001}",
-      "-quality-level=Epic"
-    ]
+    entrypoint: [ "/bin/bash", "/home/carla/CarlaUE4.sh" ]
+    command:
+      [
+        "-opengl",
+        "-carla-rpc-port=${CARLA_SERVER_PORT:-2000}",
+        "-carla-streaming-port=${CARLA_STREAMING_PORT:-2001}",
+        "-quality-level=Epic"
+      ]
     expose:
       - "${CARLA_SERVER_PORT:-2000}-${CARLA_STREAMING_PORT_2:-2002}"
     volumes:
@@ -25,8 +26,8 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ['${CARLA_SERVER_GPU_ID:-0}']
-              capabilities: ['compute','graphics','utility']
+              device_ids: [ '${CARLA_SERVER_GPU_ID:-0}' ]
+              capabilities: [ 'compute', 'graphics', 'utility' ]
   client:
     build:
       context: .
@@ -56,12 +57,12 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ['${CLIENT_GPU_ID:-0}']
-              capabilities: ['compute','graphics','utility']
+              device_ids: [ '${CLIENT_GPU_ID:-0}' ]
+              capabilities: [ 'compute', 'graphics', 'utility' ]
     depends_on:
       - server
 
-volumes: 
-  vscode:
-  vscode-insiders:
-  outputs:
+volumes:
+  vscode: null
+  vscode-insiders: null
+  outputs: null

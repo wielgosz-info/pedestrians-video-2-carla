@@ -48,7 +48,7 @@ class P3dPoseProjection(PoseProjection, torch.nn.Module):
             in_ndc=False,
             focal_length=focal_length_mm*10,
             principal_point=((self._image_size[0]/2, self._image_size[1]/2),),
-            image_size=((self._image_size[1], self._image_size[0]),),
+            image_size=((self._image_size[1], self._image_size[0]),),  # height, width
             R=R, T=T
         )
 
