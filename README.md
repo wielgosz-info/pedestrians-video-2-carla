@@ -5,6 +5,8 @@ It isn't intended for fully standalone use. Please see the [main project README.
 
 ## Setup
 
+Copy the `.env.template` file to `.env` and edit the values as required.
+
 Run the CARLA server (optional) & the container with our code (`carla-pedestrians-client-1`).
 
 If you don't have the Nvidia GPU, there is CPU-only version available `docker-compose.cpu.yml`.
@@ -17,10 +19,16 @@ COMMIT=$(git rev-parse --short HEAD) docker-compose -f "docker-compose.yml" --en
 
 ## Running
 
+If needed, run the
+```sh
+python src/pedestrians_video_2_carla/data/utils/jaad_annotations_xml_2_csv.py
+```
+script to convert the JAAD annotations from XML to CSV. The output will be in `/outputs/JAAD/annotations.csv` and this is where `JAADOpenPoseDataModule` will look for it by default.
+
 Inside the container, you can run the following command to start the training:
 
 ```sh
-python3 -m pedestrians_video_2_carla \
+python -m pedestrians_video_2_carla \
   --data_module_name=Carla2D3D \
   --model_movements_name=LinearAE \
   --batch_size=256 \
@@ -42,13 +50,13 @@ python3 -m pedestrians_video_2_carla \
 Full list of options is available by running:
 
 ```sh
-python3 -m pedestrians_video_2_carla --help
+python -m pedestrians_video_2_carla --help
 ```
 
 ## Example run with rendering
 
 ```sh
-python3 -m pedestrians_video_2_carla \
+python -m pedestrians_video_2_carla \
   --data_module_name=Carla2D3D \
   --batch_size=256 \
   --num_workers=32 \
@@ -105,8 +113,8 @@ This project uses [OpenPose](https://github.com/CMU-Perceptual-Computing-Lab/ope
 
 ## Funding
 
-|                                                                                                                                                        |                                                                                                                                                |                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|                                                                                                                              |                                                                                                                      |                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | <img src="docs/_static/images/logos/Logo Tecniospring INDUSTRY_white.JPG" alt="Tecniospring INDUSTRY" style="height: 24px;"> | <img src="docs/_static/images/logos/ACCIO_horizontal.PNG" alt="ACCIÓ Government of Catalonia" style="height: 35px;"> | <img src="docs/_static/images/logos/EU_emblem_and_funding_declaration_EN.PNG" alt="This project has received funding from the European Union's Horizon 2020 research and innovation programme under Marie Skłodowska-Curie grant agreement No. 801342 (Tecniospring INDUSTRY) and the Government of Catalonia's Agency for Business Competitiveness (ACCIÓ)." style="height: 70px;"> |
 
 <!-- pyscaffold-notes -->
