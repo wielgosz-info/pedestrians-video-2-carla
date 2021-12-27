@@ -330,7 +330,7 @@ class AnnotationsXml2Csv(object):
             os.makedirs(dirname)
 
         self.get_complete_annotations()
-        self.df_full.to_csv(file_path)
+        self.df_full.to_csv(file_path, index=False)
 
         print("Annotations generated.")
 
