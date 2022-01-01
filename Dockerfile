@@ -108,6 +108,7 @@ RUN echo "import sys; sys.__plen = len(sys.path)\n./carla-0.9.11-py3.7-linux-x86
 RUN /venv/bin/python -m pip install --no-cache-dir \
     av==8.0.3 \
     cameratransform==1.2 \
+    dotmap==1.3.26 \
     einops==0.3.2 \
     gym==0.21.0 \
     h5py==3.6.0 \
@@ -126,8 +127,14 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     scipy==1.7.2 \
     timm==0.4.12 \
     torchmetrics==0.6.0 \
+    transforms3d==0.3.1 \
     tqdm==4.62.3 \
-    wandb==0.12.9
+    wandb==0.12.9 \
+    xmltodict==0.12.0 \
+    git+https://github.com/nghorbani/human_body_prior.git@0278cb45180992e4d39ba1a11601f5ecc53ee148#egg=human-body-prior \
+    git+https://github.com/nghorbani/body_visualizer@be9cf756f8d1daed870d4c7ad1aa5cc3478a546c#egg=body-visualizer \
+    git+https://github.com/MPI-IS/configer.git@8cd1e3e556d9697298907800a743e120be57ac36#egg=configer \
+    git+https://github.com/MPI-IS/mesh.git@49e70425cf373ec5269917012bda2944215c5ccd#egg=psbody-mesh
 
 # Copy client files so that we can do editable pip install
 COPY --chown=${USERNAME}:${USERNAME} . /app
