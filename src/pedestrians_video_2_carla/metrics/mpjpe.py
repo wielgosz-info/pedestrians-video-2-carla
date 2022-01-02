@@ -1,6 +1,7 @@
 from typing import Dict
 from torchmetrics import Metric
 import torch
+from pedestrians_video_2_carla.skeletons.nodes import get_common_indices
 
 
 class MPJPE(Metric):
@@ -12,16 +13,19 @@ class MPJPE(Metric):
     Then errors are then averaged over all clips in batch. Resulting value is in millimeters.
     """
 
-    def __init__(self, dist_sync_on_step=False):
+    def __init__(self, input_nodes, dist_sync_on_step=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
+
+        self.carla_indices, self.input_indices = get_common_indices(input_nodes)
 
         self.add_state("errors", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
 
     def update(self, predictions: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]):
         try:
-            prediction = predictions["absolute_pose_loc"]
-            target = targets["absolute_pose_loc"]
+            prediction = predictions["absolute_pose_loc"][:, :, self.carla_indices]
+            target = targets["absolute_pose_loc"][:, :, self.input_indices]
+
             assert prediction.shape == target.shape
 
             avg_over_joints_and_frames = torch.mean(

@@ -20,6 +20,8 @@ class FB_MPJVE(Metric):
             prediction = predictions["absolute_pose_loc"]
             target = targets["absolute_pose_loc"]
 
+            assert prediction.shape == target.shape
+
             original_shape = prediction.shape
             prediction = prediction.reshape((-1, *original_shape[-2:])).cpu().numpy()
             target = target.reshape((-1, *original_shape[-2:])).cpu().numpy()
@@ -30,6 +32,8 @@ class FB_MPJVE(Metric):
             self.errors += frames_num * metric
             self.total += frames_num
         except KeyError:
+            pass
+        except AssertionError:
             pass
 
     def compute(self):

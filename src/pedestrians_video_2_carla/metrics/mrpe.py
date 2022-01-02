@@ -38,7 +38,7 @@ class MRPE(Metric):
         try:
             prediction_pose = predictions["absolute_pose_loc"]
             target_pose = targets["absolute_pose_loc"]
-            assert prediction_pose.shape == target_pose.shape
+            assert prediction_pose.shape[:2] == target_pose.shape[:2]
 
             if predictions["world_loc_changes"] is not None:
                 prediction_world_loc, _ = calculate_world_from_changes(

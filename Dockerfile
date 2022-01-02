@@ -67,6 +67,8 @@ ENV pytorch3d_version=0.6.0
 # ----------------------------------------------------------------------------
 FROM base as torch-nvidia
 
+ENV PYOPENGL_PLATFORM=egl
+
 RUN /venv/bin/python -m pip install --no-cache-dir -f https://download.pytorch.org/whl/torch_stable.html \
     torch==${torch_version}+cu111 \
     torchvision==${torchvision_version}+cu111
@@ -75,6 +77,17 @@ RUN /venv/bin/python -m pip install --no-cache-dir -f https://download.pytorch.o
 # CPU-specific dependencies
 # ----------------------------------------------------------------------------
 FROM base as torch-cpu
+
+ENV PYOPENGL_PLATFORM=osmesa
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    freeglut3 \
+    freeglut3-dev \
+    libgle3 \
+    libgle3-dev \
+    libosmesa6 \
+    libosmesa6-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN /venv/bin/python -m pip install --no-cache-dir -f https://download.pytorch.org/whl/cpu/torch_stable.html \
     torch==${torch_version}+cpu \
@@ -88,6 +101,8 @@ FROM torch-${PLATFORM} as torch
 # PyTorch3D (need to compile to get newer version, wheels are up to 0.3.0)
 RUN /venv/bin/python -m pip install --no-cache-dir \
     "git+https://github.com/facebookresearch/pytorch3d.git@v${pytorch3d_version}"
+
+# TODO: get rid of apt packages that are only needed to compile PyTorch3D someday
 
 # separate some utility/development requirements, since they will change much slower than project ones
 RUN /venv/bin/python -m pip install --no-cache-dir \
@@ -111,8 +126,8 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     dotmap==1.3.26 \
     einops==0.3.2 \
     gym==0.21.0 \
-    h5py==3.6.0 \
     h5pickle==0.4.2 \
+    h5py==3.6.0 \
     matplotlib==3.5.0 \
     moviepy==1.0.3 \
     numpy==1.21.5 \
@@ -120,6 +135,8 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     pandas==1.3.5 \
     Pillow==8.4.0 \
     pims==0.5 \
+    PyOpenGL==3.1.5 \
+    pyrender==0.1.45 \
     pytorch-lightning==1.5.2 \
     pyyaml==6.0 \
     randomname==0.1.5 \
@@ -127,8 +144,9 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     scipy==1.7.2 \
     timm==0.4.12 \
     torchmetrics==0.6.0 \
-    transforms3d==0.3.1 \
     tqdm==4.62.3 \
+    transforms3d==0.3.1 \
+    trimesh==3.9.36 \
     wandb==0.12.9 \
     xmltodict==0.12.0 \
     git+https://github.com/nghorbani/human_body_prior.git@0278cb45180992e4d39ba1a11601f5ecc53ee148#egg=human-body-prior \

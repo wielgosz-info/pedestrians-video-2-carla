@@ -9,7 +9,13 @@ class ZeroMovements(MovementsModel):
 
     def forward(self, x, *args, **kwargs):
         original_shape = x.shape
-        return torch.zeros((*original_shape[:3], 3), device=x.device)  # 3D pose changes
+
+        # 3D pose changes
+        return torch.eye(3, device=x.device).reshape(
+            (1, 1, 1, 3, 3)
+        ).repeat(
+            (*original_shape[:2], len(self.output_nodes), 1, 1)
+        )
 
     def configure_optimizers(self):
         return {}

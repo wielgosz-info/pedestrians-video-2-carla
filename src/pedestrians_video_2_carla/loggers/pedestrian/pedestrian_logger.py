@@ -4,6 +4,7 @@ from typing import List, Union
 import numpy as np
 from pedestrians_video_2_carla.modules.base.output_types import \
     MovementsModelOutputType
+from pedestrians_video_2_carla.renderers.smpl_renderer import BODY_MODEL_DIR
 from pedestrians_video_2_carla.skeletons.nodes.carla import CarlaHipsNeckExtractor
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 from pytorch_lightning.loggers import LightningLoggerBase
@@ -149,6 +150,12 @@ class PedestrianLogger(LightningLoggerBase):
             dest="source_videos_dir",
             help="Directory to read source videos from. Required if 'source_videos' renderer is used. Default: None",
             default=None,
+        )
+        parser.add_argument(
+            "--body_model_dir",
+            dest="body_model_dir",
+            help=f"Directory to read SMPL-compatible BodyModel from. Required if 'smpl' renderer is used. Default: {BODY_MODEL_DIR}",
+            default=BODY_MODEL_DIR,
         )
 
         return parent_parser

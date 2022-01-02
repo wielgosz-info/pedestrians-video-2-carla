@@ -13,6 +13,9 @@ class MovementsModelOutputType(Enum):
     # undesired, but possible; it will most likely deform the skeleton and results in broken rotations; incompatible with some loss functions
     absolute_loc = 2
 
+    # somewhat ok
+    relative_rot = 3
+
 
 class TrajectoryModelOutputType(Enum):
     """

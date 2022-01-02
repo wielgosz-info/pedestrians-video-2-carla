@@ -1,4 +1,5 @@
 from typing import Dict, Type
+from pedestrians_video_2_carla.skeletons.nodes import get_common_indices
 
 from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckNormalize
@@ -23,10 +24,12 @@ def calculate_loss_loc_3d(criterion: loss._Loss, input_nodes: Type[CARLA_SKELETO
     :rtype: Tensor
     """
     try:
+        carla_indices, input_indices = get_common_indices(input_nodes)
+
         transform = HipsNeckNormalize(input_nodes.get_extractor())
         loss = criterion(
-            transform(absolute_pose_loc, dim=3),
-            transform(targets['absolute_pose_loc'], dim=3)
+            transform(absolute_pose_loc, dim=3)[:, :, carla_indices],
+            transform(targets['absolute_pose_loc'], dim=3)[:, :, input_indices]
         )
     except KeyError:
         rank_zero_warn("The 'loc_3d' loss is not supported for {}, only CARLA_SKELETON is supported.".format(

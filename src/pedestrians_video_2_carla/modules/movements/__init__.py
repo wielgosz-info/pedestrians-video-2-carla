@@ -1,3 +1,4 @@
+from .zero import ZeroMovements
 from .linear import Linear
 from .lstm import LSTM
 from .linear_ae import LinearAE, LinearAEResidual, LinearAEResidualLeaky
@@ -8,6 +9,7 @@ from .pose_former import PoseFormer, PoseFormerRot
 MOVEMENTS_MODELS = {
     m.__name__: m
     for m in [
+        ZeroMovements,
         Linear,
         Baseline3DPose,
         Baseline3DPoseRot,

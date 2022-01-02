@@ -7,6 +7,7 @@ import torchvision
 from pedestrians_video_2_carla.renderers import MergingMethod
 from pedestrians_video_2_carla.renderers.carla_renderer import CarlaRenderer
 from pedestrians_video_2_carla.renderers.points_renderer import PointsRenderer
+from pedestrians_video_2_carla.renderers.smpl_renderer import SMPLRenderer
 from pedestrians_video_2_carla.renderers.renderer import Renderer
 from pedestrians_video_2_carla.renderers.source_videos_renderer import \
     SourceVideosRenderer
@@ -30,6 +31,7 @@ class PedestrianWriter(object):
                  max_videos: int = 10,
                  merging_method: MergingMethod = MergingMethod.square,
                  source_videos_dir: str = None,
+                 body_model_dir: str = None,
                  **kwargs) -> None:
         self._log_dir = log_dir
 
@@ -80,6 +82,10 @@ class PedestrianWriter(object):
         self.__carla_renderer = CarlaRenderer(
             fps=self._fps
         ) if PedestrianRenderers.carla in self._renderers else None
+
+        self.__smpl_renderer = SMPLRenderer(
+            body_model_dir=body_model_dir
+        ) if PedestrianRenderers.smpl in self._renderers else None
 
     @torch.no_grad()
     def log_videos(self,
@@ -177,6 +183,9 @@ class PedestrianWriter(object):
             )
         elif self.__source_videos_renderer is not None:
             source_videos = self.__source_videos_renderer.render(
+                meta, image_size)
+        elif self.__smpl_renderer is not None:
+            source_videos = self.__smpl_renderer.render(
                 meta, image_size)
 
         input_videos = None

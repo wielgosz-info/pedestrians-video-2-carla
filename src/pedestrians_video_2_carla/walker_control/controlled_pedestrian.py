@@ -17,7 +17,7 @@ from pedestrians_video_2_carla.walker_control.pose import Pose
 
 
 class ControlledPedestrian(object):
-    def __init__(self, world: 'carla.World' = None, age: str = 'adult', gender: str = 'female', pose_cls: Type = Pose, max_spawn_tries=10, *args, **kwargs):
+    def __init__(self, world: 'carla.World' = None, age: str = 'adult', gender: str = 'female', pose_cls: Type = Pose, max_spawn_tries=10, reference_pose: Pose = None, *args, **kwargs):
         """
         Initializes the pedestrian that keeps track of its current pose.
 
@@ -33,8 +33,12 @@ class ControlledPedestrian(object):
 
         self._age = age
         self._gender = gender
-        self._current_pose: pose_cls = pose_cls(**kwargs)
-        self._current_pose.relative = self._load_reference_pose()
+
+        if reference_pose is not None:
+            self._current_pose = copy.deepcopy(reference_pose)
+        else:
+            self._current_pose: pose_cls = pose_cls(**kwargs)
+            self._current_pose.relative = self._load_reference_pose()
 
         # spawn point (may be different than actual location the pedesrian has spawned, especially Z-wise);
         # if world is not specified this will always be point 0,0,0

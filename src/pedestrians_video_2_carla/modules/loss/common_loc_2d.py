@@ -1,21 +1,9 @@
 from typing import Type
 
 from pedestrians_video_2_carla.skeletons.nodes import MAPPINGS, Skeleton
-from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
+from pedestrians_video_2_carla.skeletons.nodes import get_common_indices
 from torch.functional import Tensor
 from torch.nn.modules import loss
-
-
-def get_common_indices(input_nodes: Type[Skeleton] = CARLA_SKELETON):
-    if input_nodes == CARLA_SKELETON:
-        carla_indices = slice(None)
-        input_indices = slice(None)
-    else:
-        mappings = MAPPINGS[input_nodes]
-        (carla_indices, input_indices) = zip(
-            *[(c.value, o.value) for (c, o) in mappings])
-
-    return carla_indices, input_indices
 
 
 def calculate_loss_common_loc_2d(criterion: loss._Loss, input_nodes: Type[Skeleton], normalized_projection: Tensor, frames: Tensor, **kwargs) -> Tensor:

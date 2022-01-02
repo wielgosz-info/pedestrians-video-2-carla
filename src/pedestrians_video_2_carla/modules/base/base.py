@@ -81,7 +81,10 @@ class LitBaseMapper(pl.LightningModule):
 
         # default metrics
         self.metrics = MetricCollection([
-            MPJPE(dist_sync_on_step=True),
+            MPJPE(
+                dist_sync_on_step=True,
+                input_nodes=self.movements_model.input_nodes
+            ),
             MRPE(
                 dist_sync_on_step=True,
                 input_nodes=self.movements_model.input_nodes,

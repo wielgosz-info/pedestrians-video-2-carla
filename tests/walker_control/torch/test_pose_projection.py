@@ -92,7 +92,8 @@ def test_batch(device):
     world_rot = torch.eye(3, device=device).reshape(
         (1, 3, 3)).repeat((batch_size, 1, 1))
     for i in range(batch_size):
-        (loc, rot) = p3d_pose.tensors  # 'tensors' is cloning, so each call returns a copy
+        # 'tensors' is cloning, so each call returns a copy
+        (loc, rot) = p3d_pose.tensors
         locations[i] = loc
         rotations[i] = rot
 

@@ -8,3 +8,4 @@ class PedestrianRenderers(Enum):
     input_points = 3
     projection_points = 4
     carla = 5
+    smpl = 6

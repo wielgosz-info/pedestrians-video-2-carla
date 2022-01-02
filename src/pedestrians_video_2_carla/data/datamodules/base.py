@@ -1,7 +1,11 @@
-from typing import Optional
+from typing import Callable, Optional
+
+from tqdm.std import tqdm
 from pedestrians_video_2_carla.data import OUTPUTS_BASE
 import os
 import hashlib
+import pandas
+import math
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 
@@ -49,9 +53,9 @@ class BaseDataModule(LightningDataModule):
         print('Subsets dir: {}'.format(self._subsets_dir))
 
         self._needs_preparation = False
-        if not os.path.exists(self._subsets_dir):
+        if not os.path.exists(self._subsets_dir) or len(os.listdir(self._subsets_dir)) == 0:
             self._needs_preparation = True
-            os.makedirs(self._subsets_dir)
+            os.makedirs(self._subsets_dir, exist_ok=True)
 
         self.save_hyperparameters({
             **self.settings,
@@ -129,3 +133,121 @@ class BaseDataModule(LightningDataModule):
 
     def test_dataloader(self):
         return self._dataloader(self.test_set)
+
+    def _split_clips(self, clips, primary_index, clips_index, test_split=0.2, val_split=0.2, progress_bar=None, settings=None):
+        """
+        Helper function to split the clips into train, val and test sets and dump them as CSV files.
+        Not called automatically anywhere, usually should be called at the end of the prepare_data() method.
+
+        :param clips: Full list of clips in a format hat can be fed into pandas.concat() to get a single dataframe.
+        :type clips: List[Any]
+        :param primary_index: Names of the primary index columns. Usually those will allow to identify a single skeleton.
+        :type primary_index: List[str]
+        :param clips_index: Names of the index columns that will be used to group the clips.
+        :type clips_index: List[str]
+        :param test_split: Testing split as a fraction of the whole dataset, defaults to 0.2
+        :type test_split: float, optional
+        :param val_split: Validation split as a fraction of (total - test) dataset, defaults to 0.2
+        :type val_split: float, optional
+        :param progress_bar: tqdm instance if reporting progress is needed, defaults to None
+        :type progress_bar: tqdm.tqdm, optional
+        """
+
+        if progress_bar is None:
+            progress_bar = object()
+            progress_bar.update = lambda: None
+            progress_bar.close = lambda: None
+
+        full_index = primary_index + clips_index
+
+        clips = pandas.concat(clips).set_index(full_index)
+        clips.sort_index(inplace=True)
+
+        # aaaand finally we have what we need in "clips" to create our dataset
+        # how many clips do we have?
+        clip_counts = clips.reset_index(level=clips_index).groupby(primary_index).agg(
+            clips_count=pandas.NamedAgg(column='clip', aggfunc='nunique')).sort_values('clips_count', ascending=False)
+        clip_counts = clip_counts.assign(clips_cumsum=clip_counts.cumsum())
+        total = clip_counts['clips_count'].sum()
+
+        progress_bar.update()
+
+        test_count = math.floor(total*test_split)
+        val_count = math.floor((total-test_count)*val_split)
+        train_count = total - test_count - val_count
+
+        # we do not want to assign clips from the same video/pedestrian combination to different datasets,
+        # especially since they are overlapping by default
+        # so we try to assign them in roundrobin fashion
+        # start by assigning the videos with most clips
+
+        targets = (train_count, val_count, test_count)
+        sets = [[], [], []]  # train, val, test
+        current = [0, 0, 0]
+        assigned = 0
+
+        while assigned < total:
+            skipped = 0
+            for i in range(3):
+                needed = targets[i] - current[i]
+                if needed > 0:
+                    to_assign = clip_counts[(assigned < clip_counts['clips_cumsum']) &
+                                            (clip_counts['clips_cumsum'] <= assigned+needed)]
+                    if not len(to_assign):
+                        skipped += 1
+                        continue
+                    current[i] += to_assign['clips_count'].sum()
+                    sets[i].append(to_assign)
+                    assigned = sum(current)
+                else:
+                    skipped += 1
+            if skipped == 3:
+                # assign whatever is left to train set
+                sets[0].append(clip_counts[assigned < clip_counts['clips_cumsum']])
+                break
+        progress_bar.update()
+
+        # now we need to dump the actual clips info
+        names = ['train', 'val', 'test']
+        for (i, name) in enumerate(names):
+            clips_set = clips.join(pandas.concat(sets[i]), how='right')
+            clips_set.drop(['clips_count', 'clips_cumsum'], inplace=True, axis=1)
+            # shuffle the clips so that for val/test we have more variety when utilizing only part of the dataset
+            shuffled_clips = clips_set.sample(frac=1)
+            shuffled_clips.to_csv(os.path.join(
+                self._subsets_dir, '{:s}.csv'.format(name)))
+            if settings is not None:
+                settings['{}_set_size'.format(
+                    name)] = int(current[i]) if i > 0 else int(total - sum(current[1:]))
+
+        progress_bar.update()
+        progress_bar.close()
+
+        # save settings
+        self.save_settings()
+
+    def _setup(self, dataset_creator: Callable, stage: Optional[str] = None) -> None:
+        """
+        Helper for setup function when using CSV train/val/test splits.
+
+        :param stage: Pytorch Lightning processing stage, defaults to None
+        :type stage: Optional[str], optional
+        """
+        if stage == "fit" or stage is None:
+            self.train_set = dataset_creator(
+                os.path.join(self._subsets_dir, 'train.csv'),
+                points=self.nodes,
+                transform=self.transform
+            )
+            self.val_set = dataset_creator(
+                os.path.join(self._subsets_dir, 'val.csv'),
+                points=self.nodes,
+                transform=self.transform
+            )
+
+        if stage == "test" or stage is None:
+            self.test_set = dataset_creator(
+                os.path.join(self._subsets_dir, 'test.csv'),
+                points=self.nodes,
+                transform=self.transform
+            )

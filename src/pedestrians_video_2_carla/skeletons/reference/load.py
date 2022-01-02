@@ -36,6 +36,7 @@ def load_reference(type: str) -> Dict[str, Any]:
             "child_female": 'sk_girl_relative.yaml',
             "child_male": 'sk_kid_relative.yaml',
             "structure": 'structure.yaml',
+            "smpl_structure": 'smpl_structure.yaml'
         }[type]
     except KeyError:
         filename = type

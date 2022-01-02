@@ -123,7 +123,7 @@ def add_program_args():
         type=str,
     )
     parser.add_argument(
-        "--prefer-tensorboard",
+        "--prefer_tensorboard",
         dest="prefer_tensorboard",
         action="store_true",
         default=False,
@@ -245,6 +245,8 @@ def main(args: List[str]):
             default_hp_metric=False,
         )
         log_dir = logger.log_dir
+
+    print(f"Logging dir: {log_dir}")
 
     # some models support this as a CLI option
     # so we only add it if it's not already set

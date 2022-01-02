@@ -17,13 +17,14 @@ from pedestrians_video_2_carla.skeletons.reference.load import load_reference
 
 
 class Pose(object):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, structure=None, *args, **kwargs):
         """
         Base class for keeping and manipulating the pose.
         """
         super().__init__()
 
-        self._structure = load_reference('structure')['structure']
+        self._structure = structure if structure is not None else load_reference('structure')[
+            'structure']
 
         self.__relative_pose = OrderedDict()
         self.__add_to_pose(self._structure[0])
@@ -83,32 +84,29 @@ class Pose(object):
         result = cls.__new__(cls)
         memo[id(self)] = result
         for k, v in self.__dict__.items():
-            if k == '_{}__relative_pose'.format(self.__class__.__name__):
+            if k.endswith('__relative_pose'):
                 pose_dict = self._deepcopy_pose_dict(self.__relative_pose)
                 setattr(result, k, pose_dict)
-            elif k in [
-                '_{}__last_abs'.format(self.__class__.__name__),
-                '_{}__last_abs_mod'.format(self.__class__.__name__)
-            ]:
+            elif (k.endswith('__last_abs') or k.endswith('__last_abs_mod')):
                 setattr(result, k, None)
             else:
                 setattr(result, k, copy.deepcopy(v, memo))
         return result
 
-    @property
+    @ property
     def empty(self):
         return self._deepcopy_pose_dict(self.__empty_pose)
 
-    @property
+    @ property
     def relative(self):
         return self._deepcopy_pose_dict(self.__relative_pose)
 
-    @relative.setter
+    @ relative.setter
     def relative(self, new_pose_dict):
         self.__relative_pose.update(new_pose_dict)
         self._last_rel_mod = time.time_ns()
 
-    @property
+    @ property
     def absolute(self):
         if self._last_abs_mod != self._last_rel_mod:
             # ensure bones in absolute pose will be in the same order as they were in relative

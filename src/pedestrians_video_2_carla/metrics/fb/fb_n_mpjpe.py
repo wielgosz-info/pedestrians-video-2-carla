@@ -20,6 +20,8 @@ class FB_N_MPJPE(Metric):
             prediction = predictions["absolute_pose_loc"]
             target = targets["absolute_pose_loc"]
 
+            assert prediction.shape == target.shape
+
             original_shape = prediction.shape
 
             frames_num = torch.prod(torch.tensor(original_shape[:-2]))
@@ -28,6 +30,8 @@ class FB_N_MPJPE(Metric):
             self.errors += frames_num * metric
             self.total += frames_num
         except KeyError:
+            pass
+        except AssertionError:
             pass
 
     def compute(self):

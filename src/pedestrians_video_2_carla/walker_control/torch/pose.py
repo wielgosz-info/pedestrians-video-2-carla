@@ -148,7 +148,7 @@ class P3dPose(Pose, torch.nn.Module):
                     new_transform
                 )
 
-    def __relative_to_absolute(self, loc: Tensor, rot: Tensor) -> Tuple[Tensor, Tensor]:
+    def relative_to_absolute(self, loc: Tensor, rot: Tensor) -> Tuple[Tensor, Tensor]:
         """
         Converts relative pose (Locations + Rotations) to absolute pose (Locations + Rotations).
 
@@ -209,7 +209,7 @@ class P3dPose(Pose, torch.nn.Module):
         :rtype: Tuple[Tensor, Tensor, Tensor]
         """
         rot = self.__move_to_relative(changes_matrix, prev_relative_rot)
-        a_lot, a_rot = self.__relative_to_absolute(prev_relative_loc, rot)
+        a_lot, a_rot = self.relative_to_absolute(prev_relative_loc, rot)
         return a_lot, a_rot, rot
 
     @property
@@ -231,7 +231,7 @@ class P3dPose(Pose, torch.nn.Module):
     @property
     def absolute(self):
         if self._last_abs_mod != self._last_rel_mod:
-            absolute_loc, absolute_rot = self.__relative_to_absolute(
+            absolute_loc, absolute_rot = self.relative_to_absolute(
                 self.__relative_p3d_locations.unsqueeze(0), self.__relative_p3d_rotations.unsqueeze(0))
             absolute_pose = self.tensors_to_pose(absolute_loc[0], absolute_rot[0])
 
@@ -277,9 +277,9 @@ class P3dPose(Pose, torch.nn.Module):
         )
 
     @tensors.setter
-    def tensors(self, tensors: Tuple[Tensor, Tensor]):
+    def tensors(self, new_tensors: Tuple[Tensor, Tensor]):
         # update our reference Tensors
         (self.__relative_p3d_locations,
-         self.__relative_p3d_rotations) = tensors
+         self.__relative_p3d_rotations) = new_tensors
         # and set the timestamp
         self._last_rel_mod = time.time_ns()

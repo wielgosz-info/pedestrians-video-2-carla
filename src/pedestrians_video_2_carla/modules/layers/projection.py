@@ -43,6 +43,8 @@ class ProjectionModule(nn.Module):
                 self.__calculate_abs = self._calculate_abs_from_abs_loc_output
             else:
                 self.__calculate_abs = self._calculate_abs_from_abs_loc_rot_output
+        elif self.movements_output_type == MovementsModelOutputType.relative_rot:
+            self.__calculate_abs = self._calculate_abs_from_relative_rot
 
         if self.trajectory_output_type == TrajectoryModelOutputType.changes:
             self.__calculate_world = self._calculate_world_from_changes
@@ -62,7 +64,8 @@ class ProjectionModule(nn.Module):
         # create pedestrian object for each clip in batch
         self.__pedestrians = [
             ControlledPedestrian(world=None, age=meta['age'][idx], gender=meta['gender'][idx],
-                                 pose_cls=P3dPose, device=frames.device)
+                                 pose_cls=P3dPose, device=frames.device,
+                                 reference_pose=meta['reference_pose'][idx] if 'reference_pose' in meta else None)
             for idx in range(batch_size)
         ]
         # only create one - we're assuming that camera is setup in the same for way for each pedestrian
@@ -134,16 +137,33 @@ class ProjectionModule(nn.Module):
         absolute_rot = pose_inputs_batch[1]
         return absolute_loc, absolute_rot
 
+    def _calculate_abs_from_relative_rot(self, pose_inputs_batch):
+        (batch_size, clip_length, points, *_) = pose_inputs_batch.shape
+
+        prev_relative_loc, _ = self.get_reference_tensors()
+
+        # ensure dimensions match
+        shape_3d = tuple([1, *prev_relative_loc.shape][-3:])
+        prev_relative_loc = prev_relative_loc.reshape(shape_3d).repeat(
+            (int(batch_size / shape_3d[0]), 1, 1))
+
+        absolute_loc = torch.empty(
+            (batch_size, clip_length, points, 3), device=pose_inputs_batch.device)
+        absolute_rot = torch.empty(
+            (batch_size, clip_length, points, 3, 3), device=pose_inputs_batch.device)
+
+        pose: P3dPose = self.__pedestrians[0].current_pose
+
+        for i in range(clip_length):
+            (absolute_loc[:, i], absolute_rot[:, i]) = pose.relative_to_absolute(
+                prev_relative_loc, pose_inputs_batch[:, i])
+
+        return absolute_loc, absolute_rot
+
     def _calculate_abs_from_pose_changes(self, pose_inputs_batch):
         (batch_size, clip_length, points, *_) = pose_inputs_batch.shape
 
-        (prev_relative_loc, prev_relative_rot) = zip(*[
-            p.current_pose.tensors
-            for p in self.__pedestrians
-        ])
-
-        prev_relative_loc = torch.stack(prev_relative_loc)
-        prev_relative_rot = torch.stack(prev_relative_rot)
+        prev_relative_loc, prev_relative_rot = self.get_reference_tensors()
 
         # get subsequent poses calculated
         # naively for now
@@ -161,6 +181,17 @@ class ProjectionModule(nn.Module):
                 pose_inputs_batch[:, i], prev_relative_loc, prev_relative_rot)
 
         return absolute_loc, absolute_rot
+
+    def get_reference_tensors(self):
+        (prev_relative_loc, prev_relative_rot) = zip(*[
+            p.current_pose.tensors
+            for p in self.__pedestrians
+        ])
+
+        prev_relative_loc = torch.stack(prev_relative_loc)
+        prev_relative_rot = torch.stack(prev_relative_rot)
+
+        return prev_relative_loc, prev_relative_rot
 
     def _calculate_world_from_changes(self, absolute_loc: Tensor, world_loc_change_batch: Tensor = None, world_rot_change_batch: Tensor = None):
         return calculate_world_from_changes(

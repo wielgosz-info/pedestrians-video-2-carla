@@ -22,6 +22,8 @@ class FB_PA_MPJPE(Metric):
             prediction = predictions["absolute_pose_loc"]
             target = targets["absolute_pose_loc"]
 
+            assert prediction.shape == target.shape
+
             original_shape = prediction.shape
             prediction = prediction.reshape((-1, *original_shape[-2:])).cpu().numpy()
             target = target.reshape((-1, *original_shape[-2:])).cpu().numpy()
@@ -34,6 +36,8 @@ class FB_PA_MPJPE(Metric):
         except KeyError:
             pass
         except np.linalg.LinAlgError:
+            pass
+        except AssertionError:
             pass
 
     def compute(self):
