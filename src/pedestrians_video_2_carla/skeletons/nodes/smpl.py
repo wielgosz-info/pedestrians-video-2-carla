@@ -4,11 +4,40 @@ from torch.functional import Tensor
 from pedestrians_video_2_carla.skeletons.nodes import register_skeleton, Skeleton
 from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
+from enum import Enum
+
+
+class _ORIG_SMPL_SKELETON(Enum):
+    """
+    SMPL skeleton as defined in https://meshcapade.wiki/SMPL#related-models-the-smpl-family
+    """
+    Pelvis = 0
+    L_Hip = 1
+    R_Hip = 2
+    Spine1 = 3
+    L_Knee = 4
+    R_Knee = 5
+    Spine2 = 6
+    L_Ankle = 7
+    R_Ankle = 8
+    Spine3 = 9
+    L_Foot = 10
+    R_Foot = 11
+    Neck = 12
+    L_Collar = 13
+    R_Collar = 14
+    Head = 15
+    L_Shoulder = 16
+    R_Shoulder = 17
+    L_Elbow = 18
+    R_Elbow = 19
+    L_Wrist = 20
+    R_Wrist = 21
 
 
 class SMPL_SKELETON(Skeleton):
     """
-    SMPL skeleton with removed head bun.
+    SMPL skeleton.
     **The indices are as used in P3dPose representation, NOT as in original SMPL.**
     """
     Pelvis = 0
@@ -20,18 +49,19 @@ class SMPL_SKELETON(Skeleton):
     L_Elbow = 6
     L_Wrist = 7
     Neck = 8
-    R_Collar = 9
-    R_Shoulder = 10
-    R_Elbow = 11
-    R_Wrist = 12
-    R_Hip = 13
-    R_Knee = 14
-    R_Ankle = 15
-    R_Foot = 16
-    L_Hip = 17
-    L_Knee = 18
-    L_Ankle = 19
-    L_Foot = 20
+    Head = 9
+    R_Collar = 10
+    R_Shoulder = 11
+    R_Elbow = 12
+    R_Wrist = 13
+    R_Hip = 14
+    R_Knee = 15
+    R_Ankle = 16
+    R_Foot = 17
+    L_Hip = 18
+    L_Knee = 19
+    L_Ankle = 20
+    L_Foot = 21
 
     @classmethod
     def get_extractor(cls) -> Type[HipsNeckExtractor]:
@@ -39,61 +69,29 @@ class SMPL_SKELETON(Skeleton):
 
     @staticmethod
     def map_from_original(tensor: Tensor) -> Tensor:
-        n = [slice(None) for _ in range(tensor.ndim)][:-1]
+        assert tensor.ndim >= 2
+
+        n = [slice(None)]
         s = tensor.shape
         n.append(tuple([
-            0,  # Pelvis
-            3,  # Spine1
-            6,  # Spine2
-            9,  # Spine3
-            13,  # L_Collar
-            15,  # L_Shoulder
-            17,  # L_Elbow
-            19,  # L_Wrist
-            12,  # Neck
-            14,  # R_Collar
-            16,  # R_Shoulder
-            18,  # R_Elbow
-            20,  # R_Wrist
-            2,  # R_Hip
-            5,  # R_Knee
-            8,  # R_Ankle
-            11,  # R_Foot
-            1,  # L_Hip
-            4,  # L_Knee
-            7,  # L_Ankle
-            10,  # L_Foot
+            _ORIG_SMPL_SKELETON[k].value for k in SMPL_SKELETON.__members__.keys()
         ]))
-        return tensor.reshape(*s[:-1] + (21, 3))[n]
+
+        return tensor.reshape((s[0], len(SMPL_SKELETON), 3))[n]
 
     @staticmethod
-    def map_to_original(tensor: Tensor) -> Tensor:
-        n = [slice(None) for _ in range(tensor.ndim)][:-2]
+    def map_to_original(tensor: Tensor, reshape=True) -> Tensor:
+        assert tensor.ndim == 3
+
+        n = [slice(None)]
         s = tensor.shape
         n.append(tuple([
-            0,  # Pelvis
-            17,  # L_Hip
-            13,  # R_Hip
-            1,  # Spine1
-            18,  # L_Knee
-            14,  # R_Knee
-            2,  # Spine2
-            19,  # L_Ankle
-            15,  # R_Ankle
-            3,  # Spine3
-            20,  # L_Foot
-            16,  # R_Foot
-            8,  # Neck
-            4,  # L_Collar
-            9,  # R_Collar
-            5,  # L_Shoulder
-            10,  # R_Shoulder
-            6,  # L_Elbow
-            11,  # R_Elbow
-            7,  # L_Wrist
-            12,  # R_Wrist
+            SMPL_SKELETON[k].value for k in _ORIG_SMPL_SKELETON.__members__.keys()
         ]))
-        return tensor[n].reshape((*s[:-2], -1))
+
+        mapped = tensor[n]
+
+        return mapped.reshape((s[0], -1)) if reshape else mapped
 
 
 class SMPLHipsNeckExtractor(HipsNeckExtractor):

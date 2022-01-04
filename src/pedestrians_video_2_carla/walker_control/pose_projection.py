@@ -1,3 +1,4 @@
+import os
 import warnings
 from collections import OrderedDict
 from typing import Tuple, Union
@@ -5,6 +6,7 @@ from typing import Tuple, Union
 import cameratransform as ct
 import numpy as np
 from pedestrians_video_2_carla.carla_utils.setup import get_camera_transform
+from pedestrians_video_2_carla.data import OUTPUTS_BASE
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import \
     ControlledPedestrian
 from PIL import Image, ImageDraw
@@ -188,6 +190,9 @@ class PoseProjection(object):
         )
         self._camera = self._setup_camera(camera_rgb)
 
+        self.outputs_dir = os.path.join(OUTPUTS_BASE, 'projections')
+        os.makedirs(self.outputs_dir, exist_ok=True)
+
     @property
     def image_size(self) -> Tuple:
         """
@@ -262,8 +267,8 @@ class PoseProjection(object):
         img = Image.fromarray(self.draw_projection_points(
             canvas, pixel_points, self._pedestrian.current_pose.empty.keys()
         ), 'RGBA')
-        img.save('/outputs/carla/{:s}_pose.png'.format("{:06d}".format(image_id)
-                 if isinstance(image_id, int) else image_id), 'PNG')
+        img.save(os.path.join(self.outputs_dir, '{:s}_pose.png'.format("{:06d}".format(image_id)
+                 if isinstance(image_id, int) else image_id)), 'PNG')
 
     @staticmethod
     def draw_projection_points(frame, rounded_points, pose_keys):

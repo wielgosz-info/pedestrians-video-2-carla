@@ -11,6 +11,11 @@ from pedestrians_video_2_carla.renderers.renderer import Renderer
 
 
 BODY_MODEL_DIR = os.path.join(os.getcwd(), 'models', 'smpl-x', 'smplx_locked_head')
+MODELS = {
+    'male': os.path.join('male', 'model.npz'),
+    'female': os.path.join('female', 'model.npz'),
+    'neutral': os.path.join('neutral', 'model.npz')
+}
 
 
 class SMPLRenderer(Renderer):
@@ -28,7 +33,7 @@ class SMPLRenderer(Renderer):
 
     @lru_cache(maxsize=3)
     def __get_body_model(self, gender):
-        model_path = os.path.join(self.body_model_dir, gender, 'model.npz')
+        model_path = os.path.join(self.body_model_dir, MODELS[gender])
         return BodyModel(bm_fname=model_path)
 
     def render(self, meta: List[Dict[str, Any]], image_size: Tuple[int, int] = (800, 600), **kwargs) -> List[np.ndarray]:
@@ -40,19 +45,15 @@ class SMPLRenderer(Renderer):
             video = self.render_clip(
                 mesh_viewer,
                 body_model=self.__get_body_model(meta['gender'][clip_idx]),
-                body_pose_clip=meta['amass_body_pose'][clip_idx],
-                global_orientation_clip=meta['amass_global_orientation'][
-                    clip_idx] if 'amass_global_orientation' in meta else None,
-                image_size=image_size
+                body_pose_clip=meta['amass_body_pose'][clip_idx]
             )
             yield video
 
-    def render_clip(self, mesh_viewer: MeshViewer, body_model: BodyModel, body_pose_clip: torch.Tensor, global_orientation_clip: torch.Tensor, image_size: Tuple[int, int] = (800, 600)) -> np.ndarray:
+    def render_clip(self, mesh_viewer: MeshViewer, body_model: BodyModel, body_pose_clip: torch.Tensor) -> np.ndarray:
         video = []
 
         faces = body_model.f
-        vertices = body_model(pose_body=body_pose_clip,
-                              root_orient=global_orientation_clip).v
+        vertices = body_model(pose_body=body_pose_clip).v
         _, num_verts = vertices.shape[:-1]
 
         for vert in vertices:

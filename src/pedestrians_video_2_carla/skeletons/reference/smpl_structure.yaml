@@ -7,7 +7,8 @@ structure:
             - L_Shoulder:
               - L_Elbow:
                 - L_Wrist: null
-          - Neck: null
+          - Neck:
+            - Head: null
           - R_Collar:
             - R_Shoulder:
               - R_Elbow:
