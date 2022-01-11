@@ -80,6 +80,7 @@ FROM base as torch-cpu
 
 ENV PYOPENGL_PLATFORM=osmesa
 
+USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
     freeglut3 \
     freeglut3-dev \
@@ -88,6 +89,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libosmesa6 \
     libosmesa6-dev \
     && rm -rf /var/lib/apt/lists/*
+USER carla-pedestrians-client
 
 RUN /venv/bin/python -m pip install --no-cache-dir -f https://download.pytorch.org/whl/cpu/torch_stable.html \
     torch==${torch_version}+cpu \
@@ -135,7 +137,6 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     pandas==1.3.5 \
     Pillow==8.4.0 \
     pims==0.5 \
-    PyOpenGL==3.1.5 \
     pyrender==0.1.45 \
     pytorch-lightning==1.5.2 \
     pyyaml==6.0 \
@@ -153,6 +154,10 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     git+https://github.com/nghorbani/body_visualizer@be9cf756f8d1daed870d4c7ad1aa5cc3478a546c#egg=body-visualizer \
     git+https://github.com/MPI-IS/configer.git@8cd1e3e556d9697298907800a743e120be57ac36#egg=configer \
     git+https://github.com/MPI-IS/mesh.git@49e70425cf373ec5269917012bda2944215c5ccd#egg=psbody-mesh
+
+# install newer version of pyopengl, since pyrender has obsolete dependency
+RUN /venv/bin/python -m pip install --no-cache-dir \
+    PyOpenGL==3.1.5
 
 # Copy client files so that we can do editable pip install
 COPY --chown=${USERNAME}:${USERNAME} . /app
