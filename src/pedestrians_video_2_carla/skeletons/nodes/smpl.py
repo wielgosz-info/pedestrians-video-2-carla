@@ -71,13 +71,13 @@ class SMPL_SKELETON(Skeleton):
     def map_from_original(tensor: Tensor) -> Tensor:
         assert tensor.ndim >= 2
 
-        n = [slice(None)]
+        n = [slice(None)] * max(tensor.ndim - 2, 1)
         s = tensor.shape
         n.append(tuple([
             _ORIG_SMPL_SKELETON[k].value for k in SMPL_SKELETON.__members__.keys()
         ]))
 
-        return tensor.reshape((s[0], len(SMPL_SKELETON), 3))[n]
+        return tensor.reshape((*s[:len(n)-1], len(SMPL_SKELETON), 3))[n]
 
     @staticmethod
     def map_to_original(tensor: Tensor, reshape=True) -> Tensor:
@@ -112,7 +112,7 @@ class SMPLHipsNeckExtractor(HipsNeckExtractor):
 register_skeleton('SMPL_SKELETON', SMPL_SKELETON, [
     (CARLA_SKELETON.crl_hips__C, SMPL_SKELETON.Pelvis),
     (CARLA_SKELETON.crl_spine__C, SMPL_SKELETON.Spine1),
-    (CARLA_SKELETON.crl_spine01__C, SMPL_SKELETON.Spine3),  # or 2? or combine 2 + 3?
+    (CARLA_SKELETON.crl_spine01__C, SMPL_SKELETON.Spine3),
     (CARLA_SKELETON.crl_shoulder__L, SMPL_SKELETON.L_Collar),
     (CARLA_SKELETON.crl_arm__L, SMPL_SKELETON.L_Shoulder),
     (CARLA_SKELETON.crl_foreArm__L, SMPL_SKELETON.L_Elbow),

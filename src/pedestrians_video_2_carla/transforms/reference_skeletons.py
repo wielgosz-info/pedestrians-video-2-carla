@@ -91,6 +91,14 @@ class ReferenceSkeletonsDenormalize(object):
             )
         return self.__reference_projections
 
+    def get_pedestrians(self, device) -> Dict[str, ControlledPedestrian]:
+        """
+        Returns the reference pedestrians as a dictionary.
+        """
+        return {
+            t: p for t, p in zip(self.types, self._get_reference_pedestrians(device))
+        }
+
     def get_projections(self, device) -> Dict[str, Tensor]:
         """
         Returns the reference projections as a dictionary.

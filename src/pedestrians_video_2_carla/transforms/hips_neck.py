@@ -23,6 +23,7 @@ class HipsNeckNormalize(object):
     def __init__(self, extractor: HipsNeckExtractor, near_zero: float = 1e-5) -> None:
         self.extractor = extractor
         self.__near_zero = near_zero
+        self.__last_dist = None
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(extractor={self.extractor.__class__.__name__})'
@@ -55,7 +56,12 @@ class HipsNeckNormalize(object):
             normalized_sample[..., 0:2] = normalized_sample[..., 0:2].where(
                 normalized_sample[..., 2:] >= self.__near_zero, torch.tensor(0.0, device=normalized_sample.device))
 
+        self.__last_dist = dist
         return normalized_sample
+
+    @property
+    def last_dist(self) -> Tensor:
+        return self.__last_dist
 
 
 class HipsNeckDeNormalize(object):

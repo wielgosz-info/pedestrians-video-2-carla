@@ -269,7 +269,7 @@ class ControlledPedestrian(object):
         return deepcopy_transform(self._initial_transform)
 
     @ property
-    def current_pose(self) -> Pose:
+    def current_pose(self):
         return self._current_pose
 
     @ property

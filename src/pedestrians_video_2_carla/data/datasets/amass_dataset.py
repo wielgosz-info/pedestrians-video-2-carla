@@ -1,27 +1,26 @@
 from functools import lru_cache
-from typing import Type
+from typing import Type, Union
 from pytorch3d.transforms.rotation_conversions import euler_angles_to_matrix
-from torch._C import device
 from torch.utils.data import Dataset
 from human_body_prior.body_model.body_model import BodyModel
 import pandas
 import torch
 import os
 import numpy as np
-from pedestrians_video_2_carla.modules.base.output_types import MovementsModelOutputType, TrajectoryModelOutputType
-from pedestrians_video_2_carla.modules.layers.projection import ProjectionModule
-from pedestrians_video_2_carla.modules.loss.common_loc_2d import get_common_indices
 from pedestrians_video_2_carla.renderers.smpl_renderer import BODY_MODEL_DIR, MODELS
+from pedestrians_video_2_carla.skeletons.nodes import get_common_indices
+from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
 
 from pedestrians_video_2_carla.skeletons.nodes.smpl import SMPL_SKELETON
-from pedestrians_video_2_carla.skeletons.reference.load import load_reference, unreal_to_carla
+from pedestrians_video_2_carla.skeletons.reference.load import load_reference
+from pedestrians_video_2_carla.transforms.reference_skeletons import ReferenceSkeletonsDenormalize
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import ControlledPedestrian
 from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
 from pedestrians_video_2_carla.walker_control.torch.pose_projection import P3dPoseProjection
 
 
 class AMASSDataset(Dataset):
-    def __init__(self, data_dir, set_filepath, points: Type[SMPL_SKELETON] = SMPL_SKELETON, transform=None) -> None:
+    def __init__(self, data_dir, set_filepath, points: Union[Type[SMPL_SKELETON], Type[CARLA_SKELETON]] = SMPL_SKELETON, transform=None) -> None:
         self.data_dir = data_dir
         self.body_model_dir = BODY_MODEL_DIR
         self.body_models = MODELS
@@ -37,7 +36,7 @@ class AMASSDataset(Dataset):
 
         self.structure = load_reference('smpl_structure.yaml')['structure']
         self.device = torch.device('cpu')
-        self.num_joints = len(SMPL_SKELETON)
+        self.smpl_nodes_len = len(SMPL_SKELETON)
 
         self.transform = transform
 
@@ -62,16 +61,23 @@ class AMASSDataset(Dataset):
 
         with np.load(os.path.join(self.data_dir, clip_info['id']), mmap_mode='r') as mocap:
             amass_relative_pose_rot_rad = torch.tensor(
-                mocap['poses'][amass_start_frame:amass_end_frame:amass_step_frame, :self.num_joints*3], dtype=torch.float32)
+                mocap['poses'][amass_start_frame:amass_end_frame:amass_step_frame, :self.smpl_nodes_len*3], dtype=torch.float32)
             assert len(
                 amass_relative_pose_rot_rad) == clip_length, f'Clip has wrong length: actual {len(amass_relative_pose_rot_rad)}, expected {clip_length}'
 
-        reference_pose = self.__get_smpl_reference_p3d_pose()
-        absolute_loc, absolute_rot = self.__get_absolute_loc_rot(
-            gender=clip_info['gender'],
-            reference_pose=reference_pose,
-            pose_body=amass_relative_pose_rot_rad[:, 3:]
-        )
+        # what output format is used in the dataset?
+        if self.nodes == SMPL_SKELETON:
+            reference_pose = self.__get_smpl_reference_p3d_pose()
+            absolute_loc, absolute_rot = self.__get_smpl_absolute_loc_rot(
+                gender=clip_info['gender'],
+                reference_pose=reference_pose,
+                pose_body=amass_relative_pose_rot_rad[:, 3:]
+            )
+        else:
+            reference_pose = self.__get_carla_reference_p3d_pose(
+                clip_info['age'], clip_info['gender'])
+            absolute_loc, absolute_rot = self.__get_carla_absolute_loc_rot(
+                amass_relative_pose_rot_rad, reference_pose)
 
         pedestrian = ControlledPedestrian(
             None, clip_info['age'], clip_info['gender'], P3dPose, reference_pose=reference_pose)
@@ -104,6 +110,7 @@ class AMASSDataset(Dataset):
             'clip_id': clip_info['clip'],
             'video_id': os.path.dirname(clip_info['id']),
             'amass_body_pose': amass_relative_pose_rot_rad[:, 3:].detach(),
+            'amass_absolute_pose_loc': absolute_loc.detach(),
         })
 
     def __get_smpl_reference_p3d_pose(self):
@@ -115,14 +122,15 @@ class AMASSDataset(Dataset):
 
         smpl_pose = P3dPose(device=self.device, structure=self.structure)
         smpl_pose.tensors = (
-            torch.zeros((self.num_joints, 3), dtype=torch.float32, device=self.device),
+            torch.zeros((self.smpl_nodes_len, 3),
+                        dtype=torch.float32, device=self.device),
             torch.eye(3, device=self.device, dtype=torch.float32).reshape(
-                (1, 3, 3)).repeat((self.num_joints, 1, 1))
+                (1, 3, 3)).repeat((self.smpl_nodes_len, 1, 1))
         )
 
         return smpl_pose
 
-    def __get_absolute_loc_rot(self, gender, pose_body, reference_pose, default_elevation=1.2):
+    def __get_smpl_absolute_loc_rot(self, gender, pose_body, reference_pose):
         # SMPL Body Model
         body_model = self.__get_body_model(gender).to(device=self.device)
 
@@ -134,23 +142,96 @@ class AMASSDataset(Dataset):
             (0.0, 1.0, 0.0)
         ), dtype=torch.float32, device=self.device).reshape((1, 3, 3)).repeat((clip_length, 1, 1))
 
-        absolute_loc = body_model(pose_body=pose_body).Jtr[:, :self.num_joints]
+        absolute_loc = body_model(pose_body=pose_body).Jtr[:, :self.smpl_nodes_len]
         absolute_loc = SMPL_SKELETON.map_from_original(absolute_loc)
         absolute_loc = torch.bmm(absolute_loc, conventions_rot)
-        absolute_loc[:, :, 2] -= default_elevation
 
         _, absolute_rot = reference_pose.relative_to_absolute(
             torch.zeros_like(absolute_loc),
             euler_angles_to_matrix(SMPL_SKELETON.map_from_original(
                 torch.cat((
                     torch.zeros((clip_length, 1, 3)),
-                    pose_body.reshape((clip_length, self.num_joints-1, 3))
+                    pose_body.reshape((clip_length, self.smpl_nodes_len-1, 3))
                 ), dim=1)),
                 'XYZ'
             )
         )
 
         return absolute_loc, absolute_rot
+
+    def __get_carla_reference_p3d_pose(self, age, gender):
+        # get CARLA reference skeletons
+        rfd = ReferenceSkeletonsDenormalize()
+        ped = rfd.get_pedestrians(device=self.device)[(age, gender)]
+
+        return ped.current_pose
+
+    def __get_carla_absolute_loc_rot(self, pose_body, reference_pose):
+        carla_rel_loc, carla_rel_rot = reference_pose.tensors
+
+        clip_length = pose_body.shape[0]
+
+        carla_rel_loc = carla_rel_loc.reshape(
+            (1, self.nodes_len, 3)).repeat((clip_length, 1, 1))
+        carla_rel_rot = carla_rel_rot.reshape(
+            (1, self.nodes_len, 3, 3)).repeat((clip_length, 1, 1, 1))
+
+        changes = torch.eye(3, device=self.device).reshape(
+            (1, 1, 3, 3)).repeat((clip_length, self.nodes_len, 1, 1))
+
+        ci, si = get_common_indices(SMPL_SKELETON)
+
+        conventions_rot = euler_angles_to_matrix(torch.tensor(
+            np.deg2rad((
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+                (0.0, 0.0, 0.0),
+            )),
+            dtype=torch.float32, device=self.device), 'XYZ').repeat((clip_length, 1, 1))
+
+        mapped_smpl = euler_angles_to_matrix(
+            SMPL_SKELETON.map_from_original(pose_body), 'XYZ')
+        smpl_mtx = torch.bmm(
+            mapped_smpl.reshape((-1, 3, 3)),
+            conventions_rot
+        ).reshape((clip_length, -1, 3, 3))
+
+        changes[:, ci] = smpl_mtx[:, si]
+
+        # special spine handling, since SMPL has one more joint there
+        changes[:, CARLA_SKELETON.crl_spine01__C.value] = torch.matmul(torch.matmul(
+            mapped_smpl[:, SMPL_SKELETON.Spine3.value],
+            mapped_smpl[:, SMPL_SKELETON.Spine2.value]
+        ), conventions_rot[:, SMPL_SKELETON.Spine3.value])
+
+        # zero SMPL Pelvis rotation
+        changes[:, CARLA_SKELETON.crl_hips__C.value] = torch.eye(
+            3, device=self.device)
+
+        carla_abs_loc, carla_abs_rot, _ = reference_pose(changes,
+                                                         carla_rel_loc,
+                                                         carla_rel_rot)
+
+        return carla_abs_loc, carla_abs_rot
 
     @lru_cache(maxsize=3)
     def __get_body_model(self, gender):

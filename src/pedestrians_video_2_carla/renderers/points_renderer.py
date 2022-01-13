@@ -3,7 +3,6 @@ from typing import Type
 from torch.functional import Tensor
 from pedestrians_video_2_carla.renderers.renderer import Renderer
 from typing import List, Tuple
-from torch.functional import Tensor
 import numpy as np
 
 from pedestrians_video_2_carla.skeletons.nodes import Skeleton
@@ -24,20 +23,20 @@ class PointsRenderer(Renderer):
             video = self.render_clip(cpu_frames[clip_idx], image_size)
             yield video
 
-    def render_clip(self, openpose_clip: np.ndarray, image_size: Tuple[int, int]) -> np.ndarray:
+    def render_clip(self, clip: np.ndarray, image_size: Tuple[int, int]) -> np.ndarray:
         video = []
 
-        for openpose_frame in openpose_clip:
-            frame = self.render_frame(openpose_frame, image_size)
+        for frame in clip:
+            frame = self.render_frame(frame, image_size)
             video.append(frame)
 
         return self.alpha_behavior(np.stack(video))
 
-    def render_frame(self, openpose_frame: np.ndarray, image_size: Tuple[int, int]) -> np.ndarray:
+    def render_frame(self, frame: np.ndarray, image_size: Tuple[int, int]) -> np.ndarray:
         canvas = np.zeros(
             (image_size[1], image_size[0], 4), np.uint8)
         # TODO: draw bones and not only dots?
         rgba_frame = PoseProjection.draw_projection_points(
-            canvas, openpose_frame, self.__keys)
+            canvas, frame, self.__keys)
 
         return rgba_frame

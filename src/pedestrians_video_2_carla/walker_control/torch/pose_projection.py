@@ -114,7 +114,7 @@ class P3dPoseProjection(PoseProjection, torch.nn.Module):
 
         world_pos = torch.bmm(torch.nn.functional.pad(world_x, pad=(
             0, 1, 0, 0), mode='constant', value=1), world_transform)[..., :3]
-        projected_x = self._camera.transform_points_screen(world_pos)
+        projected_x = self.camera.transform_points_screen(world_pos)
         return projected_x
 
 

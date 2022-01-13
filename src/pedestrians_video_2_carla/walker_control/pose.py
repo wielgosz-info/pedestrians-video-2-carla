@@ -93,20 +93,24 @@ class Pose(object):
                 setattr(result, k, copy.deepcopy(v, memo))
         return result
 
-    @ property
+    @property
+    def structure(self):
+        return self._structure
+
+    @property
     def empty(self):
         return self._deepcopy_pose_dict(self.__empty_pose)
 
-    @ property
+    @property
     def relative(self):
         return self._deepcopy_pose_dict(self.__relative_pose)
 
-    @ relative.setter
+    @relative.setter
     def relative(self, new_pose_dict):
         self.__relative_pose.update(new_pose_dict)
         self._last_rel_mod = time.time_ns()
 
-    @ property
+    @property
     def absolute(self):
         if self._last_abs_mod != self._last_rel_mod:
             # ensure bones in absolute pose will be in the same order as they were in relative

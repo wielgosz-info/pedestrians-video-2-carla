@@ -1,7 +1,7 @@
 import os
 import warnings
 from collections import OrderedDict
-from typing import Tuple, Union
+from typing import Tuple, Union, List
 
 import cameratransform as ct
 import numpy as np
@@ -188,7 +188,7 @@ class PoseProjection(object):
             int(camera_rgb.attributes['image_size_x']),
             int(camera_rgb.attributes['image_size_y'])
         )
-        self._camera = self._setup_camera(camera_rgb)
+        self.camera = self._setup_camera(camera_rgb)
 
         self.outputs_dir = os.path.join(OUTPUTS_BASE, 'projections')
         os.makedirs(self.outputs_dir, exist_ok=True)
@@ -249,7 +249,7 @@ class PoseProjection(object):
             ))
             for bone in self._pedestrian.current_pose.absolute.values()
         ]
-        return self._camera.imageFromSpace([
+        return self.camera.imageFromSpace([
             (bone.x, bone.y, bone.z)
             for bone in relativeBones
         ], hide_backpoints=False)
@@ -257,18 +257,29 @@ class PoseProjection(object):
     def _raw_to_pixel_points(self, points):
         return np.round(points).astype(int)
 
-    def current_pose_to_image(self, image_id: Union[str, int] = 'reference', points=None):
+    def current_pose_to_image(self, image_id: Union[str, int] = 'reference', points: np.ndarray = None, pose_keys: List[str] = None):
         if points is None:
             points = self.current_pose_to_points()
+        else:
+            assert points.ndim == 2 and points.shape[
+                1] == 2, f'points must be Bx2 numpy array, this is {points.shape}'
+
+        if pose_keys is None:
+            pose_keys = self._pedestrian.current_pose.empty.keys()
+
         pixel_points = self._raw_to_pixel_points(points)
 
         canvas = np.zeros((self._image_size[1], self._image_size[0], 4), np.uint8)
+        canvas = self.draw_projection_points(
+            canvas, pixel_points, pose_keys
+        )
 
-        img = Image.fromarray(self.draw_projection_points(
-            canvas, pixel_points, self._pedestrian.current_pose.empty.keys()
-        ), 'RGBA')
-        img.save(os.path.join(self.outputs_dir, '{:s}_pose.png'.format("{:06d}".format(image_id)
-                 if isinstance(image_id, int) else image_id)), 'PNG')
+        if image_id is not None:
+            img = Image.fromarray(canvas, 'RGBA')
+            img.save(os.path.join(self.outputs_dir, '{:s}_pose.png'.format("{:06d}".format(image_id)
+                                                                           if isinstance(image_id, int) else image_id)), 'PNG')
+
+        return canvas
 
     @staticmethod
     def draw_projection_points(frame, rounded_points, pose_keys):
