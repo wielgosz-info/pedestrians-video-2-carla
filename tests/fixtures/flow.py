@@ -1,3 +1,4 @@
+import os
 import pytest
 
 from pedestrians_video_2_carla.modules.loss import LossModes
@@ -28,6 +29,11 @@ def test_outputs_dir():
     yield outputs_dir
     import shutil
     shutil.rmtree(outputs_dir)
+
+
+@pytest.fixture(scope="session")
+def test_data_dir():
+    return os.path.join(os.path.dirname(__file__), '..', 'test_data')
 
 
 @pytest.fixture(params=list(LossModes.__members__.keys()))

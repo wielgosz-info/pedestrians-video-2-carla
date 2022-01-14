@@ -96,14 +96,14 @@ def test_renderer(test_logs_dir, test_outputs_dir, renderer):
             experiment_dir, "videos")), 'Videos dir was created'
 
 
-def test_source_videos_jaad(test_logs_dir, test_outputs_dir):
+def test_source_videos_jaad(test_logs_dir, test_outputs_dir, test_data_dir):
     """
     Test the source videos rendering using JAADOpenPoseDataModule.
     """
     # JAADOpenPoseDataModule will look for the subsets in the tmp directory
     # and fail if it can't find the required files.
     shutil.copytree(
-        os.path.join(os.path.dirname(__file__), 'data', 'JAADOpenPoseDataModule'),
+        os.path.join(test_data_dir, 'JAADOpenPoseDataModule'),
         test_outputs_dir,
         dirs_exist_ok=True
     )

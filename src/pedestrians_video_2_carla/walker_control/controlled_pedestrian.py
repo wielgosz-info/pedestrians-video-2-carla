@@ -12,7 +12,7 @@ except ImportError:
 
 from pedestrians_video_2_carla.carla_utils.spatial import deepcopy_location, deepcopy_transform
 
-from pedestrians_video_2_carla.skeletons.reference.load import load_reference, unreal_to_carla
+from pedestrians_video_2_carla.skeletons.reference.load import load_yaml, yaml_to_pose_dict
 from pedestrians_video_2_carla.walker_control.pose import Pose
 
 
@@ -129,8 +129,8 @@ class ControlledPedestrian(object):
         return walker
 
     def _load_reference_pose(self):
-        unreal_pose = load_reference('{}_{}'.format(self._age, self._gender))
-        relative_pose = unreal_to_carla(unreal_pose['transforms'])
+        unreal_pose = load_yaml('{}_{}'.format(self._age, self._gender))
+        relative_pose = yaml_to_pose_dict(unreal_pose['transforms'])
 
         return relative_pose
 

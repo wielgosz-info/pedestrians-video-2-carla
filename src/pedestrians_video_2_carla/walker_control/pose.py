@@ -13,7 +13,7 @@ from collections import OrderedDict
 
 from pedestrians_video_2_carla.carla_utils.spatial import (deepcopy_transform,
                                                            mul_carla_rotations)
-from pedestrians_video_2_carla.skeletons.reference.load import load_reference
+from pedestrians_video_2_carla.skeletons.reference.load import load_yaml
 
 
 class Pose(object):
@@ -23,7 +23,7 @@ class Pose(object):
         """
         super().__init__()
 
-        self._structure = structure if structure is not None else load_reference('structure')[
+        self._structure = structure if structure is not None else load_yaml('structure')[
             'structure']
 
         self.__relative_pose = OrderedDict()

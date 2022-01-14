@@ -19,7 +19,7 @@ from functools import lru_cache
 
 
 @lru_cache(maxsize=None)
-def load_reference(type: str) -> Dict[str, Any]:
+def load_yaml(type: str) -> Dict[str, Any]:
     """
     Loads the file with reference pose extracted from UE4 engine.
 
@@ -45,7 +45,7 @@ def load_reference(type: str) -> Dict[str, Any]:
         return yaml.load(f, Loader=Loader)
 
 
-def unreal_to_carla(unreal_transforms: Dict[str, Dict[str, Dict[str, float]]]) -> Dict[str, carla.Transform]:
+def yaml_to_pose_dict(unreal_transforms: Dict[str, Dict[str, Dict[str, float]]]) -> Dict[str, carla.Transform]:
     """
     Convert dict with transforms read from unreal into carla-usable format.
 

@@ -31,7 +31,7 @@ class HipsNeckNormalize(object):
     def __call__(self, sample: Tensor, dim=2, *args: Any, **kwargs: Any) -> Tensor:
         hips = self.extractor.get_hips_point(sample)[..., 0:dim]
         neck = self.extractor.get_neck_point(sample)[..., 0:dim]
-        dist = torch.linalg.norm(neck - hips, dim=-1, ord=2)
+        dist = torch.linalg.norm(neck - hips, dim=hips.ndim - 1, ord=2)
 
         normalized_sample = torch.empty_like(sample)
         normalized_sample[..., 0:dim] = (sample[..., 0:dim] -
@@ -71,8 +71,15 @@ class HipsNeckDeNormalize(object):
 
     def __call__(self, sample: Tensor, dist: Tensor, hips: Tensor, dim=2, *args: Any, **kwargs: Any) -> Tensor:
         denormalized_sample = torch.empty_like(sample)
-        denormalized_sample[..., 0:dim] = (
-            sample[..., 0:dim] * dist[(..., ) + (None, ) * 2]) + torch.unsqueeze(hips, -2)
+
+        # match dims
+        # dist[:, as_many_dims_as_needed].ndim == sample.ndim
+        d = dist[(slice(None), ) + (None, ) * (sample.ndim - dist.ndim)]
+        # hips[:, as_many_dims_as_needed, :].ndim == sample.ndim
+        h = hips[(slice(None), ) + (None, ) *
+                 (sample.ndim - hips.ndim) + (slice(None), )]
+
+        denormalized_sample[..., 0:dim] = (sample[..., 0:dim] * d) + h
 
         if dim == 2:
             denormalized_sample[..., 2] = sample[..., 2]
@@ -82,6 +89,6 @@ class HipsNeckDeNormalize(object):
     def from_projection(self, extractor: HipsNeckExtractor, projected_pose: Tensor) -> Callable:
         hips = extractor.get_hips_point(projected_pose)
         neck = extractor.get_neck_point(projected_pose)
-        dist = torch.linalg.norm(neck - hips, dim=-1, ord=2)
+        dist = torch.linalg.norm(neck - hips, dim=hips.ndim - 1, ord=2)
 
-        return lambda sample, dim=2: self(sample, dist[..., 0:dim], hips[..., 0:dim], dim)
+        return lambda sample, dim=2: self(sample, dist, hips[..., 0:dim], dim)

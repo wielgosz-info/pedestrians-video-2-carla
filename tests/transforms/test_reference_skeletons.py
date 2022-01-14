@@ -1,3 +1,4 @@
+from pedestrians_video_2_carla.skeletons.reference.carla import get_reference_absolute_tensors, get_reference_projections
 from pedestrians_video_2_carla.transforms.reference_skeletons import ReferenceSkeletonsDenormalize
 import torch
 
@@ -5,9 +6,9 @@ import torch
 def test_reference_skeletons_denormalization_identity(device):
     denormalizer = ReferenceSkeletonsDenormalize(autonormalize=True)
 
-    abs_reference = denormalizer.get_abs(device)
+    abs_reference = get_reference_absolute_tensors(device, as_dict=True)
 
-    abs_tensor = torch.stack(tuple(abs_reference.values()), dim=0,)
+    abs_tensor = torch.stack(tuple([v[0] for v in abs_reference.values()]), dim=0)
     meta = {
         'age': [],
         'gender': []
@@ -29,3 +30,22 @@ def test_reference_skeletons_denormalization_identity(device):
         rtol=1e-4,
         atol=1e-4
     ), "Abs poses are not equal when input is scaled"
+
+    projections = get_reference_projections(device)
+
+    denormalized_projections = denormalizer.from_projection(projections, meta)
+    assert torch.allclose(
+        projections, denormalized_projections), "Projections are not equal"
+
+    projections_scaled = projections.clone()
+    projections_scaled[..., 0:2] = projections[..., 0:2] * \
+        torch.rand((1), device=device)
+    denormalized_projections_scaled = denormalizer.from_projection(
+        projections_scaled, meta)
+
+    assert torch.allclose(
+        projections,
+        denormalized_projections_scaled,
+        rtol=1e-4,
+        atol=1e-4
+    ), "Projections are not equal when input is scaled"

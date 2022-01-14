@@ -1,3 +1,4 @@
+from typing import Tuple, Union
 import numpy as np
 import torch
 from torch._C import device
@@ -17,6 +18,9 @@ class P3dPoseProjection(PoseProjection, torch.nn.Module):
     def __init__(self, device: Device, pedestrian: ControlledPedestrian, camera_rgb: 'carla.Sensor' = None, *args, **kwargs):
         self._device = device
 
+        self._eye = ((1, 0, 0),)
+        self._look_at = ((0, 0, 0),)
+
         super().__init__(pedestrian=pedestrian, camera_rgb=camera_rgb, *args, **kwargs)
 
     def _setup_camera(self, camera_rgb: 'carla.Sensor'):
@@ -29,8 +33,14 @@ class P3dPoseProjection(PoseProjection, torch.nn.Module):
             self._pedestrian.world_transform.location.z + \
             self._pedestrian.spawn_shift.z
 
+        self._look_at = ((0, 0, -elevation),)
+        self._eye = ((distance, 0, -elevation),)
+
         R, T = look_at_view_transform(
-            eye=((distance, 0, -elevation),), at=((0, 0, -elevation),), up=((0, 0, -1),))
+            eye=self._eye,
+            at=self._look_at,
+            up=((0, 0, -1),)
+        )
 
         # from CameraTransform docs/code we get:
         # focallength_px_x = (focallength_mm_x / sensor_width_mm) * image_width_px
@@ -53,6 +63,29 @@ class P3dPoseProjection(PoseProjection, torch.nn.Module):
         )
 
         return cameras
+
+    def update_camera(self, camera_position: Union[Tuple[float, float, float], Tuple[Tuple[float, float, float]]]):
+        """
+        Updates camera position.
+
+        :param camera_position: new camera position as (x, y, z) tuple or as (x, y, z) tuple of tuples for multiple cameras
+        :type camera_position: Union[Tuple[float, float, float], Tuple[Tuple[float, float, float]]]
+        """
+
+        if not isinstance(camera_position[0], (tuple, list)):
+            distance, shift, elevation = camera_position
+            self._eye = ((distance, shift, -elevation), )
+        else:
+            self._eye = tuple([(d, s, -e) for (d, s, e) in camera_position])
+
+        R, T = look_at_view_transform(
+            eye=self._eye,
+            at=self._look_at,
+            up=((0, 0, -1),)
+        )
+
+        self.camera.R = R
+        self.camera.T = T
 
     def current_pose_to_points(self):
         root_transform = self._pedestrian.transform

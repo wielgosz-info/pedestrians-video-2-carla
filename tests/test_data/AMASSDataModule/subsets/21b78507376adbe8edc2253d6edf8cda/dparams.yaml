@@ -1,0 +1,10 @@
+clip_length: 30
+clip_offset: 10
+data_module_name: AMASSDataModule
+datasets:
+- CMU
+- HumanEva-x
+nodes: CARLA_SKELETON
+test_set_size: 69242
+train_set_size: 221576
+val_set_size: 55392
