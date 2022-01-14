@@ -118,6 +118,7 @@ register_skeleton('SMPL_SKELETON', SMPL_SKELETON, [
     (CARLA_SKELETON.crl_foreArm__L, SMPL_SKELETON.L_Elbow),
     (CARLA_SKELETON.crl_hand__L, SMPL_SKELETON.L_Wrist),
     (CARLA_SKELETON.crl_neck__C, SMPL_SKELETON.Neck),
+    (CARLA_SKELETON.crl_Head__C, SMPL_SKELETON.Head),
     (CARLA_SKELETON.crl_shoulder__R, SMPL_SKELETON.R_Collar),
     (CARLA_SKELETON.crl_arm__R, SMPL_SKELETON.R_Shoulder),
     (CARLA_SKELETON.crl_foreArm__R, SMPL_SKELETON.R_Elbow),

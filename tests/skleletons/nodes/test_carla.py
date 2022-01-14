@@ -36,6 +36,18 @@ def test_reference_smpl_to_carla(device):
     num_joints = len(SMPL_SKELETON)
     # structure = load_reference('smpl_structure.yaml')['structure']
 
+    axes = np.array((
+        (0.0, 0.0, 90.0),
+        (0.0, 90.0, 0.0),
+        (90.0, 0.0, 0.0),
+    ))
+
+    bs = num_joints * 3 + 2
+
+    conventions_rot = euler_angles_to_matrix(torch.from_numpy(
+        np.deg2rad((90, 0, 0), dtype=np.float32)
+    ), 'XYZ').reshape(1, 3, 3).repeat(bs, 1, 1)
+
     def get_carla_reference_p3d_pose(age, gender):
         # get CARLA reference skeletons
         rfd = ReferenceSkeletonsDenormalize()
@@ -45,10 +57,31 @@ def test_reference_smpl_to_carla(device):
 
     def get_carla_absolute_loc_rot(pose_body, reference_pose):
         nodes_len = len(CARLA_SKELETON)
+        clip_length = pose_body.shape[0]
 
         carla_rel_loc, carla_rel_rot = reference_pose.tensors
+        carla_abs_ref_loc, carla_abs_ref_rot, _ = reference_pose(
+            torch.eye(3, device=device).reshape(
+                (1, 1, 3, 3)).repeat((1, len(CARLA_SKELETON), 1, 1)),
+            carla_rel_loc.unsqueeze(
+                0),
+            carla_rel_rot.unsqueeze(0))
 
-        clip_length = pose_body.shape[0]
+        # for easier preview
+        deg_ref_rot = np.rad2deg(matrix_to_euler_angles(
+            carla_abs_ref_rot[0], 'XYZ').cpu().numpy())
+
+        con_rot_inv = euler_angles_to_matrix(torch.from_numpy(
+            np.deg2rad((90, 0, 0), dtype=np.float32)
+        ), 'XYZ').reshape(1, 3, 3).repeat(nodes_len, 1, 1)
+
+        ref_rot = torch.bmm(carla_abs_ref_rot[0], con_rot_inv)
+
+        ref_rot_rad = matrix_to_euler_angles(
+            ref_rot, 'XYZ')
+        deg_ref_rot_conv = np.rad2deg(ref_rot_rad.cpu().numpy())
+
+        local_rot = ref_rot.unsqueeze(0).repeat((clip_length, 1, 1, 1))
 
         carla_rel_loc = carla_rel_loc.reshape(
             (1, nodes_len, 3)).repeat((clip_length, 1, 1))
@@ -60,65 +93,58 @@ def test_reference_smpl_to_carla(device):
 
         ci, si = get_common_indices(SMPL_SKELETON)
 
-        conventions_rot = euler_angles_to_matrix(torch.tensor(
-            np.deg2rad(((
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-                (0.0, 0.0, 0.0),
-            ))),
-            dtype=torch.float32, device=device), 'XYZ').repeat((clip_length, 1, 1, 1))
+        nx_pose_pody = SMPL_SKELETON.map_from_original(
+            pose_body) * torch.tensor((-1, 1, 1))
+        mapped_smpl = euler_angles_to_matrix(nx_pose_pody, 'XYZ')
+        # smpl_mtx = torch.bmm(
+        #     mapped_smpl.reshape((-1, 3, 3)),
+        #     changes_rot.reshape((-1, 3, 3))
+        # ).reshape((clip_length, -1, 3, 3))
 
-        mapped_smpl = euler_angles_to_matrix(
-            SMPL_SKELETON.map_from_original(pose_body), 'XYZ')
-        smpl_mtx = torch.bmm(
-            mapped_smpl.reshape((-1, 3, 3)),
-            conventions_rot.reshape((-1, 3, 3))
-        ).reshape((clip_length, -1, 3, 3))
+        # changes[:, ci] = smpl_mtx[:, si]
 
-        changes[:, ci] = smpl_mtx[:, si]
+        # # special spine handling, since SMPL has one more joint there
+        # changes[:, CARLA_SKELETON.crl_spine01__C.value] = torch.bmm(torch.bmm(
+        #     mapped_smpl[:, SMPL_SKELETON.Spine3.value],
+        #     mapped_smpl[:, SMPL_SKELETON.Spine2.value]
+        # ), changes_rot[:, SMPL_SKELETON.Spine3.value])
 
-        # special spine handling, since SMPL has one more joint there
-        changes[:, CARLA_SKELETON.crl_spine01__C.value] = torch.bmm(torch.bmm(
-            mapped_smpl[:, SMPL_SKELETON.Spine3.value],
-            mapped_smpl[:, SMPL_SKELETON.Spine2.value]
-        ), conventions_rot[:, SMPL_SKELETON.Spine3.value])
+        changes[:, ci] = mapped_smpl[:, si]
+        deg_changes_mapped = np.rad2deg(matrix_to_euler_angles(
+            changes, 'XYZ').cpu().numpy())
 
         # zero SMPL Pelvis rotation
-        changes[:, CARLA_SKELETON.crl_hips__C.value] = torch.eye(
-            3, device=device)
+        # changes[:, CARLA_SKELETON.crl_hips__C.value] = torch.eye(
+        #     3, device=device)
 
-        carla_abs_loc, carla_abs_rot, _ = reference_pose(changes,
+        # changes = torch.bmm(
+        #     changes.reshape((-1, 3, 3)) - torch.eye(3, device=device),
+        #     changes_rot.reshape((-1, 3, 3))
+        # ).reshape((clip_length, -1, 3, 3)) + torch.eye(3, device=device)
+
+        # now we have to change the rotation base,
+        # so that changes are in local coordinate system
+        # instead of global
+        # changes = torch.bmm(
+        #     changes.reshape((-1, 3, 3)),
+        #     local_rot.reshape((-1, 3, 3))
+        # ).reshape((clip_length, -1, 3, 3))
+
+        local_changes = torch.bmm(
+            torch.linalg.solve(local_rot.reshape((-1, 3, 3)),
+                               changes.reshape((-1, 3, 3))),
+            local_rot.reshape((-1, 3, 3))
+        ).reshape((clip_length, -1, 3, 3))
+
+        # for easier preview
+        deg_changes = np.rad2deg(matrix_to_euler_angles(
+            local_changes, 'XYZ').cpu().numpy())
+
+        carla_abs_loc, carla_abs_rot, _ = reference_pose(local_changes,
                                                          carla_rel_loc,
                                                          carla_rel_rot)
 
         return carla_abs_loc, carla_abs_rot
-
-    axes = np.array((
-        (0.0, 0.0, 90.0),
-        (0.0, 90.0, 0.0),
-        (90.0, 0.0, 0.0),
-    ))
-
-    bs = num_joints * 3 + 1
 
     t_axes = torch.tensor(
         np.deg2rad(axes), dtype=torch.float32, device=device)
@@ -130,19 +156,15 @@ def test_reference_smpl_to_carla(device):
             smpl_pose[i*3+a+1, i] = t_axes[a].clone()
             names.append('{}_{}'.format(_ORIG_SMPL_SKELETON(i).name, axes[a]))
 
-    conventions_rot = torch.tensor((
-        (1.0, 0.0, 0.0),
-        (0.0, 0.0, -1.0),
-        (0.0, 1.0, 0.0),
-    ), device=device).reshape(
-        1, 3, 3).repeat(bs, 1, 1)
+    smpl_pose[bs-1, _ORIG_SMPL_SKELETON.L_Shoulder.value] = t_axes[0].clone()
+    smpl_pose[bs-1, _ORIG_SMPL_SKELETON.L_Elbow.value] = t_axes[0].clone()
+    names.append('left_arm_cumulative')
 
     bm_out = bm(pose_body=smpl_pose[:, 1:].reshape((bs, -1)))
     absolute_loc = bm_out.Jtr[:, :num_joints]
     absolute_loc = SMPL_SKELETON.map_from_original(
         absolute_loc)  # change the order of the joints
-    # rotate axes to match CARLA
-    # TODO: is this correct?
+    # rotate axes for projection
     smpl_abs_loc = torch.bmm(
         absolute_loc,
         conventions_rot
@@ -168,13 +190,6 @@ def test_reference_smpl_to_carla(device):
     # smpl_rel_loc = smpl_abs_loc.clone()
     # abs_to_rel_loc(smpl_abs_loc, smpl_rel_loc,
     #                structure[0], SMPL_SKELETON, torch.zeros_like(smpl_abs_loc[:, 0]))
-
-    # get CARLA reference skeletons
-    reference_pose = get_carla_reference_p3d_pose(age, gender)
-    carla_abs_loc, carla_abs_rot = get_carla_absolute_loc_rot(
-        smpl_pose, reference_pose)
-
-    # carla_abs_loc = rfd.get_abs(device=device)[(age, gender)]
 
     # reconstruct rel to see if it works correctly; it will get rel locs as if rotations were 0
     # rec_carla_rel_loc = carla_abs_loc.clone()
@@ -209,6 +224,10 @@ def test_reference_smpl_to_carla(device):
     # ci, si = get_common_indices(SMPL_SKELETON)
     # smpl_norm_common = smpl_norm[0, si]
     # carla_norm_common = carla_norm[0, ci]
+
+    reference_pose = get_carla_reference_p3d_pose(age, gender)
+    carla_abs_loc, carla_abs_rot = get_carla_absolute_loc_rot(
+        smpl_pose, reference_pose)
 
     modifications = [[] for _ in range(bs)]
     for perspective in [
