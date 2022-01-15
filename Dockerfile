@@ -52,7 +52,7 @@ RUN python3 -m venv /venv
 # Update basic python packages
 RUN /venv/bin/python -m pip install --no-cache-dir -U \
     pip==21.3.1 \
-    setuptools==60.1.0 \
+    setuptools==59.5.0 \
     wheel==0.37.1
 
 # Automatically activate virtualenv for user
