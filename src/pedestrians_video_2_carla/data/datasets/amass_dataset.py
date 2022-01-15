@@ -120,7 +120,9 @@ class AMASSDataset(Dataset):
 
         return (projections, {
             'absolute_pose_loc': absolute_loc,
-            'absolute_pose_rot': absolute_rot
+            'absolute_pose_rot': absolute_rot,
+            'world_loc': torch.zeros((clip_length, 3), dtype=torch.float32, device=self.device),
+            'world_rot': torch.eye(3, dtype=torch.float32, device=self.device).reshape((1, 3, 3)).repeat((clip_length, 1, 1)),
         }, {
             'age': clip_info['age'],
             'gender': clip_info['gender'],

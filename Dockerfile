@@ -69,6 +69,21 @@ FROM base as torch-nvidia
 
 ENV PYOPENGL_PLATFORM=egl
 
+USER root
+# Get OpenGL working for off-screen rendering
+# https://gitlab.com/nvidia/container-images/opengl/blob/ubuntu20.04/glvnd/runtime/Dockerfile
+# extras: libglu1, libgl1-mesa-glx
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libglvnd0 \
+    libgl1 \
+    libglx0 \
+    libegl1 \
+    libgles2 \
+    libglu1 \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=nvidia/cudagl:11.1.1-base-ubuntu20.04 /usr/share/glvnd/egl_vendor.d/10_nvidia.json /usr/share/glvnd/egl_vendor.d/10_nvidia.json
+USER carla-pedestrians-client
+
 RUN /venv/bin/python -m pip install --no-cache-dir -f https://download.pytorch.org/whl/torch_stable.html \
     torch==${torch_version}+cu111 \
     torchvision==${torchvision_version}+cu111
