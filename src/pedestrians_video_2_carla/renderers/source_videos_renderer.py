@@ -16,7 +16,7 @@ class SourceVideosRenderer(Renderer):
 
         self.__data_dir = data_dir
 
-    def render(self, meta: List[Dict[str, Any]], image_size: Tuple[int, int] = (800, 600), **kwargs) -> List[np.ndarray]:
+    def render(self, meta: List[Dict[str, Any]], **kwargs) -> List[np.ndarray]:
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         rendered_videos = len(meta['video_id'])
@@ -28,13 +28,12 @@ class SourceVideosRenderer(Renderer):
                 meta['clip_id'][clip_idx],
                 meta['start_frame'][clip_idx],
                 meta['end_frame'][clip_idx],
-                meta['bboxes'][clip_idx],
-                image_size
+                meta['bboxes'][clip_idx]
             )
             yield video
 
-    def render_clip(self, video_id, pedestrian_id, clip_id, start_frame, end_frame, bboxes, image_size):
-        (canvas_width, canvas_height) = image_size
+    def render_clip(self, video_id, pedestrian_id, clip_id, start_frame, end_frame, bboxes):
+        (canvas_width, canvas_height) = self._image_size
         half_width = int(math.floor(canvas_width / 2))
         half_height = int(math.floor(canvas_height / 2))
         canvas = np.zeros((end_frame - start_frame, canvas_height,

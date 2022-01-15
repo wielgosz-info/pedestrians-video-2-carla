@@ -30,26 +30,25 @@ class SMPLRenderer(Renderer):
 
         self.body_model_dir = body_model_dir
         self.color = list(color)
+        self.mesh_viewer = MeshViewer(
+            width=self._image_size[0], height=self._image_size[1], use_offscreen=True)
 
     @lru_cache(maxsize=3)
     def __get_body_model(self, gender):
         model_path = os.path.join(self.body_model_dir, MODELS[gender])
         return BodyModel(bm_fname=model_path)
 
-    def render(self, meta: List[Dict[str, Any]], image_size: Tuple[int, int] = (800, 600), **kwargs) -> List[np.ndarray]:
+    def render(self, meta: List[Dict[str, Any]], **kwargs) -> List[np.ndarray]:
         rendered_videos = len(meta['video_id'])
-        mesh_viewer = MeshViewer(
-            width=image_size[0], height=image_size[1], use_offscreen=True)
 
         for clip_idx in range(rendered_videos):
             video = self.render_clip(
-                mesh_viewer,
                 body_model=self.__get_body_model(meta['gender'][clip_idx]),
                 body_pose_clip=meta['amass_body_pose'][clip_idx]
             )
             yield video
 
-    def render_clip(self, mesh_viewer: MeshViewer, body_model: BodyModel, body_pose_clip: torch.Tensor) -> np.ndarray:
+    def render_clip(self, body_model: BodyModel, body_pose_clip: torch.Tensor) -> np.ndarray:
         video = []
 
         faces = body_model.f
@@ -57,14 +56,14 @@ class SMPLRenderer(Renderer):
         _, num_verts = vertices.shape[:-1]
 
         for vert in vertices:
-            frame = self.render_frame(mesh_viewer, vert, faces, num_verts)
+            frame = self.render_frame(vert, faces, num_verts)
             video.append(frame)
 
         return np.stack(video)
 
-    def render_frame(self, mv: MeshViewer, vertices, faces, num_verts) -> np.ndarray:
+    def render_frame(self, vertices, faces, num_verts) -> np.ndarray:
         mesh = trimesh.base.Trimesh(
             vertices, faces, vertex_colors=num_verts*self.color)
-        mv.set_meshes([mesh], 'static')
+        self.mesh_viewer.set_meshes([mesh], 'static')
 
-        return mv.render()
+        return self.mesh_viewer.render()

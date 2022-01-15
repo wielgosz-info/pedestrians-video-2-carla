@@ -182,10 +182,6 @@ class PedestrianWriter(object):
         """
 
         # TODO: handle world_loc and world_rot in carla renderers
-        # TODO: get this from LitBaseMapper projection layer
-        # TODO: move those to the Renderers's constructors instead of .render
-        image_size = (800, 600)
-        fov = 90.0
 
         denormalized_frames = self.__denormalize.from_projection(frames, meta)
 
@@ -193,27 +189,29 @@ class PedestrianWriter(object):
 
         render = {
             PedestrianRenderers.zeros: lambda: self.__renderers[PedestrianRenderers.zeros].render(
-                frames, image_size
+                frames
             ),
             PedestrianRenderers.source_videos: lambda: self.__renderers[PedestrianRenderers.source_videos].render(
-                meta, image_size
+                meta
             ),
             PedestrianRenderers.source_carla: lambda: self.__renderers[PedestrianRenderers.source_carla].render(
                 targets['absolute_pose_loc'], targets['absolute_pose_rot'],
                 targets['world_loc'], targets['world_rot'],
-                meta, image_size
+                meta
             ),
             PedestrianRenderers.smpl: lambda: self.__renderers[PedestrianRenderers.smpl].render(
-                meta, image_size
+                meta
             ),
             PedestrianRenderers.input_points: lambda: self.__renderers[PedestrianRenderers.input_points].render(
-                denormalized_frames, image_size
+                denormalized_frames
             ),
             PedestrianRenderers.projection_points: lambda: self.__renderers[PedestrianRenderers.projection_points].render(
-                projected_pose, image_size
+                projected_pose
             ),
             PedestrianRenderers.carla: lambda: self.__renderers[PedestrianRenderers.carla].render(
-                absolute_pose_loc, absolute_pose_rot, world_loc, world_rot, meta, image_size
+                absolute_pose_loc, absolute_pose_rot,
+                world_loc, world_rot,
+                meta
             )
         }
 

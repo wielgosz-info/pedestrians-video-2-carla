@@ -5,10 +5,11 @@ import numpy as np
 
 
 class Renderer(object):
-    def __init__(self, alpha: AlphaBehavior = AlphaBehavior.drop, **kwargs) -> None:
+    def __init__(self, image_size: Tuple[int, int] = (800, 600), alpha: AlphaBehavior = AlphaBehavior.drop, **kwargs) -> None:
         self._alpha = alpha
+        self._image_size = image_size
 
-    def render(self, frames: Tensor, image_size: Tuple[int, int] = (800, 600), **kwargs) -> List[np.ndarray]:
+    def render(self, frames: Tensor, **kwargs) -> List[np.ndarray]:
         """
         Renders black clip and repeats it N times in the output.
         Number of channels depends on the defined alpha behavior.
@@ -20,7 +21,7 @@ class Renderer(object):
         """
         rendered_videos = len(frames)
         for _ in range(rendered_videos):
-            yield self.alpha_behavior(np.zeros((frames.shape[1], image_size[1], image_size[0], 4)))
+            yield self.alpha_behavior(np.zeros((frames.shape[1], self._image_size[1], self._image_size[0], 4)))
 
     def alpha_behavior(self, rgba_frames: np.ndarray) -> np.ndarray:
         if self._alpha == AlphaBehavior.drop:

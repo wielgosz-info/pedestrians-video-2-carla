@@ -37,7 +37,6 @@ class CarlaRenderer(Renderer):
                world_loc: Tensor,
                world_rot: Tensor,
                meta: List[Dict[str, Any]],
-               image_size: Tuple[int, int] = (800, 600),
                **kwargs
                ) -> List[np.ndarray]:
         rendered_videos = len(absolute_pose_loc)
@@ -58,7 +57,6 @@ class CarlaRenderer(Renderer):
                 world_rot[clip_idx],
                 meta['age'][clip_idx],
                 meta['gender'][clip_idx],
-                image_size,
                 world,
                 rendered_videos
             )
@@ -76,7 +74,6 @@ class CarlaRenderer(Renderer):
                     world_rot_clip: Tensor,
                     age: str,
                     gender: str,
-                    image_size: Tuple[int, int],
                     world: 'carla.World',
                     rendered_videos: int
                     ):
@@ -84,7 +81,7 @@ class CarlaRenderer(Renderer):
             world, age, gender, P3dPose, max_spawn_tries=10+rendered_videos, device=absolute_pose_loc_clip.device)
         camera_queue = Queue()
         camera_rgb = setup_camera(
-            world, camera_queue, bound_pedestrian, image_size, self.__fov)
+            world, camera_queue, bound_pedestrian, self._image_size, self.__fov)
 
         if absolute_pose_rot_clip is None:
             # for correct rendering, the rotations are required
@@ -100,7 +97,7 @@ class CarlaRenderer(Renderer):
         for absolute_pose_loc_frame, absolute_pose_rot_frame, world_loc_frame, world_rot_frame in zip(absolute_pose_loc_clip, absolute_pose_rot_clip, world_loc_clip, world_rot_clip):
             frame = self.render_frame(absolute_pose_loc_frame, absolute_pose_rot_frame,
                                       world_loc_frame, world_rot_frame,
-                                      image_size, world, bound_pedestrian, camera_queue)
+                                      world, bound_pedestrian, camera_queue)
             video.append(frame)
 
         camera_rgb.stop()
@@ -116,7 +113,6 @@ class CarlaRenderer(Renderer):
                      absolute_pose_rot_frame: Tensor,
                      world_loc_frame: Tensor,
                      world_rot_frame: Tensor,
-                     image_size: Tuple[int, int],
                      world: 'carla.World',
                      bound_pedestrian: ControlledPedestrian,
                      camera_queue: Queue
@@ -150,7 +146,8 @@ class CarlaRenderer(Renderer):
         frames = []
         sensor_data = None
 
-        carla_img = torch.zeros((image_size[1], image_size[0], 3), dtype=torch.uint8)
+        carla_img = torch.zeros(
+            (self._image_size[1], self._image_size[0], 3), dtype=torch.uint8)
         if world_frame:
             # drain the sensor queue
             try:
