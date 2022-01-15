@@ -21,8 +21,6 @@ MODELS = {
 class SMPLRenderer(Renderer):
     """
     This renderer basically does the same job as `body_visualizer.tools.vis_tools.render_smpl_params`.
-
-    TODO: Rewrite to use pytorch3d instead of pyrender?.
     """
 
     def __init__(self, body_model_dir: str = BODY_MODEL_DIR, color=(0.7, 0.7, 0.7), **kwargs) -> None:
@@ -48,7 +46,7 @@ class SMPLRenderer(Renderer):
             )
             yield video
 
-    def render_clip(self, body_model: BodyModel, body_pose_clip: torch.Tensor) -> np.ndarray:
+    def render_clip(self, body_model: BodyModel, body_pose_clip: Tensor) -> np.ndarray:
         video = []
 
         faces = body_model.f

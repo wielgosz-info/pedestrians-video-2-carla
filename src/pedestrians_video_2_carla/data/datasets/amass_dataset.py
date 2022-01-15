@@ -81,7 +81,12 @@ class AMASSDataset(Dataset):
                 amass_relative_pose_rot_rad) == clip_length, f'Clip has wrong length: actual {len(amass_relative_pose_rot_rad)}, expected {clip_length}'
 
         # always reset Pelvis to (0, 0, 0)
+        # TODO: this breaks the movements a little, need to fix it
         amass_relative_pose_rot_rad[:, 0:3] = 0.0
+
+        # TODO: implement moves mirroring
+        if clip_info['mirror']:
+            pass
 
         # what output format is used in the dataset?
         if self.nodes == SMPL_SKELETON:
@@ -123,14 +128,15 @@ class AMASSDataset(Dataset):
             'absolute_pose_rot': absolute_rot,
             'world_loc': torch.zeros((clip_length, 3), dtype=torch.float32, device=self.device),
             'world_rot': torch.eye(3, dtype=torch.float32, device=self.device).reshape((1, 3, 3)).repeat((clip_length, 1, 1)),
+
+            # additional per-frame info
+            'amass_body_pose': amass_relative_pose_rot_rad[:, 3:].detach(),
         }, {
             'age': clip_info['age'],
             'gender': clip_info['gender'],
             'pedestrian_id': os.path.splitext(os.path.basename(clip_info['id']))[0],
             'clip_id': clip_info['clip'],
             'video_id': os.path.dirname(clip_info['id']),
-            'amass_body_pose': amass_relative_pose_rot_rad[:, 3:].detach(),
-            'amass_absolute_pose_loc': absolute_loc.detach(),
         })
 
     def __get_smpl_reference_p3d_pose(self):

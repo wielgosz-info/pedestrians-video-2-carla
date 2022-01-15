@@ -20,13 +20,16 @@ class AMASSDataModule(BaseDataModule):
     def __init__(self,
                  clip_offset: Optional[int] = 10,
                  amass_dir: Optional[str] = AMASS_DIR,
+                 mirror: Optional[bool] = False,
                  **kwargs
                  ):
         self.clip_offset = clip_offset
+        self.mirror = mirror
         self.amass_dir = amass_dir
 
         self.__settings = {
             'clip_offset': self.clip_offset,
+            'mirror': self.mirror,
         }
 
         super().__init__(**kwargs)
@@ -59,6 +62,12 @@ class AMASSDataModule(BaseDataModule):
             help="Directory where AMASS-compatible datasets are stored.",
             type=str,
             default=AMASS_DIR
+        )
+        parser.add_argument(
+            '--mirror',
+            help="Add mirror clips to the dataset.",
+            default=False,
+            action='store_true'
         )
         return parent_parser
 
@@ -112,7 +121,7 @@ class AMASSDataModule(BaseDataModule):
             end = mocap['length'] - amass_clip_length - fps_ratio + 1
             clip_idx = 0
             for start_frame in range(start, end, amass_clip_offset):
-                for shift in range(fps_ratio):
+                for shift in range(2 if self.mirror else 1):
                     clips.append({
                         'dataset': mocap['dataset'],
                         'id': mocap['id'],
