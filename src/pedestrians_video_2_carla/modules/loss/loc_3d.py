@@ -3,7 +3,7 @@ from pedestrians_video_2_carla.skeletons.nodes import get_common_indices
 
 from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckNormalize
-from torch.functional import Tensor
+from torch import Tensor
 from torch.nn.modules import loss
 from pytorch_lightning.utilities.warnings import rank_zero_warn
 

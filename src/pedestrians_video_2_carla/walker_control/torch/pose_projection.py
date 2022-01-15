@@ -10,7 +10,7 @@ from pedestrians_video_2_carla.walker_control.pose_projection import \
 from pytorch3d.renderer.cameras import (PerspectiveCameras,
                                         look_at_view_transform)
 from pytorch3d.transforms import euler_angles_to_matrix
-from torch.functional import Tensor
+from torch import Tensor
 from torch.types import Device
 
 

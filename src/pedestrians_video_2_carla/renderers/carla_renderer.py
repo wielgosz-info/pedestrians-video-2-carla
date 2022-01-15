@@ -12,7 +12,7 @@ from pedestrians_video_2_carla.carla_utils.setup import *
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import \
     ControlledPedestrian
 from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
-from torch.functional import Tensor
+from torch import Tensor
 from pytorch_lightning.utilities import rank_zero_warn
 from pytorch3d.transforms.rotation_conversions import matrix_to_euler_angles
 

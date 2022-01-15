@@ -8,7 +8,7 @@ from pedestrians_video_2_carla.modules.layers.projection import \
     ProjectionModule
 from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
 from pytorch3d.transforms import euler_angles_to_matrix
-from torch.functional import Tensor
+from torch import Tensor
 from torch.utils.data import Dataset, IterableDataset
 
 

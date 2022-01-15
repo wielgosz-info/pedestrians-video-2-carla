@@ -1,6 +1,6 @@
 from typing import Type
 
-from torch.functional import Tensor
+from torch import Tensor
 from pedestrians_video_2_carla.renderers.renderer import Renderer
 from typing import List, Tuple
 import numpy as np

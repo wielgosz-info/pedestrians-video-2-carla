@@ -1,6 +1,6 @@
 from typing import Dict
 import torch
-from torch.functional import Tensor
+from torch import Tensor
 
 
 def calculate_loss_weighted_loc_2d_loc_rot_3d(requirements: Dict[str, Tensor], loss_weights: Dict[str, Tensor], **kwargs) -> Tensor:

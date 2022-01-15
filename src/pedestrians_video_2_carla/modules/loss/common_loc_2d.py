@@ -2,7 +2,7 @@ from typing import Type
 
 from pedestrians_video_2_carla.skeletons.nodes import MAPPINGS, Skeleton
 from pedestrians_video_2_carla.skeletons.nodes import get_common_indices
-from torch.functional import Tensor
+from torch import Tensor
 from torch.nn.modules import loss
 
 

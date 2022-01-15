@@ -1,6 +1,6 @@
 from typing import Type
 
-from torch.functional import Tensor
+from torch import Tensor
 from pedestrians_video_2_carla.skeletons.nodes import Skeleton, register_skeleton
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 

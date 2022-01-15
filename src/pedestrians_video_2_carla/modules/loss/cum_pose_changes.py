@@ -2,7 +2,7 @@ from typing import Dict
 
 import torch
 from pytorch3d.transforms.rotation_conversions import euler_angles_to_matrix
-from torch.functional import Tensor
+from torch import Tensor
 from torch.nn.modules import loss
 
 

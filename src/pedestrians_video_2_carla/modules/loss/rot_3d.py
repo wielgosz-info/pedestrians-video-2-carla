@@ -1,6 +1,6 @@
 from typing import Dict, Type
 
-from torch.functional import Tensor
+from torch import Tensor
 from torch.nn.modules import loss
 
 from pedestrians_video_2_carla.skeletons.nodes import get_common_indices

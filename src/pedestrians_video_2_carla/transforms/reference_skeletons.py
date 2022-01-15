@@ -5,7 +5,7 @@ from pedestrians_video_2_carla.skeletons.nodes.carla import CarlaHipsNeckExtract
 from pedestrians_video_2_carla.skeletons.reference.carla import get_reference_absolute_tensors, get_reference_projections
 from pedestrians_video_2_carla.transforms.hips_neck import (HipsNeckDeNormalize, HipsNeckExtractor,
                                                             HipsNeckNormalize)
-from torch.functional import Tensor
+from torch import Tensor
 
 
 class ReferenceSkeletonsDenormalize(object):

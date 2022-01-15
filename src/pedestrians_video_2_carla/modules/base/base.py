@@ -23,7 +23,7 @@ from pedestrians_video_2_carla.utils.argparse import DictAction
 from pedestrians_video_2_carla.walker_control.torch.world import \
     calculate_world_from_changes
 from pytorch_lightning.utilities import rank_zero_only
-from torch.functional import Tensor
+from torch import Tensor
 from torchmetrics import MetricCollection
 
 

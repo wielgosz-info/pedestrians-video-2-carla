@@ -4,7 +4,7 @@ from pytorch3d.transforms.rotation_conversions import matrix_to_rotation_6d, rot
 import torch
 from torch import nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.functional import Tensor
+from torch import Tensor
 from pedestrians_video_2_carla.modules.base.movements import MovementsModel
 
 

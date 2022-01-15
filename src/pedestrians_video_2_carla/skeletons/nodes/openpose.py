@@ -1,6 +1,6 @@
 from typing import Type, Union
 
-from torch.functional import Tensor
+from torch import Tensor
 from pedestrians_video_2_carla.skeletons.nodes import register_skeleton, Skeleton
 from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor

@@ -1,6 +1,6 @@
 from typing import Tuple
 import torch
-from torch.functional import Tensor
+from torch import Tensor
 
 
 def calculate_world_from_changes(

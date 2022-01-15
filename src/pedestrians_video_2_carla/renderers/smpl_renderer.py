@@ -1,11 +1,11 @@
 from functools import lru_cache
-from typing import List, Tuple, Any, Dict
+from typing import List, Any, Dict
 from human_body_prior.body_model.body_model import BodyModel
 from body_visualizer.mesh.mesh_viewer import MeshViewer
 import os
 import numpy as np
 import trimesh
-import torch
+from torch import Tensor
 
 from pedestrians_video_2_carla.renderers.renderer import Renderer
 
@@ -38,13 +38,13 @@ class SMPLRenderer(Renderer):
         model_path = os.path.join(self.body_model_dir, MODELS[gender])
         return BodyModel(bm_fname=model_path)
 
-    def render(self, meta: List[Dict[str, Any]], **kwargs) -> List[np.ndarray]:
+    def render(self, body_pose: List[Tensor], meta: List[Dict[str, Any]], **kwargs) -> List[np.ndarray]:
         rendered_videos = len(meta['video_id'])
 
         for clip_idx in range(rendered_videos):
             video = self.render_clip(
                 body_model=self.__get_body_model(meta['gender'][clip_idx]),
-                body_pose_clip=meta['amass_body_pose'][clip_idx]
+                body_pose_clip=body_pose[clip_idx]
             )
             yield video
 

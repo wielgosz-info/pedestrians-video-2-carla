@@ -1,5 +1,5 @@
 from typing import List, Tuple
-from torch.functional import Tensor
+from torch import Tensor
 from pedestrians_video_2_carla.renderers import AlphaBehavior
 import numpy as np
 

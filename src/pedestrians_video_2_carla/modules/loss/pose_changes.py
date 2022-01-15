@@ -1,6 +1,6 @@
 from typing import Dict
 
-from torch.functional import Tensor
+from torch import Tensor
 from torch.nn.modules import loss
 
 

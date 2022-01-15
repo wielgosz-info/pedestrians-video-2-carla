@@ -1,7 +1,7 @@
 from typing import Any, Callable, Type
 
 import torch
-from torch.functional import Tensor
+from torch import Tensor
 
 
 class HipsNeckExtractor(object):

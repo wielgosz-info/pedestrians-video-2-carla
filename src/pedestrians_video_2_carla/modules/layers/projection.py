@@ -14,7 +14,7 @@ from pedestrians_video_2_carla.walker_control.torch.world import calculate_world
 
 import torch
 from torch import nn
-from torch.functional import Tensor
+from torch import Tensor
 
 
 class ProjectionModule(nn.Module):

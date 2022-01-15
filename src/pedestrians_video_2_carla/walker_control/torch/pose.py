@@ -12,7 +12,7 @@ except ImportError:
 
 import numpy as np
 import torch
-from torch.functional import Tensor
+from torch import Tensor
 from pedestrians_video_2_carla.walker_control.pose import Pose
 from pytorch3d.transforms import euler_angles_to_matrix
 from pytorch3d.transforms.rotation_conversions import matrix_to_euler_angles

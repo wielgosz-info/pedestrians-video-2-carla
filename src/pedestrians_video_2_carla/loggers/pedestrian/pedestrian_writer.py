@@ -14,7 +14,7 @@ from pedestrians_video_2_carla.renderers.source_videos_renderer import \
 from pedestrians_video_2_carla.skeletons.nodes import Skeleton
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 from pedestrians_video_2_carla.transforms.reference_skeletons import ReferenceSkeletonsDenormalize
-from torch.functional import Tensor
+from torch import Tensor
 
 from .pedestrian_renderers import PedestrianRenderers
 
@@ -120,6 +120,8 @@ class PedestrianWriter(object):
         if step % self._reduced_log_every_n_steps != 0 and not force:
             return
 
+        # TODO: we should render videos in background so rendering is not blocking the main thread
+
         for vid_idx, (vid, meta) in enumerate(self._render(
                 inputs[self.__videos_slice],
                 {k: v[self.__videos_slice] for k, v in targets.items()},
@@ -149,7 +151,7 @@ class PedestrianWriter(object):
     @torch.no_grad()
     def _render(self,
                 frames: Tensor,
-                targets: Tensor,
+                targets: Dict[str, Tensor],
                 meta: Dict[str, List[Any]],
                 projected_pose: Tensor,
                 absolute_pose_loc: Tensor,
@@ -163,6 +165,8 @@ class PedestrianWriter(object):
 
         :param frames: Input frames
         :type frames: Tensor
+        :param targets: Target data
+        :type targets: Dict[str, Tensor]
         :param meta: Meta data for each clips
         :type meta: Dict[str, List[Any]]
         :param projected_pose: Output of the projection layer.
@@ -200,7 +204,7 @@ class PedestrianWriter(object):
                 meta
             ),
             PedestrianRenderers.smpl: lambda: self.__renderers[PedestrianRenderers.smpl].render(
-                meta
+                targets['amass_body_pose'], meta
             ),
             PedestrianRenderers.input_points: lambda: self.__renderers[PedestrianRenderers.input_points].render(
                 denormalized_frames

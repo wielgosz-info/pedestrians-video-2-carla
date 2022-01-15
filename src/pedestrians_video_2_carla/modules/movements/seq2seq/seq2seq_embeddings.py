@@ -2,7 +2,7 @@ from typing import Dict
 from pytorch3d.transforms.rotation_conversions import rotation_6d_to_matrix
 import torch
 from torch import nn
-from torch.functional import Tensor
+from torch import Tensor
 from .seq2seq import Seq2Seq
 
 
