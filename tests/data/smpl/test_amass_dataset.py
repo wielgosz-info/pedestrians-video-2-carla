@@ -20,10 +20,6 @@ def test_convert_smpl_to_carla(test_data_dir, test_outputs_dir, device):
         device=device
     )
 
-    carla_reference_poses = get_poses(device=device, as_dict=True)
-    carla_reference_pedestrians = get_pedestrians(
-        device=device, as_dict=True)
-
     models_to_test = [
         ('adult', 'female'),
         ('adult', 'male')
@@ -38,7 +34,6 @@ def test_convert_smpl_to_carla(test_data_dir, test_outputs_dir, device):
 
     # reference + each joint * joints_moves_to_test + cumulative example
     batch_size = amass_dataset.smpl_nodes_len * len(joints_moves_to_test) + 2
-    reference_axes_rot = amass_dataset.reference_axes_rot.repeat((batch_size, 1, 1))
 
     # prepare moves batch
     # -----------------------------------------------------------------------------
@@ -64,69 +59,55 @@ def test_convert_smpl_to_carla(test_data_dir, test_outputs_dir, device):
     # moves batch ready
     # -----------------------------------------------------------------------------
 
+    os.makedirs(os.path.join(test_outputs_dir, 'projections'), exist_ok=True)
+
+    world_loc = torch.zeros((batch_size, 3), dtype=torch.float32, device=device)
+    world_rot = torch.eye(3, dtype=torch.float32, device=device).reshape((1, 3, 3)).repeat(
+        (batch_size, 1, 1))
+
     for (age, gender) in models_to_test:
-        bm = amass_dataset.get_body_model(gender)
-
-        carla_reference_pose = carla_reference_poses[(age, gender)]
-        pedestrian = carla_reference_pedestrians[(age, gender)]
-
-        # ==============================================================
-        # here is the core tested function
-        # ==============================================================
-        carla_abs_loc, _ = amass_dataset.convert_smpl_to_carla(
-            smpl_pose, age, gender, carla_reference_pose)
-        # ==============================================================
-        # here is the end of the core tested function
-        # ==============================================================
-
-        # get smpl absolute joint locations
-        # TODO: this should be a function in SMPLDataset
-        # -----------------------------------------------------------------------------
-        bm_out = bm(pose_body=smpl_pose[:, 1:].reshape((batch_size, -1)))
-        absolute_loc = bm_out.Jtr[:, :amass_dataset.smpl_nodes_len]
-        absolute_loc = SMPL_SKELETON.map_from_original(
-            absolute_loc)  # change the order of the joints
-
-        # rotate axes for projection
-        smpl_abs_loc = torch.bmm(
-            absolute_loc,
-            reference_axes_rot
-        )
-        # shift hips to align with carla one
-        shifted_smpl_abs_loc = smpl_abs_loc - \
-            smpl_abs_loc[:, SMPL_SKELETON.Pelvis.value:SMPL_SKELETON.Pelvis.value+1] + \
-            carla_abs_loc[:, CARLA_SKELETON.crl_hips__C.value:CARLA_SKELETON.crl_hips__C.value+1]
-        # end of get smpl absolute joint locations
-        # -----------------------------------------------------------------------------
-
-        # TODO: move saving batch of multi-perspective images to a separate function
         modifications = [[] for _ in range(batch_size)]
-        for perspective in [
-            (3.1, 0.0, 1.2),
-            (0.0, 3.1, 1.2),
-            (0.01, 0.0, 3.1),
-            (2.2, 2.2, 1.2),
-        ]:
-            # TODO: figure out how multiple perspective are handled in pytorch3d and replace
-            # this loop with a multi-camera projection
-            pp = P3dPoseProjection(device=device, pedestrian=pedestrian)
-            pp.update_camera(perspective)
 
-            carla_proj = pp(carla_abs_loc, torch.zeros((1, 3), device=device),
-                            torch.eye(3, device=device).reshape((1, 3, 3)))
-            smpl_proj = pp(shifted_smpl_abs_loc, torch.zeros((1, 3), device=device),
-                           torch.eye(3, device=device).reshape((1, 3, 3)))
+        pose_body = smpl_pose.reshape((batch_size, -1))
+        smpl_abs, _, smpl_proj, smpl_pp = amass_dataset.get_clip_projection(
+            pose_body,
+            SMPL_SKELETON,
+            age,
+            gender,
+            world_loc,
+            world_rot
+        )
+        carla_abs, _, carla_proj, carla_pp = amass_dataset.get_clip_projection(
+            pose_body,
+            CARLA_SKELETON,
+            age,
+            gender,
+            world_loc,
+            world_rot
+        )
 
+        # take into account the shift in elevation between SMPL and CARLA coordinates
+        for perspective in (
+            ((0.0, 3.1, 0), (0.0, 3.1, 1.2)),
+            ((0.01, 0.0, 1.9), (0.01, 0.0, 3.1)),
+            ((2.2, 2.2, 0), (2.2, 2.2, 1.2)),
+            None
+        ):
             for i in range(batch_size):
-                carla_canvas = pp.current_pose_to_image(None, carla_proj[i, :, :2].cpu().numpy(),
-                                                        CARLA_SKELETON.__members__.keys())
-                smpl_canvas = pp.current_pose_to_image(None, smpl_proj[i, :, :2].cpu().numpy(),
-                                                       SMPL_SKELETON.__members__.keys())
+                carla_canvas = carla_pp.current_pose_to_image(None, carla_proj[i, :, :2].cpu().numpy(),
+                                                              CARLA_SKELETON.__members__.keys())
+                smpl_canvas = smpl_pp.current_pose_to_image(None, smpl_proj[i, :, :2].cpu().numpy(),
+                                                            SMPL_SKELETON.__members__.keys())
 
                 modifications[i].append(np.concatenate(
                     (smpl_canvas, carla_canvas), axis=1))
 
-        os.makedirs(os.path.join(test_outputs_dir, 'projections'), exist_ok=True)
+                if perspective is not None:
+                    smpl_pp.update_camera(perspective[0])
+                    carla_pp.update_camera(perspective[1])
+
+                    smpl_proj = smpl_pp(smpl_abs, world_loc, world_rot)
+                    carla_proj = carla_pp(carla_abs, world_loc, world_rot)
 
         for mi, rows in enumerate(modifications):
             full = np.concatenate(rows, axis=0)

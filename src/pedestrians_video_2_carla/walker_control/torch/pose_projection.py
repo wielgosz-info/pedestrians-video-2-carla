@@ -64,19 +64,16 @@ class P3dPoseProjection(PoseProjection, torch.nn.Module):
 
         return cameras
 
-    def update_camera(self, camera_position: Union[Tuple[float, float, float], Tuple[Tuple[float, float, float]]]):
+    def update_camera(self, camera_position: Tuple[float, float, float]):
         """
         Updates camera position.
 
-        :param camera_position: new camera position as (x, y, z) tuple or as (x, y, z) tuple of tuples for multiple cameras
-        :type camera_position: Union[Tuple[float, float, float], Tuple[Tuple[float, float, float]]]
+        :param camera_position: new camera position as (x, y, z) tuple
+        :type camera_position: Tuple[float, float, float]
         """
 
-        if not isinstance(camera_position[0], (tuple, list)):
-            distance, shift, elevation = camera_position
-            self._eye = ((distance, shift, -elevation), )
-        else:
-            self._eye = tuple([(d, s, -e) for (d, s, e) in camera_position])
+        distance, shift, elevation = camera_position
+        self._eye = ((distance, shift, -elevation), )
 
         R, T = look_at_view_transform(
             eye=self._eye,

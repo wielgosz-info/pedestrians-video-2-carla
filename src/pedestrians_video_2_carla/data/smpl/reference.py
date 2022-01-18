@@ -2,8 +2,7 @@ from functools import lru_cache
 from typing import List
 import torch
 
-from pedestrians_video_2_carla.data.smpl.utils import get_body_model, load
-from pedestrians_video_2_carla.utils.tensors import eye_batch
+from pedestrians_video_2_carla.data.smpl.utils import convert_smpl_pose_to_absolute_loc_rot, load
 from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
 from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON
 
@@ -43,22 +42,14 @@ def get_poses(device=torch.device('cpu'), as_dict=False):
 
 @lru_cache(maxsize=10)
 def get_absolute_tensors(device=torch.device('cpu'), as_dict=False):
-    conventions_rot = torch.tensor((
-        (1.0, 0.0, 0.0),
-        (0.0, 0.0, -1.0),
-        (0.0, 1.0, 0.0)
-    ), dtype=torch.float32, device=device).reshape((1, 3, 3))
-    nodes_len = len(SMPL_SKELETON)
+    poses = get_poses(device=device, as_dict=True)
+
     absolute_loc = []
     absolute_rot = []
 
     for (age, gender) in SMPL_REFERENCE_SKELETON_TYPES:
-        bm = get_body_model(gender, device)
-        abs_loc = bm().Jtr[:, :nodes_len]
-        abs_loc = SMPL_SKELETON.map_from_original(abs_loc)
-        abs_loc = torch.bmm(abs_loc, conventions_rot)
-
-        abs_rot = eye_batch(1, nodes_len, device=device)
+        abs_loc, abs_rot = convert_smpl_pose_to_absolute_loc_rot(
+            gender=gender, reference_pose=poses[(age, gender)], device=device)
 
         absolute_loc.append(abs_loc)
         absolute_rot.append(abs_rot)

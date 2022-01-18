@@ -11,12 +11,13 @@ from pedestrians_video_2_carla.data.carla import reference as carla_reference
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.data.smpl import reference as smpl_reference
 from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON
-from pedestrians_video_2_carla.data.smpl.utils import load
+from pedestrians_video_2_carla.data.smpl.utils import get_conventions_rot, convert_smpl_pose_to_absolute_loc_rot, load
 from pedestrians_video_2_carla.renderers.smpl_renderer import (BODY_MODEL_DIR,
                                                                MODELS)
 from pedestrians_video_2_carla.utils.tensors import eye_batch
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import \
     ControlledPedestrian
+from pedestrians_video_2_carla.walker_control.pose_projection import RGBCameraMock
 from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
 from pedestrians_video_2_carla.walker_control.torch.pose_projection import \
     P3dPoseProjection
@@ -51,13 +52,14 @@ class SMPLDataset(Dataset):
         self.smpl_nodes_len = len(SMPL_SKELETON)
 
         # how to rotate axes when converting from SMPL to CARLA - rotation around X axis by 90deg
-        self.reference_axes_rot = torch.tensor((
-            (1.0, 0.0, 0.0),
-            (0.0, 0.0, -1.0),
-            (0.0, 1.0, 0.0)
-        ), device=self.device).reshape(1, 3, 3)
+        self.reference_axes_rot = get_conventions_rot(device=self.device)
         # how to convert axis vales when converting from SMPL to CARLA - CARLA has negative X axis when compared to SMPL
         self.reference_axes_dir = torch.tensor((-1, 1, 1), device=self.device)
+
+        self.zero_world_loc = torch.zeros(
+            (1, 3), dtype=torch.float32, device=self.device)
+        self.zero_world_rot = torch.eye(
+            3, dtype=torch.float32, device=self.device).reshape((1, 3, 3))
 
         self.transform = transform
 
@@ -79,7 +81,6 @@ class SMPLDataset(Dataset):
         amass_end_frame = clip_info['end_frame']
         amass_step_frame = clip_info['step_frame']
         clip_length = (amass_end_frame - amass_start_frame) // amass_step_frame
-        ag = (clip_info['age'], clip_info['gender'])
 
         with np.load(os.path.join(self.data_dir, clip_info['id']), mmap_mode='r') as mocap:
             amass_relative_pose_rot_rad = torch.tensor(
@@ -95,37 +96,13 @@ class SMPLDataset(Dataset):
         if clip_info['mirror']:
             pass
 
-        # what output format is used in the dataset?
-        if self.nodes == SMPL_SKELETON:
-            reference_pose = smpl_reference.get_poses()[ag]
-            absolute_loc, absolute_rot = self.__get_smpl_absolute_loc_rot(
-                gender=clip_info['gender'],
-                reference_pose=reference_pose,
-                pose_body=amass_relative_pose_rot_rad[:, 3:]
-            )
-        else:
-            reference_pose = carla_reference.get_poses(device=self.device, as_dict=True)[(
-                clip_info['age'], clip_info['gender'])]
-            absolute_loc, absolute_rot = self.convert_smpl_to_carla(
-                amass_relative_pose_rot_rad, *ag, reference_pose)
-
-        pedestrian = ControlledPedestrian(
-            None, *ag, P3dPose, reference_pose=reference_pose)
-        pose_projection = P3dPoseProjection(torch.device('cpu'), pedestrian)
-
-        # Let's pretend we have a batch_size=clip_length and clip_length=1 for more efficient processing
-        projections = pose_projection.forward(
-            absolute_loc,
-            torch.zeros((clip_length, 3), dtype=torch.float32, device=self.device),
-            torch.eye(3, dtype=torch.float32, device=self.device).reshape((1, 3, 3)).repeat(
-                (clip_length, 1, 1)),
+        # convert to absolute pose and projection
+        absolute_loc, absolute_rot, projections, _ = self.get_clip_projection(
+            amass_relative_pose_rot_rad,
+            self.nodes,
+            clip_info['age'],
+            clip_info['gender']
         )
-
-        # use the third dimension as 'confidence' of the projection
-        # so we're compatible with OpenPose
-        # this will also prevent the models from accidentally using
-        # the depth data that pytorch3d leaves in the projections
-        projections[..., 2] = 1.0
 
         if self.transform is not None:
             projections = self.transform(projections)
@@ -146,34 +123,62 @@ class SMPLDataset(Dataset):
             'video_id': os.path.dirname(clip_info['id']),
         })
 
-    def __get_smpl_absolute_loc_rot(self, gender, pose_body, reference_pose):
-        # SMPL Body Model
-        body_model = self.get_body_model(gender).to(device=self.device)
+    def get_clip_projection(self,
+                            amass_relative_pose_rot_rad: torch.Tensor,
+                            nodes: Union[Type[SMPL_SKELETON],
+                                         Type[CARLA_SKELETON]] = SMPL_SKELETON,
+                            age: str = 'adult',
+                            gender: str = 'female',
+                            world_loc=None,
+                            world_rot=None
+                            ):
+        clip_length = amass_relative_pose_rot_rad.shape[0]
 
-        clip_length = len(pose_body)
+        if world_loc is None:
+            world_loc = self.zero_world_loc.repeat((clip_length, 1))
 
-        conventions_rot = torch.tensor((
-            (1.0, 0.0, 0.0),
-            (0.0, 0.0, -1.0),
-            (0.0, 1.0, 0.0)
-        ), dtype=torch.float32, device=self.device).reshape((1, 3, 3)).repeat((clip_length, 1, 1))
+        if world_rot is None:
+            world_rot = self.zero_world_rot.repeat((clip_length, 1, 1))
 
-        absolute_loc = body_model(pose_body=pose_body).Jtr[:, :self.smpl_nodes_len]
-        absolute_loc = SMPL_SKELETON.map_from_original(absolute_loc)
-        absolute_loc = torch.bmm(absolute_loc, conventions_rot)
-
-        _, absolute_rot = reference_pose.relative_to_absolute(
-            torch.zeros_like(absolute_loc),
-            euler_angles_to_matrix(SMPL_SKELETON.map_from_original(
-                torch.cat((
-                    torch.zeros((clip_length, 1, 3)),
-                    pose_body.reshape((clip_length, self.smpl_nodes_len-1, 3))
-                ), dim=1)),
-                'XYZ'
+        if nodes == SMPL_SKELETON:
+            reference_pose = smpl_reference.get_poses(
+                device=self.device, as_dict=True)[(age, gender)]
+            absolute_loc, absolute_rot = convert_smpl_pose_to_absolute_loc_rot(
+                gender=gender,
+                reference_pose=reference_pose,
+                pose_body=amass_relative_pose_rot_rad[:, 3:],
+                root_orient=amass_relative_pose_rot_rad[:, :3],
+                device=self.device
             )
+        else:
+            reference_pose = carla_reference.get_poses(device=self.device, as_dict=True)[(
+                age, gender)]
+            absolute_loc, absolute_rot = self.convert_smpl_to_carla(
+                amass_relative_pose_rot_rad, age, gender, reference_pose)
+
+        pedestrian = ControlledPedestrian(
+            None, age, gender, P3dPose, reference_pose=reference_pose)
+
+        if nodes == SMPL_SKELETON:
+            camera_rgb = RGBCameraMock(pedestrian=pedestrian, elevation=0.0)
+        else:
+            camera_rgb = None
+
+        pose_projection = P3dPoseProjection(
+            device=self.device, pedestrian=pedestrian, camera_rgb=camera_rgb)
+
+        projections = pose_projection(
+            absolute_loc,
+            world_loc,
+            world_rot,
         )
 
-        return absolute_loc, absolute_rot
+        # use the third dimension as 'confidence' of the projection
+        # so we're compatible with OpenPose
+        # this will also prevent the models from accidentally using
+        # the depth data that pytorch3d leaves in the projections
+        projections[..., 2] = 1.0
+        return absolute_loc, absolute_rot, projections, pose_projection
 
     @lru_cache(maxsize=10)
     def __get_local_rotation(self, clip_length, age, gender):

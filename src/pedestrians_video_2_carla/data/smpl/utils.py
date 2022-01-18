@@ -47,7 +47,7 @@ def get_conventions_rot(device=torch.device('cpu')):
     ), dtype=torch.float32, device=device).reshape((1, 3, 3))
 
 
-def get_smpl_absolute_loc_rot(gender: str, pose_body=None, root_orient=None, reference_pose=None, device=torch.device('cpu')):
+def convert_smpl_pose_to_absolute_loc_rot(gender: str, pose_body=None, root_orient=None, reference_pose=None, device=torch.device('cpu')):
     """
     Gets absolute location & rotation for a sequence of body poses.
 
@@ -69,7 +69,7 @@ def get_smpl_absolute_loc_rot(gender: str, pose_body=None, root_orient=None, ref
     clip_length = len(pose_body)
     nodes_len = len(SMPL_SKELETON)
 
-    conventions_rot = get_conventions_rot(device)
+    conventions_rot = get_conventions_rot(device).repeat((clip_length, 1, 1))
 
     absolute_loc = body_model(
         pose_body=pose_body,
@@ -86,7 +86,7 @@ def get_smpl_absolute_loc_rot(gender: str, pose_body=None, root_orient=None, ref
             torch.zeros_like(absolute_loc),
             euler_angles_to_matrix(SMPL_SKELETON.map_from_original(
                 torch.cat((
-                    torch.zeros((clip_length, 1, 3)),
+                    torch.zeros((clip_length, 1, 3), device=device),
                     pose_body.reshape((clip_length, nodes_len-1, 3))
                 ), dim=1)),
                 'XYZ'

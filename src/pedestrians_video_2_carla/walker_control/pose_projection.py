@@ -159,7 +159,7 @@ class RGBCameraMock(object):
     Mocks up the default CARLA camera.
     """
 
-    def __init__(self, pedestrian: ControlledPedestrian, x=800, y=600):
+    def __init__(self, pedestrian: ControlledPedestrian, x=800, y=600, **kwargs):
         super().__init__()
 
         self.attributes = {
@@ -169,7 +169,7 @@ class RGBCameraMock(object):
             'lens_x_size': '0.08',
             'lens_y_size': '0.08'
         }
-        self._transform = get_camera_transform(pedestrian)
+        self._transform = get_camera_transform(pedestrian, **kwargs)
 
     def get_transform(self):
         return self._transform
