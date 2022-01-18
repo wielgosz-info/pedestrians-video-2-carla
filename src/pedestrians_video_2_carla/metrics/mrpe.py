@@ -1,7 +1,7 @@
 from typing import Dict, Type
 from torchmetrics import Metric
 import torch
-from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.walker_control.torch.world import calculate_world_from_changes
 
 

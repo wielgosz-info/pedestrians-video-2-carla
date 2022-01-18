@@ -1,19 +1,15 @@
-import math
 import os
-from typing import Dict, Optional
+from typing import Optional
 import numpy
 
 import pandas
-from pandas.core.frame import DataFrame
-from pedestrians_video_2_carla.data import DATASETS_BASE
-from pedestrians_video_2_carla.data.datamodules.base import BaseDataModule
-from pedestrians_video_2_carla.data.datasets.amass_dataset import \
-    AMASSDataset
+
+from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
+from pedestrians_video_2_carla.data.smpl.constants import AMASS_DIR
+from pedestrians_video_2_carla.data.smpl.smpl_dataset import \
+    SMPLDataset
 from tqdm.std import tqdm
 import glob
-
-
-AMASS_DIR = os.path.join(DATASETS_BASE, 'AMASS')
 
 
 class AMASSDataModule(BaseDataModule):
@@ -141,7 +137,7 @@ class AMASSDataModule(BaseDataModule):
                           'clip'], progress_bar=progress_bar, settings=self.__settings)
 
     def setup(self, stage: Optional[str] = None) -> None:
-        return self._setup(dataset_creator=lambda *args, **kwargs: AMASSDataset(
+        return self._setup(dataset_creator=lambda *args, **kwargs: SMPLDataset(
             self.amass_dir,
             *args, **kwargs
         ), stage=stage)

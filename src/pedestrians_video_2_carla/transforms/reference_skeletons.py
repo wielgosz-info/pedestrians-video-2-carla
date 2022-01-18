@@ -1,8 +1,8 @@
 from typing import Any, Dict, List
 
 import torch
-from pedestrians_video_2_carla.skeletons.nodes.carla import CarlaHipsNeckExtractor
-from pedestrians_video_2_carla.skeletons.reference.carla import get_reference_absolute_tensors, get_reference_projections
+from pedestrians_video_2_carla.data.carla.skeleton import CarlaHipsNeckExtractor
+from pedestrians_video_2_carla.data.carla.reference import get_absolute_tensors, get_projections
 from pedestrians_video_2_carla.transforms.hips_neck import (HipsNeckDeNormalize, HipsNeckExtractor,
                                                             HipsNeckNormalize)
 from torch import Tensor
@@ -30,7 +30,7 @@ class ReferenceSkeletonsDenormalize(object):
     def from_projection(self, frames: Tensor, meta: Dict[str, List[Any]]) -> Tensor:
         frames = self.autonormalize(frames, dim=2)
 
-        reference_projections = get_reference_projections(frames.device, as_dict=True)
+        reference_projections = get_projections(frames.device, as_dict=True)
 
         frame_projections = torch.stack([
             reference_projections[(age, gender)]
@@ -42,7 +42,7 @@ class ReferenceSkeletonsDenormalize(object):
     def from_abs(self, frames: Tensor, meta: Dict[str, List[Any]]) -> Tensor:
         frames = self.autonormalize(frames, dim=3)
 
-        reference_abs = get_reference_absolute_tensors(frames.device, as_dict=True)
+        reference_abs = get_absolute_tensors(frames.device, as_dict=True)
 
         frame_abs = torch.stack([
             reference_abs[(age, gender)][0]

@@ -2,8 +2,8 @@ from typing import Dict, List, Tuple, Type
 import torch
 from torch import nn
 from pedestrians_video_2_carla.modules.base.output_types import MovementsModelOutputType
-from pedestrians_video_2_carla.skeletons.nodes import Skeleton, get_skeleton_name_by_type
-from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
+from pedestrians_video_2_carla.data.base.skeleton import Skeleton, get_skeleton_name_by_type
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 
 
 class MovementsModel(nn.Module):

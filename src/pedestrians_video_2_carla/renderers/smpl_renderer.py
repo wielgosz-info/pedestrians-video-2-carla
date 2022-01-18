@@ -1,4 +1,5 @@
 from functools import lru_cache
+from logging import root
 from typing import List, Any, Dict
 from human_body_prior.body_model.body_model import BodyModel
 from body_visualizer.mesh.mesh_viewer import MeshViewer
@@ -50,7 +51,10 @@ class SMPLRenderer(Renderer):
         video = []
 
         faces = body_model.f
-        vertices = body_model(pose_body=body_pose_clip).v
+        vertices = body_model(
+            pose_body=body_pose_clip[:, 3:],
+            root_orient=body_pose_clip[:, :3]
+        ).v
         _, num_verts = vertices.shape[:-1]
 
         for vert in vertices:

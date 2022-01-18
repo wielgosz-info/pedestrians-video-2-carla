@@ -5,8 +5,8 @@ from pedestrians_video_2_carla.renderers.renderer import Renderer
 from typing import List, Tuple
 import numpy as np
 
-from pedestrians_video_2_carla.skeletons.nodes import Skeleton
-from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
+from pedestrians_video_2_carla.data.base.skeleton import Skeleton
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.walker_control.pose_projection import PoseProjection
 
 

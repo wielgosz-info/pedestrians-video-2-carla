@@ -1,4 +1,4 @@
-from pedestrians_video_2_carla.skeletons.nodes.smpl import SMPL_SKELETON
+from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON
 import torch
 import math
 

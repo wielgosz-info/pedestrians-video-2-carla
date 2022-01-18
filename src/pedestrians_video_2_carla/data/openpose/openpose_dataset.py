@@ -5,7 +5,7 @@ import json
 import os
 import torch
 from torch.utils.data import Dataset
-from pedestrians_video_2_carla.skeletons.nodes.openpose import BODY_25_SKELETON, COCO_SKELETON
+from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON, COCO_SKELETON
 
 
 class OpenPoseDataset(Dataset):

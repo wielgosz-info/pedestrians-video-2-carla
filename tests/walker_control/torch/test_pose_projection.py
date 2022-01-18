@@ -6,7 +6,7 @@ The common API tests are in tests.walker_control.test_pose_projection.
 import numpy as np
 import torch
 import pytest
-from pedestrians_video_2_carla.skeletons.nodes.smpl import SMPL_SKELETON
+from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON
 
 from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
 from pedestrians_video_2_carla.walker_control.torch.pose_projection import \

@@ -1,7 +1,7 @@
 from typing import Dict
 from torchmetrics import Metric
 import torch
-from pedestrians_video_2_carla.skeletons.nodes import get_common_indices
+from pedestrians_video_2_carla.data.base.skeleton import get_common_indices
 
 
 class MPJPE(Metric):

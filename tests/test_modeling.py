@@ -143,7 +143,7 @@ def test_source_videos_jaad(test_logs_dir, test_outputs_dir, test_data_dir):
 
 def test_models(test_logs_dir, test_outputs_dir, movements_model_name, trajectory_model_name):
     """
-    Test the overall flow using Linear model.
+    Test the overall flow using specified models.
     """
     main([
         "--data_module_name=Carla2D3D",

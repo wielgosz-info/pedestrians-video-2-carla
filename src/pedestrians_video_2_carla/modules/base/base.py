@@ -17,8 +17,8 @@ from pedestrians_video_2_carla.modules.layers.projection import \
 from pedestrians_video_2_carla.modules.loss import LossModes
 from pedestrians_video_2_carla.modules.movements.zero import ZeroMovements
 from pedestrians_video_2_carla.modules.trajectory.zero import ZeroTrajectory
-from pedestrians_video_2_carla.skeletons.nodes import get_skeleton_type_by_name
-from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
+from pedestrians_video_2_carla.data.base.skeleton import get_skeleton_type_by_name
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.utils.argparse import DictAction
 from pedestrians_video_2_carla.walker_control.torch.world import \
     calculate_world_from_changes

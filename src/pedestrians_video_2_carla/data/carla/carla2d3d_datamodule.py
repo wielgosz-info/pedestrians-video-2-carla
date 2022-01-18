@@ -3,11 +3,10 @@ from typing import Optional
 
 import h5py
 import numpy as np
-from pytorch_lightning.utilities.warnings import rank_zero_warn
 import torch
-from pedestrians_video_2_carla.data.datamodules.base import BaseDataModule
-from pedestrians_video_2_carla.data.datasets.carla_2d_3d_dataset import (
-    Carla2D3DDataset, Carla2D3DIterableDataset)
+from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
+from pedestrians_video_2_carla.data.carla.carla_dataset import (
+    CarlaDataset, Carla2D3DIterableDataset)
 from tqdm import trange
 import math
 
@@ -162,14 +161,14 @@ class Carla2D3DDataModule(BaseDataModule):
                 transform=self.transform,
                 **self.kwargs,
             )
-            self.val_set = Carla2D3DDataset(
+            self.val_set = CarlaDataset(
                 os.path.join(self._subsets_dir, 'val.hdf5'),
                 nodes=self.nodes,
                 transform=self.transform
             )
 
         if stage == "test" or stage is None:
-            self.test_set = Carla2D3DDataset(
+            self.test_set = CarlaDataset(
                 os.path.join(self._subsets_dir, 'test.hdf5'),
                 nodes=self.nodes,
                 transform=self.transform

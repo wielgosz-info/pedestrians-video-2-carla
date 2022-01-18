@@ -4,33 +4,11 @@ from typing import Dict, Optional
 
 import pandas
 from pandas.core.frame import DataFrame
-from pedestrians_video_2_carla.data import OUTPUTS_BASE
-from pedestrians_video_2_carla.data.datamodules.base import BaseDataModule
-from pedestrians_video_2_carla.data.datasets.openpose_dataset import \
+from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
+from pedestrians_video_2_carla.data.openpose.constants import DF_USECOLS, DF_ISIN, JAAD_OPENPOSE_DIR
+from pedestrians_video_2_carla.data.openpose.openpose_dataset import \
     OpenPoseDataset
 from tqdm.std import tqdm
-
-
-OPENPOSE_DIR = os.path.join(OUTPUTS_BASE, 'JAAD')
-DF_ISIN = {
-    'action': ['walking'],
-    'speed': ['stopped'],
-    'group_size': [1]
-}
-DF_USECOLS = [
-    'video',
-    'frame',
-    'x1',
-    'y1',
-    'x2',
-    'y2',
-    'id',
-    'action',
-    'gender',
-    'age',
-    'speed',
-    'group_size'
-]
 
 
 class JAADOpenPoseDataModule(BaseDataModule):
@@ -38,7 +16,7 @@ class JAADOpenPoseDataModule(BaseDataModule):
                  df_usecols=DF_USECOLS,
                  df_isin: Optional[Dict] = DF_ISIN,
                  clip_offset: Optional[int] = 10,
-                 openpose_dir: Optional[str] = OPENPOSE_DIR,
+                 openpose_dir: Optional[str] = JAAD_OPENPOSE_DIR,
                  **kwargs
                  ):
         self.annotations_usecols = df_usecols
@@ -84,7 +62,7 @@ class JAADOpenPoseDataModule(BaseDataModule):
             '--openpose_dir',
             help="Directory where annotations.csv and OpenPose-extracted keypoints are stored.",
             type=str,
-            default=OPENPOSE_DIR
+            default=JAAD_OPENPOSE_DIR
         )
         return parent_parser
 

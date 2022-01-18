@@ -1,26 +1,30 @@
+import os
 from functools import lru_cache
 from typing import Type, Union
-from pytorch3d.transforms.rotation_conversions import euler_angles_to_matrix
-from torch.utils.data import Dataset
-from human_body_prior.body_model.body_model import BodyModel
+
+import numpy as np
 import pandas
 import torch
-import os
-import numpy as np
-from pedestrians_video_2_carla.renderers.smpl_renderer import BODY_MODEL_DIR, MODELS
-from pedestrians_video_2_carla.skeletons.nodes import get_common_indices
-from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
-
-from pedestrians_video_2_carla.skeletons.nodes.smpl import SMPL_SKELETON
-from pedestrians_video_2_carla.skeletons.reference.carla import get_reference_absolute_tensors, get_reference_poses, get_reference_relative_tensors
-from pedestrians_video_2_carla.skeletons.reference.load import load_yaml
+from human_body_prior.body_model.body_model import BodyModel
+from pedestrians_video_2_carla.data.base.skeleton import get_common_indices
+from pedestrians_video_2_carla.data.carla import reference as carla_reference
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
+from pedestrians_video_2_carla.data.smpl import reference as smpl_reference
+from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON
+from pedestrians_video_2_carla.data.smpl.utils import load
+from pedestrians_video_2_carla.renderers.smpl_renderer import (BODY_MODEL_DIR,
+                                                               MODELS)
 from pedestrians_video_2_carla.utils.tensors import eye_batch
-from pedestrians_video_2_carla.walker_control.controlled_pedestrian import ControlledPedestrian
+from pedestrians_video_2_carla.walker_control.controlled_pedestrian import \
+    ControlledPedestrian
 from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
-from pedestrians_video_2_carla.walker_control.torch.pose_projection import P3dPoseProjection
+from pedestrians_video_2_carla.walker_control.torch.pose_projection import \
+    P3dPoseProjection
+from pytorch3d.transforms.rotation_conversions import euler_angles_to_matrix
+from torch.utils.data import Dataset
 
 
-class AMASSDataset(Dataset):
+class SMPLDataset(Dataset):
     def __init__(self,
                  data_dir,
                  set_filepath,
@@ -42,16 +46,18 @@ class AMASSDataset(Dataset):
         self.nodes = points
         self.nodes_len = len(self.nodes)
 
-        self.structure = load_yaml('smpl_structure.yaml')['structure']
+        self.structure = load('structure')['structure']
         self.device = device
         self.smpl_nodes_len = len(SMPL_SKELETON)
 
-        # how to rotate axes when converting from SMPL to CARLA
+        # how to rotate axes when converting from SMPL to CARLA - rotation around X axis by 90deg
         self.reference_axes_rot = torch.tensor((
             (1.0, 0.0, 0.0),
             (0.0, 0.0, -1.0),
             (0.0, 1.0, 0.0)
-        )).reshape(1, 3, 3)
+        ), device=self.device).reshape(1, 3, 3)
+        # how to convert axis vales when converting from SMPL to CARLA - CARLA has negative X axis when compared to SMPL
+        self.reference_axes_dir = torch.tensor((-1, 1, 1), device=self.device)
 
         self.transform = transform
 
@@ -73,6 +79,7 @@ class AMASSDataset(Dataset):
         amass_end_frame = clip_info['end_frame']
         amass_step_frame = clip_info['step_frame']
         clip_length = (amass_end_frame - amass_start_frame) // amass_step_frame
+        ag = (clip_info['age'], clip_info['gender'])
 
         with np.load(os.path.join(self.data_dir, clip_info['id']), mmap_mode='r') as mocap:
             amass_relative_pose_rot_rad = torch.tensor(
@@ -90,20 +97,20 @@ class AMASSDataset(Dataset):
 
         # what output format is used in the dataset?
         if self.nodes == SMPL_SKELETON:
-            reference_pose = self.__get_smpl_reference_p3d_pose()
+            reference_pose = smpl_reference.get_poses()[ag]
             absolute_loc, absolute_rot = self.__get_smpl_absolute_loc_rot(
                 gender=clip_info['gender'],
                 reference_pose=reference_pose,
                 pose_body=amass_relative_pose_rot_rad[:, 3:]
             )
         else:
-            reference_pose = get_reference_poses(device=self.device, as_dict=True)[(
+            reference_pose = carla_reference.get_poses(device=self.device, as_dict=True)[(
                 clip_info['age'], clip_info['gender'])]
             absolute_loc, absolute_rot = self.convert_smpl_to_carla(
-                amass_relative_pose_rot_rad, clip_info['age'], clip_info['gender'], reference_pose)
+                amass_relative_pose_rot_rad, *ag, reference_pose)
 
         pedestrian = ControlledPedestrian(
-            None, clip_info['age'], clip_info['gender'], P3dPose, reference_pose=reference_pose)
+            None, *ag, P3dPose, reference_pose=reference_pose)
         pose_projection = P3dPoseProjection(torch.device('cpu'), pedestrian)
 
         # Let's pretend we have a batch_size=clip_length and clip_length=1 for more efficient processing
@@ -130,7 +137,7 @@ class AMASSDataset(Dataset):
             'world_rot': torch.eye(3, dtype=torch.float32, device=self.device).reshape((1, 3, 3)).repeat((clip_length, 1, 1)),
 
             # additional per-frame info
-            'amass_body_pose': amass_relative_pose_rot_rad[:, 3:].detach(),
+            'amass_body_pose': amass_relative_pose_rot_rad.detach(),
         }, {
             'age': clip_info['age'],
             'gender': clip_info['gender'],
@@ -138,23 +145,6 @@ class AMASSDataset(Dataset):
             'clip_id': clip_info['clip'],
             'video_id': os.path.dirname(clip_info['id']),
         })
-
-    def __get_smpl_reference_p3d_pose(self):
-        # TODO: smpl_pose locations tensor is currently incorrect (zeros, not rel)
-        # if smpl_pose will be used in the future, it should be fixed
-        # but for this particular case it is fine
-        # What we can get are absolute locations, but it is not needed at the moment.
-        # Also, the locations will depend on gender.
-
-        smpl_pose = P3dPose(device=self.device, structure=self.structure)
-        smpl_pose.tensors = (
-            torch.zeros((self.smpl_nodes_len, 3),
-                        dtype=torch.float32, device=self.device),
-            torch.eye(3, device=self.device, dtype=torch.float32).reshape(
-                (1, 3, 3)).repeat((self.smpl_nodes_len, 1, 1))
-        )
-
-        return smpl_pose
 
     def __get_smpl_absolute_loc_rot(self, gender, pose_body, reference_pose):
         # SMPL Body Model
@@ -187,7 +177,7 @@ class AMASSDataset(Dataset):
 
     @lru_cache(maxsize=10)
     def __get_local_rotation(self, clip_length, age, gender):
-        _, carla_abs_ref_rot = get_reference_absolute_tensors(self.device, as_dict=True)[
+        _, carla_abs_ref_rot = carla_reference.get_absolute_tensors(self.device, as_dict=True)[
             (age, gender)]
 
         local_rot = torch.bmm(
@@ -199,8 +189,8 @@ class AMASSDataset(Dataset):
         return local_rot
 
     @lru_cache(maxsize=10)
-    def __get_reference_relative_tensors(self, clip_length, age, gender):
-        carla_rel_loc, carla_rel_rot = get_reference_relative_tensors(self.device, as_dict=True)[
+    def __get_carla_reference_relative_tensors(self, clip_length, age, gender):
+        carla_rel_loc, carla_rel_rot = carla_reference.get_relative_tensors(self.device, as_dict=True)[
             (age, gender)]
         carla_rel_loc = carla_rel_loc.reshape(
             (1, self.nodes_len, 3)).repeat((clip_length, 1, 1))
@@ -213,19 +203,19 @@ class AMASSDataset(Dataset):
         clip_length = pose_body.shape[0]
 
         if reference_pose is None:
-            reference_pose = get_reference_poses(
+            reference_pose = carla_reference.get_poses(
                 self.device, as_dict=True)[(age, gender)]
 
         local_rot = self.__get_local_rotation(clip_length, age, gender)
 
         # convert SMPL pose_body to changes rotation matrices
         nx_pose_pody = SMPL_SKELETON.map_from_original(
-            pose_body) * torch.tensor((-1, 1, 1))  # CARLA has negative X axis when compared to SMPL
+            pose_body) * self.reference_axes_dir
         mapped_smpl = euler_angles_to_matrix(nx_pose_pody, 'XYZ')
 
         # write changes for common joints (all SMPL except Spine2)
         ci, si = get_common_indices(SMPL_SKELETON)
-        changes = eye_batch(clip_length, self.nodes_len)
+        changes = eye_batch(clip_length, self.nodes_len, self.device)
         changes[:, ci] = mapped_smpl[:, si]
 
         # special spine handling, since SMPL has one more joint there
@@ -241,7 +231,7 @@ class AMASSDataset(Dataset):
             local_rot.reshape((-1, 3, 3))
         ).reshape((clip_length, -1, 3, 3))
 
-        carla_rel_loc, carla_rel_rot = self.__get_reference_relative_tensors(
+        carla_rel_loc, carla_rel_rot = self.__get_carla_reference_relative_tensors(
             clip_length, age, gender)
 
         carla_abs_loc, carla_abs_rot, _ = reference_pose(local_changes,
@@ -253,4 +243,4 @@ class AMASSDataset(Dataset):
     @lru_cache(maxsize=3)
     def get_body_model(self, gender):
         model_path = os.path.join(self.body_model_dir, self.body_models[gender])
-        return BodyModel(bm_fname=model_path)
+        return BodyModel(bm_fname=model_path).to(self.device)

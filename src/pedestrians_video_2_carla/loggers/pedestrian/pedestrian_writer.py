@@ -11,7 +11,7 @@ from pedestrians_video_2_carla.renderers.smpl_renderer import SMPLRenderer
 from pedestrians_video_2_carla.renderers.renderer import Renderer
 from pedestrians_video_2_carla.renderers.source_videos_renderer import \
     SourceVideosRenderer
-from pedestrians_video_2_carla.skeletons.nodes import Skeleton
+from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 from pedestrians_video_2_carla.transforms.reference_skeletons import ReferenceSkeletonsDenormalize
 from torch import Tensor

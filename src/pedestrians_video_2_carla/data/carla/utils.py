@@ -1,30 +1,22 @@
-import os
+from functools import lru_cache
 from typing import Any, Dict
+import os
 import warnings
 
+from pedestrians_video_2_carla.data.base.utils import load_reference_file
 try:
     import carla
 except ImportError:
     import pedestrians_video_2_carla.carla_utils.mock_carla as carla
     warnings.warn("Using mock carla.", ImportWarning)
 
-import yaml
 
-try:
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Loader
-
-from functools import lru_cache
-
-
-@lru_cache(maxsize=None)
-def load_yaml(type: str) -> Dict[str, Any]:
+@lru_cache(maxsize=10)
+def load(type: str) -> Dict[str, Any]:
     """
     Loads the file with reference pose extracted from UE4 engine.
 
-    :param type: One of 'adult_female', 'adult_male', 'child_female', 'child_male', 'structure'
-        or arbitrary file name (relative to `reference_skeletons` dir).
+    :param type: One of 'adult_female', 'adult_male', 'child_female', 'child_male', or 'structure'.
     :type type: str
     :return: Dictionary containing pose structure or transforms.
     :rtype: Dict[str, Any]
@@ -36,13 +28,11 @@ def load_yaml(type: str) -> Dict[str, Any]:
             "child_female": 'sk_girl_relative.yaml',
             "child_male": 'sk_kid_relative.yaml',
             "structure": 'structure.yaml',
-            "smpl_structure": 'smpl_structure.yaml'
         }[type]
     except KeyError:
         filename = type
 
-    with open(os.path.join(os.path.dirname(__file__), filename), 'r') as f:
-        return yaml.load(f, Loader=Loader)
+    return load_reference_file(os.path.join(os.path.dirname(__file__), 'files', filename))
 
 
 def yaml_to_pose_dict(unreal_transforms: Dict[str, Dict[str, Dict[str, float]]]) -> Dict[str, carla.Transform]:

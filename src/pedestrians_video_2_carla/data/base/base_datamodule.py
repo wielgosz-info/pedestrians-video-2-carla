@@ -9,8 +9,8 @@ import math
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 
-from pedestrians_video_2_carla.skeletons.nodes import Skeleton
-from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
+from pedestrians_video_2_carla.data.base.skeleton import Skeleton
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 import yaml
 
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckNormalize

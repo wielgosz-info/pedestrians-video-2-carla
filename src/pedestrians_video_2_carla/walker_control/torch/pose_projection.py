@@ -84,8 +84,8 @@ class P3dPoseProjection(PoseProjection, torch.nn.Module):
             up=((0, 0, -1),)
         )
 
-        self.camera.R = R
-        self.camera.T = T
+        self.camera.R = R.to(self._device)
+        self.camera.T = T.to(self._device)
 
     def current_pose_to_points(self):
         root_transform = self._pedestrian.transform

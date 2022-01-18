@@ -2,7 +2,7 @@ from typing import Tuple, Union
 from pedestrians_video_2_carla.modules.base.output_types import MovementsModelOutputType, TrajectoryModelOutputType
 
 
-from pedestrians_video_2_carla.skeletons.nodes.carla import CarlaHipsNeckExtractor
+from pedestrians_video_2_carla.data.carla.skeleton import CarlaHipsNeckExtractor
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckNormalize
 from pedestrians_video_2_carla.transforms.reference_skeletons import ReferenceSkeletonsDenormalize
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import \

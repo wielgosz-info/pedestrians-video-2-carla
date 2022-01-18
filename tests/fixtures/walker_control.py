@@ -1,6 +1,7 @@
+import os
 import pytest
+from pedestrians_video_2_carla.data.carla.utils import load, yaml_to_pose_dict
 
-from pedestrians_video_2_carla.skeletons.reference.load import load_yaml, yaml_to_pose_dict
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import ControlledPedestrian
 from pedestrians_video_2_carla.walker_control.pose import Pose
 from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
@@ -52,13 +53,13 @@ def carla_pedestrian(carla_world, pose_cls, device):
 
 @pytest.fixture
 def absolute_pose():
-    unreal_abs_pose = load_yaml('sk_female_absolute.yaml')
+    unreal_abs_pose = load('sk_female_absolute.yaml')
     return yaml_to_pose_dict(unreal_abs_pose['transforms'])
 
 
 @pytest.fixture
 def relative_pose():
-    unreal_rel_pose = load_yaml('sk_female_relative.yaml')
+    unreal_rel_pose = load('sk_female_relative.yaml')
     return yaml_to_pose_dict(unreal_rel_pose['transforms'])
 
 

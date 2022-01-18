@@ -36,6 +36,9 @@ class Linear(MovementsModel):
         elif self.__movements_output_type == MovementsModelOutputType.absolute_loc_rot:
             self.__output_features = 9  # x,y,z + rotation 6D
             self.__transform = lambda x: (x[..., :3], rotation_6d_to_matrix(x[..., 3:]))
+        elif self.__movements_output_type == MovementsModelOutputType.relative_rot:
+            self.__output_features = 6  # rotation 6D
+            self.__transform = lambda x: rotation_6d_to_matrix(x)
 
         self.__input_size = self.__input_nodes_len * self.__input_features
         self.__output_size = self.__output_nodes_len * self.__output_features

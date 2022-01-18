@@ -3,7 +3,7 @@ import logging
 import math
 import os
 import sys
-from typing import List
+from typing import Dict, List, Type
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
@@ -20,9 +20,9 @@ import randomname
 from pytorch_lightning.utilities.warnings import rank_zero_warn
 
 from pedestrians_video_2_carla import __version__
-from pedestrians_video_2_carla.data.datamodules import DATA_MODULES
-from pedestrians_video_2_carla.data.datamodules.base import BaseDataModule
-from pedestrians_video_2_carla.data.datamodules.carla_2d_3d import Carla2D3DDataModule
+from pedestrians_video_2_carla.data import discover as discover_datamodules
+from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
+from pedestrians_video_2_carla.data.carla.carla2d3d_datamodule import Carla2D3DDataModule
 from pedestrians_video_2_carla.loggers.pedestrian import PedestrianLogger
 from pedestrians_video_2_carla.modules.base.base import LitBaseMapper
 from pedestrians_video_2_carla.modules.base.movements import MovementsModel
@@ -44,19 +44,19 @@ def get_base_model_cls() -> LitBaseMapper:
     return LitBaseMapper
 
 
-def get_movements_model_cls(model_name: str = "Baseline3DPoseRot") -> MovementsModel:
-    return MOVEMENTS_MODELS[model_name]
+def get_movements_model_cls(movements_models: Dict, model_name: str = "Baseline3DPoseRot") -> Type[MovementsModel]:
+    return movements_models[model_name]
 
 
-def get_trajectory_model_cls(model_name: str = "ZeroTrajectory") -> TrajectoryModel:
-    return TRAJECTORY_MODELS[model_name]
+def get_trajectory_model_cls(trajectory_models: Dict, model_name: str = "ZeroTrajectory") -> Type[TrajectoryModel]:
+    return trajectory_models[model_name]
 
 
-def get_data_module_cls(data_module_name: str = "Carla2D3D") -> BaseDataModule:
-    return DATA_MODULES[data_module_name]
+def get_data_module_cls(data_modules: Dict, data_module_name: str = "Carla2D3D") -> Type[BaseDataModule]:
+    return data_modules[data_module_name]
 
 
-def add_program_args():
+def add_program_args(data_modules, movements_models, trajectory_models):
     """
     Add program-level command line parameters
     """
@@ -97,7 +97,7 @@ def add_program_args():
         dest="data_module_name",
         help="Data module class to use",
         default="Carla2D3D",
-        choices=list(DATA_MODULES.keys()),
+        choices=list(data_modules.keys()),
         type=str,
     )
     parser.add_argument(
@@ -105,7 +105,7 @@ def add_program_args():
         dest="movements_model_name",
         help="Movements model class to use",
         default="Baseline3DPoseRot",
-        choices=list(MOVEMENTS_MODELS.keys()),
+        choices=list(movements_models.keys()),
         type=str,
     )
     parser.add_argument(
@@ -113,7 +113,7 @@ def add_program_args():
         dest="trajectory_model_name",
         help="Trajectory model class to use",
         default="ZeroTrajectory",
-        choices=list(TRAJECTORY_MODELS.keys()),
+        choices=list(trajectory_models.keys()),
         type=str,
     )
     parser.add_argument(
@@ -157,7 +157,14 @@ def main(args: List[str]):
     :type args: List[str]
     """
 
-    parser = add_program_args()
+    # TODO: handle movements & trajectory models similarly
+    data_modules = discover_datamodules()
+
+    parser = add_program_args(
+        data_modules,
+        MOVEMENTS_MODELS,
+        TRAJECTORY_MODELS,
+    )
     tmp_args = args[:]
     try:
         tmp_args.remove("-h")
@@ -171,10 +178,12 @@ def main(args: List[str]):
 
     parser = pl.Trainer.add_argparse_args(parser)
 
-    data_module_cls = get_data_module_cls(program_args.data_module_name)
+    data_module_cls = get_data_module_cls(data_modules, program_args.data_module_name)
     base_model_cls = get_base_model_cls()
-    movements_model_cls = get_movements_model_cls(program_args.movements_model_name)
-    trajectory_model_cls = get_trajectory_model_cls(program_args.trajectory_model_name)
+    movements_model_cls = get_movements_model_cls(
+        MOVEMENTS_MODELS, program_args.movements_model_name)
+    trajectory_model_cls = get_trajectory_model_cls(
+        TRAJECTORY_MODELS, program_args.trajectory_model_name)
 
     parser = data_module_cls.add_data_specific_args(parser)
     parser = base_model_cls.add_model_specific_args(parser)

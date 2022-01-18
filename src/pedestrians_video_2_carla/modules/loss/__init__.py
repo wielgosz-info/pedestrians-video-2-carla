@@ -61,5 +61,13 @@ class LossModes(Enum):
                 LossModes.common_loc_2d,
                 LossModes.loc_3d,
                 LossModes.loc_2d_3d,
+            ],
+            MovementsModelOutputType.relative_rot: [
+                LossModes.common_loc_2d,
+                LossModes.loc_3d,
+                LossModes.rot_3d,
+                LossModes.loc_2d_3d,
+                LossModes.loc_2d_loc_rot_3d,
+                LossModes.weighted_loc_2d_loc_rot_3d
             ]
         }[movements_output_type]

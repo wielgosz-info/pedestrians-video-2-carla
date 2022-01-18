@@ -1,7 +1,7 @@
 from typing import Dict, Type
-from pedestrians_video_2_carla.skeletons.nodes import get_common_indices
+from pedestrians_video_2_carla.data.base.skeleton import get_common_indices
 
-from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckNormalize
 from torch import Tensor
 from torch.nn.modules import loss

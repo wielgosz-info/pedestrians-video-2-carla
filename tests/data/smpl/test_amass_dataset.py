@@ -2,17 +2,17 @@ import os
 import numpy as np
 import torch
 from pedestrians_video_2_carla.data import DATASETS_BASE
-from pedestrians_video_2_carla.data.datasets.amass_dataset import AMASSDataset
-from pedestrians_video_2_carla.skeletons.nodes.carla import CARLA_SKELETON
-from pedestrians_video_2_carla.skeletons.nodes.smpl import _ORIG_SMPL_SKELETON, SMPL_SKELETON
-from pedestrians_video_2_carla.skeletons.reference.carla import get_reference_pedestrians, get_reference_poses
+from pedestrians_video_2_carla.data.smpl.smpl_dataset import SMPLDataset
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
+from pedestrians_video_2_carla.data.smpl.skeleton import _ORIG_SMPL_SKELETON, SMPL_SKELETON
+from pedestrians_video_2_carla.data.carla.reference import get_pedestrians, get_poses
 from pedestrians_video_2_carla.walker_control.torch.pose_projection import P3dPoseProjection
 from PIL import Image
 
 
 def test_convert_smpl_to_carla(test_data_dir, test_outputs_dir, device):
-    # data_dir & set_filepath are not used in this test, but are required by the AMASSDataset class
-    amass_dataset = AMASSDataset(
+    # data_dir & set_filepath are not used in this test, but are required by the SMPLDataset class
+    amass_dataset = SMPLDataset(
         data_dir=os.path.join(DATASETS_BASE, 'AMASS'),
         set_filepath=os.path.join(test_data_dir, 'AMASSDataModule',
                                   'subsets', '21b78507376adbe8edc2253d6edf8cda', 'train.csv'),
@@ -20,8 +20,8 @@ def test_convert_smpl_to_carla(test_data_dir, test_outputs_dir, device):
         device=device
     )
 
-    carla_reference_poses = get_reference_poses(device=device, as_dict=True)
-    carla_reference_pedestrians = get_reference_pedestrians(
+    carla_reference_poses = get_poses(device=device, as_dict=True)
+    carla_reference_pedestrians = get_pedestrians(
         device=device, as_dict=True)
 
     models_to_test = [
@@ -80,7 +80,7 @@ def test_convert_smpl_to_carla(test_data_dir, test_outputs_dir, device):
         # ==============================================================
 
         # get smpl absolute joint locations
-        # TODO: this should be a function in AMASSDataset
+        # TODO: this should be a function in SMPLDataset
         # -----------------------------------------------------------------------------
         bm_out = bm(pose_body=smpl_pose[:, 1:].reshape((batch_size, -1)))
         absolute_loc = bm_out.Jtr[:, :amass_dataset.smpl_nodes_len]
@@ -125,6 +125,8 @@ def test_convert_smpl_to_carla(test_data_dir, test_outputs_dir, device):
 
                 modifications[i].append(np.concatenate(
                     (carla_canvas, smpl_canvas), axis=1))
+
+        os.makedirs(os.path.join(test_outputs_dir, 'projections'), exist_ok=True)
 
         for mi, rows in enumerate(modifications):
             full = np.concatenate(rows, axis=0)

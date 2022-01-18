@@ -1,0 +1,5 @@
+from pedestrians_video_2_carla.data import register_datamodule
+from pedestrians_video_2_carla.data.carla.carla2d3d_datamodule import Carla2D3DDataModule
+
+
+register_datamodule("Carla2D3D", Carla2D3DDataModule)

@@ -5,7 +5,7 @@ import numpy as np
 from pedestrians_video_2_carla.modules.base.output_types import \
     MovementsModelOutputType
 from pedestrians_video_2_carla.renderers.smpl_renderer import BODY_MODEL_DIR
-from pedestrians_video_2_carla.skeletons.nodes.carla import CarlaHipsNeckExtractor
+from pedestrians_video_2_carla.data.carla.skeleton import CarlaHipsNeckExtractor
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 from pytorch_lightning.loggers import LightningLoggerBase
 from pytorch_lightning.loggers.base import rank_zero_experiment
