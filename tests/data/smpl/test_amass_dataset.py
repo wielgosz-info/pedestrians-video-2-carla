@@ -124,7 +124,7 @@ def test_convert_smpl_to_carla(test_data_dir, test_outputs_dir, device):
                                                        SMPL_SKELETON.__members__.keys())
 
                 modifications[i].append(np.concatenate(
-                    (carla_canvas, smpl_canvas), axis=1))
+                    (smpl_canvas, carla_canvas), axis=1))
 
         os.makedirs(os.path.join(test_outputs_dir, 'projections'), exist_ok=True)
 
