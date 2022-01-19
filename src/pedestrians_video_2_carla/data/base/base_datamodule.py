@@ -1,4 +1,4 @@
-from typing import Callable, Optional
+from typing import Callable, Optional, Type
 
 from tqdm.std import tqdm
 from pedestrians_video_2_carla.data import OUTPUTS_BASE
@@ -10,7 +10,6 @@ from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
-from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 import yaml
 
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckNormalize
@@ -23,11 +22,11 @@ except ImportError:
 
 class BaseDataModule(LightningDataModule):
     def __init__(self,
+                 input_nodes: Type[Skeleton],
                  outputs_dir: Optional[str] = None,
                  clip_length: Optional[int] = 30,
                  batch_size: Optional[int] = 64,
                  num_workers: Optional[int] = os.cpu_count(),
-                 input_nodes: Optional[Skeleton] = CARLA_SKELETON,
                  **kwargs):
         super().__init__()
 
