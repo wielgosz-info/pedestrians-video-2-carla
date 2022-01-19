@@ -21,12 +21,12 @@ class Renderer(object):
         """
         rendered_videos = len(frames)
         for _ in range(rendered_videos):
-            yield self.alpha_behavior(np.zeros((frames.shape[1], self._image_size[1], self._image_size[0], 4)))
+            yield self.alpha_behavior(np.zeros((frames.shape[1], self._image_size[1], self._image_size[0], 4), dtype=np.uint8))
 
     def alpha_behavior(self, rgba_frames: np.ndarray) -> np.ndarray:
         if self._alpha == AlphaBehavior.drop:
-            return rgba_frames[..., 0:3]
+            return rgba_frames[..., 0:3].astype(np.uint8)
         elif self._alpha == AlphaBehavior.blend:
-            return ((rgba_frames[..., 0:3] * 255.0) / rgba_frames[..., 3:4]).round().type(np.uint8)
+            return ((rgba_frames[..., 0:3] * 255.0) / rgba_frames[..., 3:4]).round().astype(np.uint8)
         # keep
         return rgba_frames

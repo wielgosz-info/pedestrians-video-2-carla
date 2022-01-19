@@ -239,15 +239,13 @@ class PoseProjection(object):
         :type camera_position: List[Tuple[float, float, float]]
         """
 
-        raise NotImplementedError()
+        (x, y, z) = camera_position
 
-        # (x,y,z) = camera_position
-
-        # self.camera.orientation = ct.SpatialOrientation(
-        #     pos_x_m=x,
-        #     pos_y_m=y,
-        #     elevation_m=z
-        # )
+        self.camera.orientation = ct.SpatialOrientation(
+            pos_x_m=x,
+            pos_y_m=y,
+            elevation_m=z
+        )
 
     def current_pose_to_points(self):
         # switch from UE world coords, axes of which are different

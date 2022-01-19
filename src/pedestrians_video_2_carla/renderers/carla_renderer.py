@@ -105,7 +105,7 @@ class CarlaRenderer(Renderer):
 
         bound_pedestrian.walker.destroy()
 
-        return torch.stack(video, dim=0)
+        return np.stack(video, axis=0)
 
     @torch.no_grad()
     def render_frame(self,
@@ -165,7 +165,6 @@ class CarlaRenderer(Renderer):
                                            data.raw_data, "raw", 'RGBA', 0, 1)  # load
                 img = img.convert('RGB')  # drop alpha
                 # the data is actually in BGR format, so switch channels
-                carla_img = torch.tensor(
-                    np.array(img)[..., ::-1].copy(), dtype=torch.uint8)
+                carla_img = np.array(img, dtype=np.uint8)[..., ::-1].copy()
 
         return carla_img

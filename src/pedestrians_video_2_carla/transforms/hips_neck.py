@@ -1,18 +1,9 @@
-from typing import Any, Callable, Type
+from typing import Any, Callable
 
 import torch
 from torch import Tensor
 
-
-class HipsNeckExtractor(object):
-    def __init__(self, input_nodes: Type['Skeleton']) -> None:
-        self.input_nodes = input_nodes
-
-    def get_hips_point(self, sample: Tensor) -> Tensor:
-        raise NotImplementedError()
-
-    def get_neck_point(self, sample: Tensor) -> Tensor:
-        raise NotImplementedError()
+from pedestrians_video_2_carla.data.base.skeleton import HipsNeckExtractor
 
 
 class HipsNeckNormalize(object):

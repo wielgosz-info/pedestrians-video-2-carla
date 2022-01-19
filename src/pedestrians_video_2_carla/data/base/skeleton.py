@@ -1,11 +1,23 @@
 from enum import Enum
 from typing import Type
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
+
+from torch import Tensor
 
 
 class Skeleton(Enum):
     @classmethod
-    def get_extractor(cls) -> Type[HipsNeckExtractor]:
+    def get_extractor(cls) -> Type['HipsNeckExtractor']:
+        raise NotImplementedError()
+
+
+class HipsNeckExtractor(object):
+    def __init__(self, input_nodes: Type[Skeleton]) -> None:
+        self.input_nodes = input_nodes
+
+    def get_hips_point(self, sample: Tensor) -> Tensor:
+        raise NotImplementedError()
+
+    def get_neck_point(self, sample: Tensor) -> Tensor:
         raise NotImplementedError()
 
 
@@ -18,7 +30,6 @@ def get_skeleton_type_by_name(name):
 
 
 def get_skeleton_name_by_type(skeleton):
-    # return list(SKELETONS.keys())[list(SKELETONS.values()).index(skeleton)]
     return skeleton.__name__
 
 

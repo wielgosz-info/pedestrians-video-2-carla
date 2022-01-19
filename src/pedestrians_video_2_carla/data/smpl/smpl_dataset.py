@@ -12,8 +12,8 @@ from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.data.smpl import reference as smpl_reference
 from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON
 from pedestrians_video_2_carla.data.smpl.utils import get_conventions_rot, convert_smpl_pose_to_absolute_loc_rot, load
-from pedestrians_video_2_carla.renderers.smpl_renderer import (BODY_MODEL_DIR,
-                                                               MODELS)
+
+
 from pedestrians_video_2_carla.utils.tensors import eye_batch
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import \
     ControlledPedestrian
@@ -35,8 +35,6 @@ class SMPLDataset(Dataset):
                  device=torch.device('cpu')
                  ) -> None:
         self.data_dir = data_dir
-        self.body_model_dir = BODY_MODEL_DIR
-        self.body_models = MODELS
 
         self.clips = pandas.read_csv(set_filepath)
         self.clips.set_index(['id', 'clip'], inplace=True)
@@ -244,8 +242,3 @@ class SMPLDataset(Dataset):
                                                          carla_rel_rot)
 
         return carla_abs_loc, carla_abs_rot
-
-    @lru_cache(maxsize=3)
-    def get_body_model(self, gender):
-        model_path = os.path.join(self.body_model_dir, self.body_models[gender])
-        return BodyModel(bm_fname=model_path).to(self.device)

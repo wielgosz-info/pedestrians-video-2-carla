@@ -99,14 +99,10 @@ class SMPLHipsNeckExtractor(HipsNeckExtractor):
         super().__init__(input_nodes)
 
     def get_hips_point(self, sample: Tensor) -> Tensor:
-        # Hips point projected from CARLA is a bit higher than Open pose one
-        # so use a point between tights as a reference instead
-        return sample[..., [self.input_nodes.L_Hip.value, self.input_nodes.R_Hip.value], :].mean(axis=-2)
+        return sample[..., self.input_nodes.Pelvis.value, :]
 
     def get_neck_point(self, sample: Tensor) -> Tensor:
-        # Hips point projected from CARLA is a bit higher than Open pose one
-        # so use a point between shoulders as a reference instead
-        return sample[..., [self.input_nodes.L_Shoulder.value, self.input_nodes.R_Shoulder.value], :].mean(axis=-2)
+        return sample[..., self.input_nodes.Neck.value, :]
 
 
 register_skeleton('SMPL_SKELETON', SMPL_SKELETON, [

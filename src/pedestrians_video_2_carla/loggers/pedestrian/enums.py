@@ -15,3 +15,9 @@ class PedestrianRenderers(Enum):
 
     # black window
     zeros = 100
+
+
+class MergingMethod(Enum):
+    vertical = 0
+    horizontal = 1
+    square = 2

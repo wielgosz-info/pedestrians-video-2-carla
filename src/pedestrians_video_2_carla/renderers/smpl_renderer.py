@@ -9,14 +9,7 @@ import trimesh
 from torch import Tensor
 
 from pedestrians_video_2_carla.renderers.renderer import Renderer
-
-
-BODY_MODEL_DIR = os.path.join(os.getcwd(), 'models', 'smpl-x', 'smplx_locked_head')
-MODELS = {
-    'male': os.path.join('male', 'model.npz'),
-    'female': os.path.join('female', 'model.npz'),
-    'neutral': os.path.join('neutral', 'model.npz')
-}
+from pedestrians_video_2_carla.data.smpl.utils import get_body_model
 
 
 class SMPLRenderer(Renderer):
@@ -24,25 +17,22 @@ class SMPLRenderer(Renderer):
     This renderer basically does the same job as `body_visualizer.tools.vis_tools.render_smpl_params`.
     """
 
-    def __init__(self, body_model_dir: str = BODY_MODEL_DIR, color=(0.7, 0.7, 0.7), **kwargs) -> None:
+    def __init__(self, color=(0.7, 0.7, 0.7), **kwargs) -> None:
         super().__init__(**kwargs)
 
-        self.body_model_dir = body_model_dir
         self.color = list(color)
         self.mesh_viewer = MeshViewer(
             width=self._image_size[0], height=self._image_size[1], use_offscreen=True)
-
-    @lru_cache(maxsize=3)
-    def __get_body_model(self, gender):
-        model_path = os.path.join(self.body_model_dir, MODELS[gender])
-        return BodyModel(bm_fname=model_path)
 
     def render(self, body_pose: List[Tensor], meta: List[Dict[str, Any]], **kwargs) -> List[np.ndarray]:
         rendered_videos = len(meta['video_id'])
 
         for clip_idx in range(rendered_videos):
             video = self.render_clip(
-                body_model=self.__get_body_model(meta['gender'][clip_idx]),
+                body_model=get_body_model(
+                    gender=meta['gender'][clip_idx],
+                    device=body_pose[clip_idx].device
+                ),
                 body_pose_clip=body_pose[clip_idx]
             )
             yield video
@@ -50,11 +40,11 @@ class SMPLRenderer(Renderer):
     def render_clip(self, body_model: BodyModel, body_pose_clip: Tensor) -> np.ndarray:
         video = []
 
-        faces = body_model.f
+        faces = body_model.f.cpu()
         vertices = body_model(
             pose_body=body_pose_clip[:, 3:],
             root_orient=body_pose_clip[:, :3]
-        ).v
+        ).v.cpu()
         _, num_verts = vertices.shape[:-1]
 
         for vert in vertices:

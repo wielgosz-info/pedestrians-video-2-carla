@@ -43,14 +43,10 @@ class CarlaHipsNeckExtractor(HipsNeckExtractor):
         super().__init__(input_nodes)
 
     def get_hips_point(self, sample: Tensor) -> Tensor:
-        # Hips point projected from CARLA is a bit higher than Open pose one
-        # so use a point between tights as a reference instead
-        return sample[..., [self.input_nodes.crl_thigh__L.value, self.input_nodes.crl_thigh__R.value], :].mean(axis=-2)
+        return sample[..., self.input_nodes.crl_hips__C.value, :]
 
     def get_neck_point(self, sample: Tensor) -> Tensor:
-        # Hips point projected from CARLA is a bit higher than Open pose one
-        # so use a point between shoulders as a reference instead
-        return sample[..., [self.input_nodes.crl_shoulder__L.value, self.input_nodes.crl_shoulder__R.value], :].mean(axis=-2)
+        return sample[..., self.input_nodes.crl_neck__C.value, :]
 
 
 register_skeleton('CARLA_SKELETON', CARLA_SKELETON)

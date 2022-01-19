@@ -4,7 +4,6 @@ from typing import List, Union
 import numpy as np
 from pedestrians_video_2_carla.modules.base.output_types import \
     MovementsModelOutputType
-from pedestrians_video_2_carla.renderers.smpl_renderer import BODY_MODEL_DIR
 from pedestrians_video_2_carla.data.carla.skeleton import CarlaHipsNeckExtractor
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 from pytorch_lightning.loggers import LightningLoggerBase
@@ -12,7 +11,7 @@ from pytorch_lightning.loggers.base import rank_zero_experiment
 from pytorch_lightning.utilities import rank_zero_only, rank_zero_warn
 
 from .disabled_pedestrian_writer import DisabledPedestrianWriter
-from .pedestrian_renderers import PedestrianRenderers
+from .enums import PedestrianRenderers
 from .pedestrian_writer import PedestrianWriter
 
 
@@ -72,7 +71,7 @@ class PedestrianLogger(LightningLoggerBase):
             self._writer_cls = DisabledPedestrianWriter
 
         # If renderers were not specified, use default. To disable, 'none' renderer must be passed explicitly.
-        self._renderers = list(set(renderers)) if (renderers is not None) and (len(renderers) > 0) else [
+        self._renderers = renderers if (renderers is not None) and (len(renderers) > 0) else [
             PedestrianRenderers.input_points, PedestrianRenderers.projection_points
         ]
 
@@ -150,12 +149,6 @@ class PedestrianLogger(LightningLoggerBase):
             dest="source_videos_dir",
             help="Directory to read source videos from. Required if 'source_videos' renderer is used. Default: None",
             default=None,
-        )
-        parser.add_argument(
-            "--body_model_dir",
-            dest="body_model_dir",
-            help=f"Directory to read SMPL-compatible BodyModel from. Required if 'smpl' renderer is used. Default: {BODY_MODEL_DIR}",
-            default=BODY_MODEL_DIR,
         )
 
         return parent_parser

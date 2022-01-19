@@ -4,25 +4,26 @@ from typing import Any, Callable, Dict, Iterator, List, Tuple
 import numpy as np
 import torch
 import torchvision
-from pedestrians_video_2_carla.renderers import MergingMethod
+from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 from pedestrians_video_2_carla.renderers.carla_renderer import CarlaRenderer
 from pedestrians_video_2_carla.renderers.points_renderer import PointsRenderer
-from pedestrians_video_2_carla.renderers.smpl_renderer import SMPLRenderer
 from pedestrians_video_2_carla.renderers.renderer import Renderer
+from pedestrians_video_2_carla.renderers.smpl_renderer import SMPLRenderer
 from pedestrians_video_2_carla.renderers.source_videos_renderer import \
     SourceVideosRenderer
-from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
-from pedestrians_video_2_carla.transforms.reference_skeletons import ReferenceSkeletonsDenormalize
+from pedestrians_video_2_carla.transforms.reference_skeletons import \
+    ReferenceSkeletonsDenormalize
 from torch import Tensor
+from tqdm import tqdm
 
-from .pedestrian_renderers import PedestrianRenderers
+from .enums import MergingMethod, PedestrianRenderers
 
 
 class PedestrianWriter(object):
     def __init__(self,
                  log_dir: str,
-                 renderers: List[str],
+                 renderers: List[PedestrianRenderers],
                  extractor: HipsNeckExtractor,
                  input_nodes: Skeleton,
                  output_nodes: Skeleton,
@@ -44,7 +45,7 @@ class PedestrianWriter(object):
         else:
             self.__videos_slice = slice(None)
 
-        self._used_renderers: List[str] = renderers
+        self._used_renderers: List[PedestrianRenderers] = renderers[:]
         if len(self._used_renderers) < 3 and merging_method == MergingMethod.square:
             merging_method = MergingMethod.horizontal
         self._merging_method = merging_method
@@ -122,7 +123,7 @@ class PedestrianWriter(object):
 
         # TODO: we should render videos in background so rendering is not blocking the main thread
 
-        for vid_idx, (vid, meta) in enumerate(self._render(
+        for vid_idx, (vid, meta) in tqdm(enumerate(self._render(
                 inputs[self.__videos_slice],
                 {k: v[self.__videos_slice] for k, v in targets.items()},
                 {k: v[self.__videos_slice] for k, v in meta.items()},
@@ -131,7 +132,7 @@ class PedestrianWriter(object):
                 absolute_pose_rot[self.__videos_slice] if absolute_pose_rot is not None else None,
                 world_loc[self.__videos_slice],
                 world_rot[self.__videos_slice] if world_rot is not None else None,
-                batch_idx)):
+                batch_idx)), desc="Rendering clips", total=self._max_videos):
             video_dir = os.path.join(self._log_dir, stage, meta['video_id'])
             os.makedirs(video_dir, exist_ok=True)
 

@@ -36,6 +36,7 @@ class PointsRenderer(Renderer):
         canvas = np.zeros(
             (self._image_size[1], self._image_size[0], 4), np.uint8)
         # TODO: draw bones and not only dots?
+        # TODO: drawing should be handled here, not in projection class
         rgba_frame = PoseProjection.draw_projection_points(
             canvas, frame, self.__keys)
 
