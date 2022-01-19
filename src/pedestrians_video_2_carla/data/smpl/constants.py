@@ -1,3 +1,4 @@
+from enum import Enum
 import os
 from pedestrians_video_2_carla.data import DATASETS_BASE
 
@@ -8,3 +9,10 @@ SMPL_MODELS = {
     'neutral': os.path.join('neutral', 'model.npz')
 }
 AMASS_DIR = os.path.join(DATASETS_BASE, 'AMASS')
+
+
+class RootOrientationTransform(Enum):
+    none = 0
+    first = 1
+    mean = 2
+    zeros = 3

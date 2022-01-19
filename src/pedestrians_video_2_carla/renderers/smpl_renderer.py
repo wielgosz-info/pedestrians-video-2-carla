@@ -1,9 +1,6 @@
-from functools import lru_cache
-from logging import root
 from typing import List, Any, Dict
 from human_body_prior.body_model.body_model import BodyModel
 from body_visualizer.mesh.mesh_viewer import MeshViewer
-import os
 import numpy as np
 import trimesh
 from torch import Tensor

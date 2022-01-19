@@ -5,19 +5,20 @@ from typing import Type, Union
 import numpy as np
 import pandas
 import torch
-from human_body_prior.body_model.body_model import BodyModel
 from pedestrians_video_2_carla.data.base.skeleton import get_common_indices
 from pedestrians_video_2_carla.data.carla import reference as carla_reference
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.data.smpl import reference as smpl_reference
+from pedestrians_video_2_carla.data.smpl.constants import \
+    RootOrientationTransform
 from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON
-from pedestrians_video_2_carla.data.smpl.utils import get_conventions_rot, convert_smpl_pose_to_absolute_loc_rot, load
-
-
+from pedestrians_video_2_carla.data.smpl.utils import (
+    convert_smpl_pose_to_absolute_loc_rot, get_conventions_rot, load)
 from pedestrians_video_2_carla.utils.tensors import eye_batch
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import \
     ControlledPedestrian
-from pedestrians_video_2_carla.walker_control.pose_projection import RGBCameraMock
+from pedestrians_video_2_carla.walker_control.pose_projection import \
+    RGBCameraMock
 from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
 from pedestrians_video_2_carla.walker_control.torch.pose_projection import \
     P3dPoseProjection
@@ -86,9 +87,8 @@ class SMPLDataset(Dataset):
             assert len(
                 amass_relative_pose_rot_rad) == clip_length, f'Clip has wrong length: actual {len(amass_relative_pose_rot_rad)}, expected {clip_length}'
 
-        # always reset Pelvis to (0, 0, 0)
-        # TODO: this breaks the movements a little, need to fix it
-        amass_relative_pose_rot_rad[:, 0:3] = 0.0
+        amass_relative_pose_rot_rad[:, 0:3] = self.__stabilize_root_orient(
+            amass_relative_pose_rot_rad)
 
         # TODO: implement moves mirroring
         if clip_info['mirror']:
@@ -120,6 +120,21 @@ class SMPLDataset(Dataset):
             'clip_id': clip_info['clip'],
             'video_id': os.path.dirname(clip_info['id']),
         })
+
+    def __stabilize_root_orient(self, body_pose, type: RootOrientationTransform = RootOrientationTransform.zeros):
+        if type == RootOrientationTransform.first:
+            new_root_orient = body_pose[:, 0:3] - body_pose[0, 0:3]
+        elif type == RootOrientationTransform.mean:
+            mean_root_orient = body_pose[:, 0:3].mean(dim=0)
+            new_root_orient = body_pose[:, 0:3] - mean_root_orient
+        elif type == RootOrientationTransform.zeros:
+            # we can directly return, rotating all zeros won't change a thing
+            return torch.zeros_like(body_pose[:, 0:3])
+        else:
+            # do nothing
+            new_root_orient = body_pose[:, 0:3]
+
+        return new_root_orient
 
     def get_clip_projection(self,
                             amass_relative_pose_rot_rad: torch.Tensor,
