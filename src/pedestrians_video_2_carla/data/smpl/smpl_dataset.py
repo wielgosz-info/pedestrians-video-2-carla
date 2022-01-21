@@ -9,8 +9,6 @@ from pedestrians_video_2_carla.data.base.skeleton import get_common_indices
 from pedestrians_video_2_carla.data.carla import reference as carla_reference
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.data.smpl import reference as smpl_reference
-from pedestrians_video_2_carla.data.smpl.constants import \
-    RootOrientationTransform
 from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON
 from pedestrians_video_2_carla.data.smpl.utils import (
     convert_smpl_pose_to_absolute_loc_rot, get_conventions_rot, load)
@@ -22,7 +20,7 @@ from pedestrians_video_2_carla.walker_control.pose_projection import \
 from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
 from pedestrians_video_2_carla.walker_control.torch.pose_projection import \
     P3dPoseProjection
-from pytorch3d.transforms.rotation_conversions import euler_angles_to_matrix
+from pytorch3d.transforms.rotation_conversions import euler_angles_to_matrix, matrix_to_euler_angles
 from torch.utils.data import Dataset
 
 
@@ -87,7 +85,7 @@ class SMPLDataset(Dataset):
             assert len(
                 amass_relative_pose_rot_rad) == clip_length, f'Clip has wrong length: actual {len(amass_relative_pose_rot_rad)}, expected {clip_length}'
 
-        amass_relative_pose_rot_rad[:, 0:3] = self.__stabilize_root_orient(
+        amass_relative_pose_rot_rad[:, 0:3], world_rot = self.__get_root_orient_and_world_rot(
             amass_relative_pose_rot_rad)
 
         # TODO: implement moves mirroring
@@ -109,7 +107,7 @@ class SMPLDataset(Dataset):
             'absolute_pose_loc': absolute_loc,
             'absolute_pose_rot': absolute_rot,
             'world_loc': torch.zeros((clip_length, 3), dtype=torch.float32, device=self.device),
-            'world_rot': torch.eye(3, dtype=torch.float32, device=self.device).reshape((1, 3, 3)).repeat((clip_length, 1, 1)),
+            'world_rot': world_rot,
 
             # additional per-frame info
             'amass_body_pose': amass_relative_pose_rot_rad.detach(),
@@ -121,20 +119,14 @@ class SMPLDataset(Dataset):
             'video_id': os.path.dirname(clip_info['id']),
         })
 
-    def __stabilize_root_orient(self, body_pose, type: RootOrientationTransform = RootOrientationTransform.zeros):
-        if type == RootOrientationTransform.first:
-            new_root_orient = body_pose[:, 0:3] - body_pose[0, 0:3]
-        elif type == RootOrientationTransform.mean:
-            mean_root_orient = body_pose[:, 0:3].mean(dim=0)
-            new_root_orient = body_pose[:, 0:3] - mean_root_orient
-        elif type == RootOrientationTransform.zeros:
-            # we can directly return, rotating all zeros won't change a thing
-            return torch.zeros_like(body_pose[:, 0:3])
-        else:
-            # do nothing
-            new_root_orient = body_pose[:, 0:3]
+    def __get_root_orient_and_world_rot(self, body_pose):
+        batch_size = body_pose.shape[0]
 
-        return new_root_orient
+        world_rot = euler_angles_to_matrix(body_pose[:, 0:3], 'XYZ')
+        new_root_orient_euler = torch.zeros(
+            (batch_size, 3), dtype=torch.float32, device=self.device)
+
+        return new_root_orient_euler, world_rot
 
     def get_clip_projection(self,
                             amass_relative_pose_rot_rad: torch.Tensor,

@@ -11,7 +11,7 @@ from pytorch_lightning.loggers.base import rank_zero_experiment
 from pytorch_lightning.utilities import rank_zero_only, rank_zero_warn
 
 from .disabled_pedestrian_writer import DisabledPedestrianWriter
-from .enums import PedestrianRenderers
+from .enums import MergingMethod, PedestrianRenderers
 from .pedestrian_writer import PedestrianWriter
 
 
@@ -143,6 +143,20 @@ class PedestrianLogger(LightningLoggerBase):
             nargs="+",
             action="extend",
             type=PedestrianRenderers.__getitem__
+        )
+        parser.add_argument(
+            "--merging_method",
+            dest="merging_method",
+            help="""
+                How to merge multiple videos into one.
+                Choices: {}.
+                Default: ['square']
+                """.format(
+                set(MergingMethod.__members__.keys())),
+            metavar="METHOD",
+            default=[],
+            choices=list(MergingMethod),
+            type=MergingMethod.__getitem__
         )
         parser.add_argument(
             "--source_videos_dir",
