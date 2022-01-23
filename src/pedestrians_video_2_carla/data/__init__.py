@@ -4,7 +4,7 @@ DATA_MODULES = {}
 
 
 def register_datamodule(name, datamodule_cls):
-    """Register a data module class. This needs to be called in __init__.py of each data package."""
+    """Register a data module class. This needs to be called in register.py of each data package."""
     DATA_MODULES[name] = datamodule_cls
 
 
@@ -18,6 +18,9 @@ def discover():
     for _, name, ispkg in iter_modules([os.path.dirname(__file__)], __name__ + '.'):
         if not ispkg:
             continue
-        import_module(name)
+        try:
+            import_module(name + '.register')
+        except ModuleNotFoundError:
+            pass
 
     return DATA_MODULES

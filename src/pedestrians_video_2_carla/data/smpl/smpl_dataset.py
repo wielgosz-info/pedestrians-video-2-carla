@@ -1,6 +1,6 @@
 import os
 from functools import lru_cache
-from typing import Type, Union
+from typing import Tuple, Type, Union
 
 import numpy as np
 import pandas
@@ -17,8 +17,8 @@ from pedestrians_video_2_carla.walker_control.controlled_pedestrian import \
     ControlledPedestrian
 from pedestrians_video_2_carla.walker_control.pose_projection import \
     RGBCameraMock
-from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
-from pedestrians_video_2_carla.walker_control.torch.pose_projection import \
+from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose
+from pedestrians_video_2_carla.walker_control.p3d_pose_projection import \
     P3dPoseProjection
 from pytorch3d.transforms.rotation_conversions import euler_angles_to_matrix, matrix_to_euler_angles
 from torch.utils.data import Dataset
@@ -88,16 +88,20 @@ class SMPLDataset(Dataset):
         amass_relative_pose_rot_rad[:, 0:3], world_rot = self.__get_root_orient_and_world_rot(
             amass_relative_pose_rot_rad)
 
+        world_loc = self.zero_world_loc.repeat((clip_length, 1))
+
         # TODO: implement moves mirroring
         if clip_info['mirror']:
             pass
 
         # convert to absolute pose and projection
         absolute_loc, absolute_rot, projections, _ = self.get_clip_projection(
-            amass_relative_pose_rot_rad,
-            self.nodes,
-            clip_info['age'],
-            clip_info['gender']
+            smpl_pose=amass_relative_pose_rot_rad,
+            nodes=self.nodes,
+            age=clip_info['age'],
+            gender=clip_info['gender'],
+            # world_rot=world_rot,
+            # world_loc=world_loc
         )
 
         if self.transform is not None:
@@ -106,8 +110,8 @@ class SMPLDataset(Dataset):
         return (projections, {
             'absolute_pose_loc': absolute_loc,
             'absolute_pose_rot': absolute_rot,
-            'world_loc': torch.zeros((clip_length, 3), dtype=torch.float32, device=self.device),
-            'world_rot': world_rot,
+            'world_loc': world_loc.detach(),
+            'world_rot': world_rot.detach(),
 
             # additional per-frame info
             'amass_body_pose': amass_relative_pose_rot_rad.detach(),
@@ -122,14 +126,29 @@ class SMPLDataset(Dataset):
     def __get_root_orient_and_world_rot(self, body_pose):
         batch_size = body_pose.shape[0]
 
-        world_rot = euler_angles_to_matrix(body_pose[:, 0:3], 'XYZ')
+        clone_rot = body_pose[:, 0:3].clone()
+        clone_rot[:, 0] *= -1
+        clone_rot_euler = np.rad2deg(clone_rot)
+
+        world_rot = self.zero_world_rot.repeat((batch_size, 1, 1))
+
+        # world_rot = euler_angles_to_matrix(clone_rot, 'XYZ')
+
+        # world_rot = torch.bmm(world_rot[0].T.unsqueeze(
+        #     0).repeat((batch_size, 1, 1)), world_rot)
+        # world_rot = torch.matmul(world_rot, torch.tensor(
+        #     ((0, 1, 0), (0, 0, -1), (-1, 0, 0)), device=self.device, dtype=torch.float32))
+
+        world_rot_euler = np.rad2deg(
+            matrix_to_euler_angles(world_rot, 'XYZ').clamp(-np.pi+1e-7, np.pi-1e-7).cpu().numpy())
+
         new_root_orient_euler = torch.zeros(
             (batch_size, 3), dtype=torch.float32, device=self.device)
 
         return new_root_orient_euler, world_rot
 
     def get_clip_projection(self,
-                            amass_relative_pose_rot_rad: torch.Tensor,
+                            smpl_pose: torch.Tensor,
                             nodes: Union[Type[SMPL_SKELETON],
                                          Type[CARLA_SKELETON]] = SMPL_SKELETON,
                             age: str = 'adult',
@@ -137,7 +156,7 @@ class SMPLDataset(Dataset):
                             world_loc=None,
                             world_rot=None
                             ):
-        clip_length = amass_relative_pose_rot_rad.shape[0]
+        clip_length = smpl_pose.shape[0]
 
         if world_loc is None:
             world_loc = self.zero_world_loc.repeat((clip_length, 1))
@@ -151,26 +170,26 @@ class SMPLDataset(Dataset):
             absolute_loc, absolute_rot = convert_smpl_pose_to_absolute_loc_rot(
                 gender=gender,
                 reference_pose=reference_pose,
-                pose_body=amass_relative_pose_rot_rad[:, 3:],
-                root_orient=amass_relative_pose_rot_rad[:, :3],
+                pose_body=smpl_pose[:, 3:],
+                root_orient=smpl_pose[:, :3],
                 device=self.device
             )
+            shift = absolute_loc[:, SMPL_SKELETON.Pelvis.value].unsqueeze(1).clone()
+            absolute_loc -= shift
         else:
             reference_pose = carla_reference.get_poses(device=self.device, as_dict=True)[(
                 age, gender)]
             absolute_loc, absolute_rot = self.convert_smpl_to_carla(
-                amass_relative_pose_rot_rad, age, gender, reference_pose)
-
-        pedestrian = ControlledPedestrian(
-            None, age, gender, P3dPose, reference_pose=reference_pose)
-
-        if nodes == SMPL_SKELETON:
-            camera_rgb = RGBCameraMock(pedestrian=pedestrian, elevation=0.0)
-        else:
-            camera_rgb = None
+                smpl_pose, age, gender, reference_pose)
+            shift = absolute_loc[:, CARLA_SKELETON.crl_hips__C.value].unsqueeze(
+                1).clone()
+            absolute_loc -= shift
 
         pose_projection = P3dPoseProjection(
-            device=self.device, pedestrian=pedestrian, camera_rgb=camera_rgb)
+            device=self.device,
+            look_at=(0, 0, 0),
+            camera_position=(3.1, 0, 0),
+        )
 
         projections = pose_projection(
             absolute_loc,
@@ -209,8 +228,8 @@ class SMPLDataset(Dataset):
 
         return carla_rel_loc, carla_rel_rot
 
-    def convert_smpl_to_carla(self, pose_body, age, gender, reference_pose=None):
-        clip_length = pose_body.shape[0]
+    def convert_smpl_to_carla(self, smpl_pose, age, gender, reference_pose=None) -> Tuple[torch.Tensor, torch.Tensor]:
+        clip_length = smpl_pose.shape[0]
 
         if reference_pose is None:
             reference_pose = carla_reference.get_poses(
@@ -219,9 +238,9 @@ class SMPLDataset(Dataset):
         local_rot = self.__get_local_rotation(clip_length, age, gender)
 
         # convert SMPL pose_body to changes rotation matrices
-        nx_pose_pody = SMPL_SKELETON.map_from_original(
-            pose_body) * self.reference_axes_dir
-        mapped_smpl = euler_angles_to_matrix(nx_pose_pody, 'XYZ')
+        nx_smpl_pose = SMPL_SKELETON.map_from_original(
+            smpl_pose) * self.reference_axes_dir
+        mapped_smpl = euler_angles_to_matrix(nx_smpl_pose, 'XYZ')
 
         # write changes for common joints (all SMPL except Spine2)
         ci, si = get_common_indices(SMPL_SKELETON)

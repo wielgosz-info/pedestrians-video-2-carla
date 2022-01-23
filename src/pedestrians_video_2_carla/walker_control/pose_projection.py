@@ -7,8 +7,6 @@ import cameratransform as ct
 import numpy as np
 from pedestrians_video_2_carla.carla_utils.setup import get_camera_transform
 from pedestrians_video_2_carla.data import OUTPUTS_BASE
-from pedestrians_video_2_carla.walker_control.controlled_pedestrian import \
-    ControlledPedestrian
 from PIL import Image, ImageDraw
 
 try:
@@ -159,7 +157,7 @@ class RGBCameraMock(object):
     Mocks up the default CARLA camera.
     """
 
-    def __init__(self, pedestrian: ControlledPedestrian, x=800, y=600, **kwargs):
+    def __init__(self, pedestrian: 'ControlledPedestrian' = None, x: int = 800, y: int = 600, **kwargs):
         super().__init__()
 
         self.attributes = {
@@ -169,14 +167,17 @@ class RGBCameraMock(object):
             'lens_x_size': '0.08',
             'lens_y_size': '0.08'
         }
-        self._transform = get_camera_transform(pedestrian, **kwargs)
+        if pedestrian is not None:
+            self._transform = get_camera_transform(pedestrian, **kwargs)
+        else:
+            self._transform = carla.Transform()
 
     def get_transform(self):
         return self._transform
 
 
 class PoseProjection(object):
-    def __init__(self, pedestrian: ControlledPedestrian, camera_rgb: 'carla.Sensor' = None, *args, **kwargs) -> None:
+    def __init__(self, pedestrian: 'ControlledPedestrian', camera_rgb: 'carla.Sensor' = None, *args, **kwargs) -> None:
         super().__init__()
 
         self._pedestrian = pedestrian
@@ -203,15 +204,21 @@ class PoseProjection(object):
         """
         return self._image_size
 
+    def _calculate_distance_and_elevation(self, camera_rgb: 'carla.Sensor') -> Tuple[float, float]:
+        distance = camera_rgb.get_transform().location.x - \
+            self._pedestrian.world_transform.location.x + \
+            self._pedestrian.spawn_shift.x
+        elevation = camera_rgb.get_transform().location.z - \
+            self._pedestrian.world_transform.location.z + \
+            self._pedestrian.spawn_shift.z
+
+        return distance, elevation
+
     def _setup_camera(self, camera_rgb: 'carla.Sensor'):
         # basic transform is in UE world coords, axes of which are different
         # additionally, we need to correct spawn shift error
-        cam_y_offset = camera_rgb.get_transform().location.x - \
-            self._pedestrian.world_transform.location.x + \
-            self._pedestrian.spawn_shift.x
-        cam_z_offset = camera_rgb.get_transform().location.z - \
-            self._pedestrian.world_transform.location.z + \
-            self._pedestrian.spawn_shift.z
+        distance, elevation = self._calculate_distance_and_elevation(
+            camera_rgb, self._pedestrian)
 
         camera_ct = ct.Camera(
             ct.RectilinearProjection(
@@ -222,8 +229,8 @@ class PoseProjection(object):
                 sensor_height_mm=float(camera_rgb.attributes['lens_y_size'])*1000
             ),
             ct.SpatialOrientation(
-                pos_y_m=cam_y_offset,
-                elevation_m=cam_z_offset,
+                pos_y_m=distance,
+                elevation_m=elevation,
                 heading_deg=180,
                 tilt_deg=90
             )
@@ -242,8 +249,8 @@ class PoseProjection(object):
         (x, y, z) = camera_position
 
         self.camera.orientation = ct.SpatialOrientation(
-            pos_x_m=x,
-            pos_y_m=y,
+            pos_x_m=y,
+            pos_y_m=x,
             elevation_m=z
         )
 

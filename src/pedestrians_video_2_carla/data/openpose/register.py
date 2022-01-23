@@ -1,0 +1,5 @@
+from pedestrians_video_2_carla.data import register_datamodule
+from pedestrians_video_2_carla.data.openpose.jaad_openpose_datamodule import JAADOpenPoseDataModule
+
+
+register_datamodule("JAADOpenPose", JAADOpenPoseDataModule)

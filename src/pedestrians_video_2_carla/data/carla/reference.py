@@ -4,8 +4,8 @@ import torch
 from pedestrians_video_2_carla.data.carla.utils import load, yaml_to_pose_dict
 
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import ControlledPedestrian
-from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
-from pedestrians_video_2_carla.walker_control.torch.pose_projection import P3dPoseProjection
+from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose
+from pedestrians_video_2_carla.walker_control.p3d_pose_projection import P3dPoseProjection
 
 
 CARLA_REFERENCE_SKELETON_TYPES = (

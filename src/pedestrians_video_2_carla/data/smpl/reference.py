@@ -3,7 +3,7 @@ from typing import List
 import torch
 
 from pedestrians_video_2_carla.data.smpl.utils import convert_smpl_pose_to_absolute_loc_rot, load
-from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
+from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose
 from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON
 
 

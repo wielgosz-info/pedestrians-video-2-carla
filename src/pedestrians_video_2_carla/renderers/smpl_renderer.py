@@ -3,6 +3,7 @@ from human_body_prior.body_model.body_model import BodyModel
 from body_visualizer.mesh.mesh_viewer import MeshViewer
 import numpy as np
 import trimesh
+from OpenGL.error import GLError
 from torch import Tensor
 
 from pedestrians_video_2_carla.renderers.renderer import Renderer
@@ -55,4 +56,7 @@ class SMPLRenderer(Renderer):
             vertices, faces, vertex_colors=num_verts*self.color)
         self.mesh_viewer.set_meshes([mesh], 'static')
 
-        return self.mesh_viewer.render()
+        try:
+            return self.mesh_viewer.render()
+        except GLError:
+            return np.zeros((self._image_size[1], self._image_size[0], 3,), dtype=np.uint8)

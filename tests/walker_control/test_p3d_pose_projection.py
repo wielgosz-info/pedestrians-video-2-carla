@@ -8,8 +8,8 @@ import torch
 import pytest
 from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON
 
-from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
-from pedestrians_video_2_carla.walker_control.torch.pose_projection import \
+from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose
+from pedestrians_video_2_carla.walker_control.p3d_pose_projection import \
     P3dPoseProjection
 from pedestrians_video_2_carla.walker_control.pose_projection import \
     PoseProjection

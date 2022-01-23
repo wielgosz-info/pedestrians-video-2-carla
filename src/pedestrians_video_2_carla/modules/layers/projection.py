@@ -5,12 +5,11 @@ from pedestrians_video_2_carla.modules.base.output_types import MovementsModelOu
 from pedestrians_video_2_carla.data.carla.skeleton import CarlaHipsNeckExtractor
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckNormalize
 from pedestrians_video_2_carla.transforms.reference_skeletons import ReferenceSkeletonsDenormalize
-from pedestrians_video_2_carla.walker_control.controlled_pedestrian import \
-    ControlledPedestrian
-from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
-from pedestrians_video_2_carla.walker_control.torch.pose_projection import \
+from pedestrians_video_2_carla.walker_control.controlled_pedestrian import ControlledPedestrian
+from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose
+from pedestrians_video_2_carla.walker_control.p3d_pose_projection import \
     P3dPoseProjection
-from pedestrians_video_2_carla.walker_control.torch.world import calculate_world_from_changes
+from pedestrians_video_2_carla.utils.world import calculate_world_from_changes
 
 import torch
 from torch import nn

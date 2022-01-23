@@ -1,4 +1,4 @@
-from pedestrians_video_2_carla.walker_control.torch.world import calculate_world_from_changes
+from pedestrians_video_2_carla.utils.world import calculate_world_from_changes
 import torch
 from pytorch3d.transforms.rotation_conversions import euler_angles_to_matrix
 

@@ -4,6 +4,8 @@ import random
 from typing import Dict, Type
 import warnings
 
+from pedestrians_video_2_carla.walker_control.pose import Pose
+
 try:
     import carla
 except ImportError:
@@ -13,11 +15,10 @@ except ImportError:
 from pedestrians_video_2_carla.carla_utils.spatial import deepcopy_location, deepcopy_transform
 
 from pedestrians_video_2_carla.data.carla.utils import load, yaml_to_pose_dict
-from pedestrians_video_2_carla.walker_control.pose import Pose
 
 
 class ControlledPedestrian(object):
-    def __init__(self, world: 'carla.World' = None, age: str = 'adult', gender: str = 'female', pose_cls: Type = Pose, max_spawn_tries=10, reference_pose: Pose = None, *args, **kwargs):
+    def __init__(self, world: 'carla.World' = None, age: str = 'adult', gender: str = 'female', pose_cls: Type[Pose] = Pose, max_spawn_tries=10, reference_pose: Pose = None, *args, **kwargs):
         """
         Initializes the pedestrian that keeps track of its current pose.
 

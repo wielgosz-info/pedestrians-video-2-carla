@@ -7,7 +7,7 @@ import numpy as np
 import random
 
 import torch
-from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
+from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose
 from pedestrians_video_2_carla.walker_control.pose import Pose
 import warnings
 

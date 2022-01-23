@@ -6,7 +6,7 @@ from pedestrians_video_2_carla.data.smpl.smpl_dataset import SMPLDataset
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.data.smpl.skeleton import _ORIG_SMPL_SKELETON, SMPL_SKELETON
 from pedestrians_video_2_carla.data.carla.reference import get_pedestrians, get_poses
-from pedestrians_video_2_carla.walker_control.torch.pose_projection import P3dPoseProjection
+from pedestrians_video_2_carla.walker_control.p3d_pose_projection import P3dPoseProjection
 from PIL import Image
 
 

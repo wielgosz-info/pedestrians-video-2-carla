@@ -2,9 +2,9 @@ from typing import Tuple, Union
 import numpy as np
 import torch
 from torch._C import device
-from pedestrians_video_2_carla.walker_control.torch.pose import P3dPose
-from pedestrians_video_2_carla.walker_control.controlled_pedestrian import \
-    ControlledPedestrian
+from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose
+
+
 from pedestrians_video_2_carla.walker_control.pose_projection import \
     PoseProjection
 from pytorch3d.renderer.cameras import (PerspectiveCameras,
@@ -15,26 +15,33 @@ from torch.types import Device
 
 
 class P3dPoseProjection(PoseProjection, torch.nn.Module):
-    def __init__(self, device: Device, pedestrian: ControlledPedestrian, camera_rgb: 'carla.Sensor' = None, *args, **kwargs):
+    def __init__(self,
+                 device: Device,
+                 pedestrian: 'ControlledPedestrian' = None,
+                 camera_rgb: 'carla.Sensor' = None,
+                 look_at: Tuple[float, float, float] = None,
+                 camera_position: Tuple[float, float, float] = None,
+                 *args,
+                 **kwargs):
+
         self._device = device
 
-        self._eye = ((1, 0, 0),)
-        self._look_at = ((0, 0, 0),)
+        if camera_position is not None and look_at is not None:
+            distance, shift, elevation = camera_position
+            self._eye = ((distance, shift, -elevation), )
+            self._look_at = (look_at,)
+        else:
+            assert pedestrian is not None, "Pedestrian must be provided when camera_position or look_at is not."
+            self._look_at = None
+            self._eye = None
 
         super().__init__(pedestrian=pedestrian, camera_rgb=camera_rgb, *args, **kwargs)
 
     def _setup_camera(self, camera_rgb: 'carla.Sensor'):
-        # basic transform is in UE world coords, axes of which are different
-        # additionally, we need to correct spawn shift error
-        distance = camera_rgb.get_transform().location.x - \
-            self._pedestrian.world_transform.location.x + \
-            self._pedestrian.spawn_shift.x
-        elevation = camera_rgb.get_transform().location.z - \
-            self._pedestrian.world_transform.location.z + \
-            self._pedestrian.spawn_shift.z
-
-        self._look_at = ((0, 0, -elevation),)
-        self._eye = ((distance, 0, -elevation),)
+        if self._eye is None or self._look_at is None:
+            distance, elevation = self._calculate_distance_and_elevation(camera_rgb)
+            self._look_at = ((0, 0, -elevation),)
+            self._eye = ((distance, 0, -elevation),)
 
         R, T = look_at_view_transform(
             eye=self._eye,

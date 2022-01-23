@@ -187,7 +187,7 @@ class PedestrianWriter(object):
         """
 
         # TODO: handle world_loc and world_rot in carla renderers
-
+        # TODO: denormalization should be aware of the camera position if possible
         denormalized_frames = self.__denormalize.from_projection(frames, meta)
 
         output_videos = []
