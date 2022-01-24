@@ -135,63 +135,18 @@ class SMPLDataset(Dataset):
         axes = body_pose[:, 0:3].clone()*2 / np.pi
         axes_rot = euler_angles_to_matrix(
             axes.mean(dim=0).round()*np.pi / 2, 'XYZ').round()
-        # print(axes_rot)
-        # axes_rot_euler = matrix_to_euler_angles(
-        #     axes_rot, 'XYZ').clamp(-np.pi+1e-7, np.pi-1e-7)
-
-        # test_x = torch.tensor((1, 0, 0), dtype=torch.float32, device=self.device)
-        # test_x_rot = axes_rot.matmul(test_x)
-        # print("x", test_x_rot)
-        # test_y = torch.tensor((0, 1, 0), dtype=torch.float32, device=self.device)
-        # test_y_rot = axes_rot.matmul(test_y)
-        # print("y", test_y_rot)
-        # test_z = torch.tensor((0, 0, 1), dtype=torch.float32, device=self.device)
-        # test_z_rot = axes_rot.matmul(test_z)
-        # print("z", test_z_rot)
 
         root_orient_rot = torch.matmul(axes_rot, body_pose[:, 0:3].T).T
-        # root_orient_rot[:, 0] = 0
-        # root_orient_rot[:, 1] = 0
-        clone_rot_alt_euler = np.rad2deg(root_orient_rot)
 
-        # clone_rot = torch.empty_like(body_pose[:, 0:3])
-        # clone_rot[:, 0] = 0  # -body_pose[:, 0].clone()
-        # clone_rot[:, 1] = 0  # body_pose[:, 2].clone()
-        # clone_rot[:, 2] = body_pose[:, 1].clone()
-        # clone_rot_euler = np.rad2deg(clone_rot)
-
-        # tmp = torch.zeros_like(body_pose[:, 0:3])
-        # tmp[:, 1] = body_pose[:, 1].clone()
-        # clone_rot_alt = torch.bmm(
-        #     axes_rot,
-        #     euler_angles_to_matrix(tmp, 'XYZ'),
-        # )
-        # first_frame_alt = clone_rot_alt[0].T.unsqueeze(0).repeat((batch_size, 1, 1))
-        # clone_rot_alt = torch.bmm(first_frame_alt, clone_rot_alt)
-        # clone_rot_alt_euler = np.rad2deg(
-        #     matrix_to_euler_angles(clone_rot_alt, 'XYZ').clamp(-np.pi+1e-7, np.pi-1e-7).cpu().numpy())
-        # clone_rot_alt_euler[:, 0] = 0
-        # clone_rot_alt_euler[:, 1] = 0
-
+        # get only yaw axis - this is just approximation!
         yaw_rot = root_orient_rot.clone()
         yaw_rot[:, 0] = 0
         yaw_rot[:, 1] = 0
-        world_rot = euler_angles_to_matrix(yaw_rot, 'XYZ')
-        # first_frame_inv = world_rot[0].T.unsqueeze(0).repeat((batch_size, 1, 1))
+        yaw_rot_mtx = euler_angles_to_matrix(yaw_rot, 'XYZ')
 
-        # world_rot = torch.bmm(first_frame_inv, world_rot)
-        # world_rot = torch.matmul(world_rot, torch.tensor(
-        #     ((0, 1, 0), (0, 0, -1), (-1, 0, 0)), device=self.device, dtype=torch.float32))
-
-        world_rot_euler = np.rad2deg(
-            matrix_to_euler_angles(world_rot, 'XYZ').clamp(-np.pi+1e-7, np.pi-1e-7).cpu().numpy())
-
-        # print(clone_rot_alt_euler[0, 2], clone_rot_euler[0, 2])
-        # print(clone_rot_alt_euler[30, 2], clone_rot_euler[30, 2])
-        # print(clone_rot_alt_euler[60, 2], clone_rot_euler[60, 2])
-        # print(clone_rot_alt_euler[90, 2], clone_rot_euler[90, 2])
-        # print(clone_rot_alt_euler[120, 2], clone_rot_euler[120, 2])
-        # print(clone_rot_alt_euler[149, 2], clone_rot_euler[149, 2])
+        # reset, so that in the first frame we see the skeleton from the front
+        first_frame = yaw_rot_mtx[0].T
+        world_rot = torch.matmul(first_frame, yaw_rot_mtx)
 
         new_root_orient_euler = torch.zeros(
             (batch_size, 3), dtype=torch.float32, device=self.device)
