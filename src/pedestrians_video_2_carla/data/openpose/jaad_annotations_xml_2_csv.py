@@ -1,7 +1,7 @@
 import os
 import xmltodict
 import pandas as pd
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from typing import Dict, List, OrderedDict
 
 

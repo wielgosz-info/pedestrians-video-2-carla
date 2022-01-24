@@ -2,6 +2,7 @@ from functools import lru_cache
 from typing import List
 import torch
 from pedestrians_video_2_carla.data.carla.utils import load, yaml_to_pose_dict
+from pedestrians_video_2_carla.utils.world import zero_world_loc, zero_world_rot
 
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import ControlledPedestrian
 from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose
@@ -89,20 +90,17 @@ def get_absolute_tensors(device=torch.device('cpu'), as_dict=False):
 
 @lru_cache(maxsize=10)
 def get_projections(device=torch.device('cpu'), as_dict=False):
-    pedestrians = get_pedestrians(device)
     reference_abs, _ = get_absolute_tensors(device)
 
     pose_projection = P3dPoseProjection(
         device=device,
-        # needed for camere settings
-        pedestrian=pedestrians[0]
+        look_at=(0, 0, 0),
+        camera_position=(3.1, 0, 0),
     )
 
-    # TODO: we're assuming no in-world movement for now!
-    world_locations = torch.zeros(
-        (len(reference_abs), 3), device=device)
-    world_rotations = torch.eye(3, device=device).reshape(
-        (1, 3, 3)).repeat((len(reference_abs), 1, 1))
+    # we're assuming no in-world movement for reference poses
+    world_locations = zero_world_loc((len(reference_abs),), device=device)
+    world_rotations = zero_world_rot((len(reference_abs),), device=device)
 
     reference_projections = pose_projection(
         reference_abs,

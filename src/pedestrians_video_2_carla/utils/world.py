@@ -3,6 +3,16 @@ import torch
 from torch import Tensor
 
 
+def zero_world_loc(shape: Tuple, device: torch.device) -> Tensor:
+    return torch.zeros((*shape, 3), device=device)
+
+
+def zero_world_rot(shape: Tuple, device: torch.device) -> Tensor:
+    ones = tuple([1] * len(shape))
+    return torch.eye(3, device=device).reshape(
+        (*ones, 3, 3)).repeat((*shape, 1, 1))
+
+
 def calculate_world_from_changes(
     shape: Tuple,
     device: torch.device,
@@ -14,12 +24,10 @@ def calculate_world_from_changes(
     batch_size, clip_length, *_ = shape
 
     if initial_world_loc is None:
-        initial_world_loc = torch.zeros((batch_size, 3),
-                                        device=device)  # zero world loc
+        initial_world_loc = zero_world_loc((batch_size,), device=device)
 
     if initial_world_rot is None:
-        initial_world_rot = torch.eye(3, device=device).reshape(
-            (1, 3, 3)).repeat((batch_size, 1, 1))  # zero world rot
+        initial_world_rot = zero_world_rot((batch_size,), device=device)
 
     if world_loc_change_batch is None and world_rot_change_batch is None:
         # bail out if no changes
@@ -29,12 +37,12 @@ def calculate_world_from_changes(
         )
 
     if world_loc_change_batch is None:
-        world_loc_change_batch = torch.zeros((batch_size, clip_length, 3),
-                                             device=device)  # no world loc change
+        world_loc_change_batch = zero_world_loc((batch_size, clip_length),
+                                                device=device)  # no world loc change
 
     if world_rot_change_batch is None:
-        world_rot_change_batch = torch.eye(3, device=device).reshape(
-            (1, 1, 3, 3)).repeat((batch_size, clip_length, 1, 1))  # no world rot change
+        world_rot_change_batch = zero_world_rot((batch_size, clip_length),
+                                                device=device)  # no world rot change
 
     world_loc = torch.empty(
         (batch_size, clip_length+1, *world_loc_change_batch.shape[2:]), device=device)

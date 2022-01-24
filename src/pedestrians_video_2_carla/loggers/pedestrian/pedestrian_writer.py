@@ -15,7 +15,7 @@ from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 from pedestrians_video_2_carla.transforms.reference_skeletons import \
     ReferenceSkeletonsDenormalize
 from torch import Tensor
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from .enums import MergingMethod, PedestrianRenderers
 

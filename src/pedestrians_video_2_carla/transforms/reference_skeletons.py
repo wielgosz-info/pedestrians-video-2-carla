@@ -37,7 +37,7 @@ class ReferenceSkeletonsDenormalize(object):
             for (age, gender) in zip(meta['age'], meta['gender'])
         ], dim=0)
 
-        return HipsNeckDeNormalize().from_projection(self._extractor, frame_projections)(frames, dim=2)
+        return HipsNeckDeNormalize().from_pose(self._extractor, frame_projections)(frames, dim=2)
 
     def from_abs(self, frames: Tensor, meta: Dict[str, List[Any]]) -> Tensor:
         frames = self.autonormalize(frames, dim=3)
@@ -49,4 +49,4 @@ class ReferenceSkeletonsDenormalize(object):
             for (age, gender) in zip(meta['age'], meta['gender'])
         ], dim=0)
 
-        return HipsNeckDeNormalize().from_projection(self._extractor, frame_abs)(frames, dim=3)
+        return HipsNeckDeNormalize().from_pose(self._extractor, frame_abs)(frames, dim=3)

@@ -1,8 +1,10 @@
 from typing import Tuple, Union
+
+from scipy.fftpack import shift
 from pedestrians_video_2_carla.modules.base.output_types import MovementsModelOutputType, TrajectoryModelOutputType
 
 
-from pedestrians_video_2_carla.data.carla.skeleton import CarlaHipsNeckExtractor
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON, CarlaHipsNeckExtractor
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckNormalize
 from pedestrians_video_2_carla.transforms.reference_skeletons import ReferenceSkeletonsDenormalize
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import ControlledPedestrian
@@ -111,12 +113,19 @@ class ProjectionModule(nn.Module):
         projections = torch.empty_like(absolute_loc)
 
         # for every frame in clip
+        # TODO: combine batch and clip length dimensions?
         for i in range(absolute_loc.shape[1]):
-            projections[:, i] = self.__pose_projection.forward(
+            projections[:, i] = self.__pose_projection(
                 absolute_loc[:, i],
                 world_loc[:, i],
                 world_rot[:, i]
             )
+
+        # adjust absolute pose locations so that hips are at the origin; this is consistent with other models (e.g. SMPL)
+        # ProjectionModule only works with CARLA_SKELETON so we can just hardcode hips index
+        # shift = absolute_loc[:, :,
+        #                      CARLA_SKELETON.crl_hips__C.value].clone().unsqueeze(2)
+        # absolute_loc -= shift
 
         return projections, absolute_loc, absolute_rot, world_loc, world_rot
 
@@ -176,7 +185,7 @@ class ProjectionModule(nn.Module):
         pose: P3dPose = self.__pedestrians[0].current_pose
 
         for i in range(clip_length):
-            (absolute_loc[:, i], absolute_rot[:, i], prev_relative_rot) = pose.forward(
+            (absolute_loc[:, i], absolute_rot[:, i], prev_relative_rot) = pose(
                 pose_inputs_batch[:, i], prev_relative_loc, prev_relative_rot)
 
         return absolute_loc, absolute_rot

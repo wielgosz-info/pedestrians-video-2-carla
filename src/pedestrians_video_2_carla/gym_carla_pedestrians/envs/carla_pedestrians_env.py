@@ -131,7 +131,7 @@ if __name__ == "__main__":
     Minimal Working Example
     """
 
-    from tqdm import tqdm
+    from tqdm.auto import tqdm
     from pedestrians_video_2_carla.gym_carla_pedestrians.wrappers import (
         CarlaRenderWrapper, PoseOverlayRenderWrapper)
 

@@ -44,7 +44,7 @@ def yaml_to_pose_dict(unreal_transforms: Dict[str, Dict[str, Dict[str, float]]])
     :return: Transforms data mapped to carla.Transform
     :rtype: Dict[str, carla.Transform]
     """
-    return {
+    pose_dict = {
         bone_name: carla.Transform(
             location=carla.Location(
                 x=transform_dict['location']['x']/100.0,
@@ -58,3 +58,6 @@ def yaml_to_pose_dict(unreal_transforms: Dict[str, Dict[str, Dict[str, float]]])
             )
         ) for (bone_name, transform_dict) in unreal_transforms.items()
     }
+    # overlap set hips to (0,0,0)
+    pose_dict['crl_hips__C'].location = carla.Location()
+    return pose_dict

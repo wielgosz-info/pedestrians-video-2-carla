@@ -77,9 +77,9 @@ class HipsNeckDeNormalize(object):
 
         return denormalized_sample
 
-    def from_projection(self, extractor: HipsNeckExtractor, projected_pose: Tensor) -> Callable:
-        hips = extractor.get_hips_point(projected_pose)
-        neck = extractor.get_neck_point(projected_pose)
+    def from_pose(self, extractor: HipsNeckExtractor, pose: Tensor) -> Callable:
+        hips = extractor.get_hips_point(pose)
+        neck = extractor.get_neck_point(pose)
         dist = torch.linalg.norm(neck - hips, dim=hips.ndim - 1, ord=2)
 
         return lambda sample, dim=2: self(sample, dist, hips[..., 0:dim], dim)

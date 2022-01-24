@@ -127,11 +127,14 @@ class SMPLDataset(Dataset):
         """
         Tries to naively recover the root orientation of the body.
         """
+        # TODO: try to make it better, recover changes in other planes than Z, but for now it will do
+        # note for the future: do NOT set yaw rotation on root_orient, SMPL body mesh renderer cannot handle angles bigger than +/- 90deg
+
         batch_size = body_pose.shape[0]
 
         # try to determine which "canonical" orientation is closest to the original root orientation
         # this works best for somewhat longish clips
-        # assumption: camera is not moving during the clip and default human position is standing
+        # assumptions: camera is not moving during the clip and default human position is standing
         axes = body_pose[:, 0:3].clone()*2 / np.pi
         axes_rot = euler_angles_to_matrix(
             axes.mean(dim=0).round()*np.pi / 2, 'XYZ').round()
