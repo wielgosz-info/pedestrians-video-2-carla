@@ -18,7 +18,7 @@ except ImportError:
 # try to match OpenPose color scheme for easier visual comparison
 # TODO: colors definitions should be with nodes, not here
 POSE_COLORS = {
-    'crl_root': (128, 128, 128, 128),
+    'crl_root': (0, 0, 0, 128),
     #
     #
 
