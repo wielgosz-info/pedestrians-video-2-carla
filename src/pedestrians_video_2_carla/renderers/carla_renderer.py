@@ -93,6 +93,12 @@ class CarlaRenderer(Renderer):
                 ref_abs_pose_rot
             ] * len(absolute_pose_loc_clip)
 
+        # recover semi-correct root point, since we shifted hips to 0,0,0
+        # TODO: this should probably be somewhat more sophisticated, take into account ground contact points, hips vs root angle etc.
+        extreme_Zs, _ = absolute_pose_loc_clip[:, :, 2].T.max(dim=0, keepdim=True)
+        absolute_pose_loc_clip[:, :, 2] -= extreme_Zs.T.clone()
+        absolute_pose_loc_clip[:, 0, 2] = 0.0
+
         video = []
         for absolute_pose_loc_frame, absolute_pose_rot_frame, world_loc_frame, world_rot_frame in zip(absolute_pose_loc_clip, absolute_pose_rot_clip, world_loc_clip, world_rot_clip):
             frame = self.render_frame(absolute_pose_loc_frame, absolute_pose_rot_frame,
