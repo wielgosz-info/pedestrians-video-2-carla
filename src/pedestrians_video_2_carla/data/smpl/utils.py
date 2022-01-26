@@ -79,10 +79,10 @@ def convert_smpl_pose_to_absolute_loc_rot(gender: str, reference_pose: 'P3dPose'
     absolute_loc = torch.bmm(absolute_loc, conventions_rot)
 
     ref_rel_loc, ref_rel_rot = reference_pose.tensors
-    relative_loc = ref_rel_loc.repeat((clip_length, 1))
+    relative_loc = ref_rel_loc.unsqueeze(dim=0).repeat((clip_length, 1, 1))
 
     if pose_body is None:
-        relative_rot = ref_rel_rot.repeat((clip_length, 1, 1))
+        relative_rot = ref_rel_rot.unsqueeze(dim=0).repeat((clip_length, 1, 1, 1))
         absolute_rot = eye_batch(clip_length, device=device)
     else:
         relative_rot = euler_angles_to_matrix(SMPL_SKELETON.map_from_original(
