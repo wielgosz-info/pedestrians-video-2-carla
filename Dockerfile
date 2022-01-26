@@ -131,12 +131,6 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     ipykernel \
     ipywidgets
 
-# Let's pretend we've installed CARLA via easy_install
-# It's client for Python 3.7 and in Ubuntu 20.04 there's Python 3.8 but hopefully this will work
-# TODO: update it to installable, official CARLA package once we make a switch to 0.9.13
-# COPY --from=carlasim/carla:0.9.11 --chown=${USERNAME}:${USERNAME} /home/carla/PythonAPI/carla/dist/carla-0.9.11-py3.7-linux-x86_64.egg /venv/lib/python3.8/site-packages/carla-0.9.11-py3.7-linux-x86_64.egg
-# RUN echo "import sys; sys.__plen = len(sys.path)\n./carla-0.9.11-py3.7-linux-x86_64.egg\nimport sys; new=sys.path[sys.__plen:]; del sys.path[sys.__plen:]; p=getattr(sys,'__egginsert',0); sys.path[p:p]=new; sys.__egginsert = p+len(new)" > /venv/lib/python3.8/site-packages/easy_install.pth
-
 # Direct project dependencies are defined in pedestrians-video-2-carla/setup.cfg
 # However, we want to leverage the cache, so we're going to specify at least basic ones with versions here
 RUN /venv/bin/python -m pip install --no-cache-dir \
