@@ -87,7 +87,7 @@ class CarlaRenderer(Renderer):
                             ) -> int:
         """Retrieves clip length from first available source. Assumes that all clips in batch are of the same length."""
         for arg in args:
-            if args[arg] is not None:
+            if arg is not None:
                 return len(arg[0])
         return 1
 
