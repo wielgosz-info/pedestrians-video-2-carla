@@ -1,8 +1,6 @@
-from typing import Tuple, Union
+from typing import Tuple
 import numpy as np
 import torch
-from torch._C import device
-from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose
 
 
 from pedestrians_video_2_carla.walker_control.pose_projection import \
@@ -21,7 +19,6 @@ class P3dPoseProjection(PoseProjection, torch.nn.Module):
                  camera_rgb: 'carla.Sensor' = None,
                  look_at: Tuple[float, float, float] = None,
                  camera_position: Tuple[float, float, float] = None,
-                 *args,
                  **kwargs):
 
         self._device = device
@@ -35,7 +32,7 @@ class P3dPoseProjection(PoseProjection, torch.nn.Module):
             self._look_at = None
             self._eye = None
 
-        super().__init__(pedestrian=pedestrian, camera_rgb=camera_rgb, *args, **kwargs)
+        super().__init__(pedestrian=pedestrian, camera_rgb=camera_rgb, **kwargs)
 
     def _setup_camera(self, camera_rgb: 'carla.Sensor'):
         if self._eye is None or self._look_at is None:
@@ -153,17 +150,3 @@ class P3dPoseProjection(PoseProjection, torch.nn.Module):
             0, 1, 0, 0), mode='constant', value=1), world_transform)[..., :3]
         projected_x = self.camera.transform_points_screen(world_pos)
         return projected_x
-
-
-if __name__ == "__main__":
-    if torch.cuda.is_available():
-        device = torch.device("cuda:0")
-        torch.cuda.set_device(device)
-    else:
-        device = torch.device("cpu")
-
-    pedestrian = ControlledPedestrian(
-        None, 'adult', 'female', pose_cls=P3dPose, device=device)
-    p3d_projection = P3dPoseProjection(device, pedestrian, None)
-    p3d_points = p3d_projection.current_pose_to_points()
-    p3d_projection.current_pose_to_image('reference_pytorch3d', p3d_points)

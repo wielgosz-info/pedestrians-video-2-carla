@@ -78,7 +78,13 @@ class CarlaRenderer(Renderer):
                     rendered_videos: int
                     ):
         bound_pedestrian = ControlledPedestrian(
-            world, age, gender, P3dPose, max_spawn_tries=10+rendered_videos, device=absolute_pose_loc_clip.device)
+            world=world,
+            age=age,
+            gender=gender,
+            reference_pose=P3dPose,
+            max_spawn_tries=10+rendered_videos,
+            device=absolute_pose_loc_clip.device
+        )
         camera_queue = Queue()
         camera_rgb = setup_camera(
             world, camera_queue, bound_pedestrian, self._image_size, self.__fov)
@@ -92,12 +98,6 @@ class CarlaRenderer(Renderer):
             absolute_pose_rot_clip = [
                 ref_abs_pose_rot
             ] * len(absolute_pose_loc_clip)
-
-        # recover semi-correct root point, since we shifted hips to 0,0,0
-        # TODO: this should probably be somewhat more sophisticated, take into account ground contact points, hips vs root angle etc.
-        extreme_Zs, _ = absolute_pose_loc_clip[:, :, 2].T.max(dim=0, keepdim=True)
-        absolute_pose_loc_clip[:, :, 2] -= extreme_Zs.T.clone()
-        absolute_pose_loc_clip[:, 0, 2] = 0.0
 
         video = []
         for absolute_pose_loc_frame, absolute_pose_rot_frame, world_loc_frame, world_rot_frame in zip(absolute_pose_loc_clip, absolute_pose_rot_clip, world_loc_clip, world_rot_clip):
@@ -125,7 +125,14 @@ class CarlaRenderer(Renderer):
                      ):
         abs_pose = bound_pedestrian.current_pose.tensors_to_pose(
             absolute_pose_loc_frame, absolute_pose_rot_frame)
-        bound_pedestrian.apply_pose(abs_pose_snapshot=abs_pose)
+
+        # TODO: get root transform so that the contact points are correct
+        root_hips_transform = None
+
+        bound_pedestrian.apply_pose(
+            pose_snapshot=abs_pose,
+            root_hips_transform=root_hips_transform,
+        )
 
         world_loc = world_loc_frame.cpu().numpy().astype(float)
         world_rot = -np.rad2deg(matrix_to_euler_angles(world_rot_frame,

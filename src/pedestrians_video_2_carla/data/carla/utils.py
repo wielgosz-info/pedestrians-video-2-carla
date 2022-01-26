@@ -2,8 +2,10 @@ from functools import lru_cache
 from typing import Any, Dict
 import os
 import warnings
+from pedestrians_video_2_carla.carla_utils.spatial import deepcopy_location, deepcopy_rotation
 
 from pedestrians_video_2_carla.data.base.utils import load_reference_file
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 try:
     import carla
 except ImportError:
@@ -35,7 +37,7 @@ def load(type: str) -> Dict[str, Any]:
     return load_reference_file(os.path.join(os.path.dirname(__file__), 'files', filename))
 
 
-def yaml_to_pose_dict(unreal_transforms: Dict[str, Dict[str, Dict[str, float]]]) -> Dict[str, carla.Transform]:
+def yaml_to_pose_dict(unreal_transforms: Dict[str, Dict[str, Dict[str, float]]], is_abs: bool = False) -> Dict[str, carla.Transform]:
     """
     Convert dict with transforms read from unreal into carla-usable format.
 
@@ -58,6 +60,18 @@ def yaml_to_pose_dict(unreal_transforms: Dict[str, Dict[str, Dict[str, float]]])
             )
         ) for (bone_name, transform_dict) in unreal_transforms.items()
     }
-    # overlap set hips to (0,0,0)
-    pose_dict['crl_hips__C'].location = carla.Location()
-    return pose_dict
+    # remember original hips transform
+    root_hips_transform = carla.Transform(
+        location=deepcopy_location(pose_dict[CARLA_SKELETON.crl_hips__C.name].location),
+        rotation=deepcopy_rotation(pose_dict[CARLA_SKELETON.crl_root.name].rotation),
+    )
+    # set hips to (0,0,0)
+    if is_abs:
+        # update all positions in-place
+        for name in pose_dict.keys():
+            pose_dict[name].location.x -= root_hips_transform.location.x
+            pose_dict[name].location.y -= root_hips_transform.location.y
+            pose_dict[name].location.z -= root_hips_transform.location.z
+    else:
+        pose_dict[CARLA_SKELETON.crl_hips__C.name].location = carla.Location()
+    return pose_dict, root_hips_transform

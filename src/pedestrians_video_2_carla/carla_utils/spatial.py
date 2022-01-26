@@ -1,4 +1,4 @@
-from typing import Union
+from typing import OrderedDict, Union
 import warnings
 
 try:

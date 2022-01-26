@@ -26,7 +26,7 @@ def get_poses(device=torch.device('cpu'), as_dict=False):
     for (age, gender) in CARLA_REFERENCE_SKELETON_TYPES:
         p = P3dPose(structure=structure, device=device)
         unreal_pose = load('{}_{}'.format(age, gender))
-        p.relative = yaml_to_pose_dict(unreal_pose['transforms'])
+        p.relative, _ = yaml_to_pose_dict(unreal_pose['transforms'])
         poses.append(p)
 
     if as_dict:

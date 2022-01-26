@@ -217,8 +217,7 @@ class PoseProjection(object):
     def _setup_camera(self, camera_rgb: 'carla.Sensor'):
         # basic transform is in UE world coords, axes of which are different
         # additionally, we need to correct spawn shift error
-        distance, elevation = self._calculate_distance_and_elevation(
-            camera_rgb, self._pedestrian)
+        distance, elevation = self._calculate_distance_and_elevation(camera_rgb)
 
         camera_ct = ct.Camera(
             ct.RectilinearProjection(

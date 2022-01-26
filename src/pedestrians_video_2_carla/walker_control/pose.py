@@ -1,7 +1,7 @@
 import copy
-import os
 import warnings
 from typing import Any, Dict
+from typing import OrderedDict as OrderedDictType
 
 try:
     import carla
@@ -15,6 +15,8 @@ from collections import OrderedDict
 from pedestrians_video_2_carla.carla_utils.spatial import (deepcopy_transform,
                                                            mul_carla_rotations)
 from pedestrians_video_2_carla.data.carla.utils import load
+
+PoseDict = OrderedDictType[str, carla.Transform]
 
 
 class Pose(object):
@@ -103,7 +105,15 @@ class Pose(object):
         return self._deepcopy_pose_dict(self.__empty_pose)
 
     @property
-    def relative(self):
+    def relative(self) -> PoseDict:
+        """
+        Returns the pose of the actor with transforms based on the bone parent.
+        This is analogous to CARLA 0.9.13 carla.WalkerBoneControlOut 'relative' transforms.
+        See https://carla.readthedocs.io/en/0.9.13/python_api/#carla.Walker.get_bones for more info.
+
+        :return: Pose dictionary with bone names as keys and relative transforms as values.
+        :rtype: PoseDict
+        """
         return self._deepcopy_pose_dict(self.__relative_pose)
 
     @relative.setter
@@ -112,7 +122,15 @@ class Pose(object):
         self._last_rel_mod = time.time_ns()
 
     @property
-    def absolute(self):
+    def absolute(self) -> PoseDict:
+        """
+        Returns the pose of the actor relative to its root (pivot) point.
+        This is analogous to CARLA 0.9.13 carla.WalkerBoneControlOut 'component' (or 'actor') transforms.
+        See https://carla.readthedocs.io/en/0.9.13/python_api/#carla.Walker.get_bones for more info.
+
+        :return: Pose dictionary with bone names as keys and absolute (AKA component/actor) transforms as values.
+        :rtype: PoseDict
+        """
         if self._last_abs_mod != self._last_rel_mod:
             # ensure bones in absolute pose will be in the same order as they were in relative
             # this will be updated in-place

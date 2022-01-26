@@ -65,8 +65,8 @@ class ProjectionModule(nn.Module):
         # create pedestrian object for each clip in batch
         self.__pedestrians = [
             ControlledPedestrian(world=None, age=meta['age'][idx], gender=meta['gender'][idx],
-                                 pose_cls=P3dPose, device=frames.device,
-                                 reference_pose=meta['reference_pose'][idx] if 'reference_pose' in meta else None)
+                                 device=frames.device,
+                                 reference_pose=meta['reference_pose'][idx] if 'reference_pose' in meta else P3dPose)
             for idx in range(batch_size)
         ]
         # only create one - we're assuming that camera is setup in the same for way for each pedestrian

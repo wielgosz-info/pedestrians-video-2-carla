@@ -13,7 +13,7 @@ except ImportError:
 import numpy as np
 import torch
 from torch import Tensor
-from pedestrians_video_2_carla.walker_control.pose import Pose
+from pedestrians_video_2_carla.walker_control.pose import Pose, PoseDict
 from pytorch3d.transforms import euler_angles_to_matrix
 from pytorch3d.transforms.rotation_conversions import matrix_to_euler_angles
 from pytorch3d.transforms.transform3d import Rotate, Translate
@@ -31,7 +31,7 @@ class P3dPose(Pose, torch.nn.Module):
         self.__last_rel = None
         self.__last_rel_get = None
 
-    def pose_to_tensors(self, pose: OrderedDict[str, carla.Transform]) -> Tuple[Tensor, Tensor]:
+    def pose_to_tensors(self, pose: PoseDict) -> Tuple[Tensor, Tensor]:
         """
         Converts pose from OrderedDict to Tensor.
 

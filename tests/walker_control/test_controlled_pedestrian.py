@@ -160,3 +160,48 @@ def test_bound_world_transform(carla_pedestrian):
                       carla_pedestrian.initial_transform.rotation.yaw + -60)
     assert np.isclose(carla_pedestrian.world_transform.rotation.roll,
                       carla_pedestrian.initial_transform.rotation.roll)
+
+
+def test_carla_rendering(carla_world, carla_pedestrian, test_outputs_dir):
+    import random
+    import os
+    from queue import Queue, Empty
+    from collections import OrderedDict
+    from pedestrians_video_2_carla.carla_utils.setup import setup_camera
+
+    sensor_dict = OrderedDict()
+    camera_queue = Queue()
+
+    sensor_dict['camera_rgb'] = setup_camera(
+        carla_world, camera_queue, carla_pedestrian
+    )
+
+    ticks = 0
+    while ticks < 10:
+        w_frame = carla_world.tick()
+
+        try:
+            sensor_data = camera_queue.get(True, 1.0)
+            sensor_data.save_to_disk(
+                os.path.join(test_outputs_dir, '{:06d}.png'.format(sensor_data.frame))
+            )
+            ticks += 1
+        except Empty:
+            print("Some sensor information is missed in frame {:06d}".format(w_frame))
+
+        # teleport/rotate pedestrian a bit to see if teleport_by is working
+        carla_pedestrian.teleport_by(carla.Transform(
+            location=carla.Location(
+                x=random.random()-0.5,
+                y=random.random()-0.5
+            ),
+            rotation=carla.Rotation(
+                yaw=random.random()*60-30
+            )
+        ))
+
+        # apply some movement to the left arm to see apply_movement in action
+        carla_pedestrian.update_pose({
+            'crl_arm__L': carla.Rotation(yaw=-random.random()*15),
+            'crl_foreArm__L': carla.Rotation(pitch=-random.random()*15)
+        })

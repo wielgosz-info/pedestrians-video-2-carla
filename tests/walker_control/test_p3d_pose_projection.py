@@ -78,7 +78,7 @@ def test_batch(device):
     # since only `.forward` methods will be used
 
     pedestrian = ControlledPedestrian(
-        None, 'adult', 'female', pose_cls=P3dPose, device=device)
+        None, 'adult', 'female', reference_pose=P3dPose, device=device)
 
     p3d_pose = pedestrian.current_pose
     p3d_projection = P3dPoseProjection(device, pedestrian, None)

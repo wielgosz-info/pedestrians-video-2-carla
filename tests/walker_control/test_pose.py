@@ -1,6 +1,7 @@
 from typing import Union
 import numpy as np
 import pytest
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose
 from pedestrians_video_2_carla.walker_control.pose import Pose
 import warnings
@@ -34,6 +35,9 @@ def test_relative_to_absolute(absolute_pose, reference_pose: Union[Pose, P3dPose
     absolute = reference_pose.absolute
 
     for bone_name, transforms_dict in absolute_pose.items():
+        if bone_name == CARLA_SKELETON.crl_root.name:
+            # ignore root transform
+            continue
         assert np.isclose(absolute[bone_name].location.x,
                           transforms_dict.location.x, atol=1e-5)
         assert np.isclose(absolute[bone_name].location.y,

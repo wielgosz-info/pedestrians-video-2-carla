@@ -24,7 +24,7 @@ def pedestrian(pose_cls, device):
     """
     Returns unbound ControlledPedestrian
     """
-    return ControlledPedestrian(None, 'adult', 'female', pose_cls=pose_cls, device=device)
+    return ControlledPedestrian(None, 'adult', 'female', reference_pose=pose_cls, device=device)
 
 
 @pytest.fixture(scope="session")
@@ -48,19 +48,19 @@ def carla_pedestrian(carla_world, pose_cls, device):
     """
     Returns ControlledPedestrian bound to specific CARLA world instance
     """
-    return ControlledPedestrian(carla_world, 'adult', 'female', pose_cls=pose_cls, device=device)
+    return ControlledPedestrian(carla_world, 'adult', 'female', reference_pose=pose_cls, device=device)
 
 
 @pytest.fixture
 def absolute_pose():
     unreal_abs_pose = load('sk_female_absolute.yaml')
-    return yaml_to_pose_dict(unreal_abs_pose['transforms'])
+    return yaml_to_pose_dict(unreal_abs_pose['transforms'], is_abs=True)[0]
 
 
 @pytest.fixture
 def relative_pose():
     unreal_rel_pose = load('sk_female_relative.yaml')
-    return yaml_to_pose_dict(unreal_rel_pose['transforms'])
+    return yaml_to_pose_dict(unreal_rel_pose['transforms'])[0]
 
 
 @pytest.fixture

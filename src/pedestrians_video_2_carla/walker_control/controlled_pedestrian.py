@@ -1,10 +1,10 @@
-from collections import OrderedDict
 import copy
 import random
-from typing import Dict, Type
+from typing import Dict, Type, TypeVar, Generic, Union
 import warnings
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 
-from pedestrians_video_2_carla.walker_control.pose import Pose
+from pedestrians_video_2_carla.walker_control.pose import Pose, PoseDict
 
 try:
     import carla
@@ -12,13 +12,16 @@ except ImportError:
     import pedestrians_video_2_carla.carla_utils.mock_carla as carla
     warnings.warn("Using mock carla.", ImportWarning)
 
-from pedestrians_video_2_carla.carla_utils.spatial import deepcopy_location, deepcopy_transform
+from pedestrians_video_2_carla.carla_utils.spatial import deepcopy_location, deepcopy_rotation, deepcopy_transform
 
 from pedestrians_video_2_carla.data.carla.utils import load, yaml_to_pose_dict
 
 
-class ControlledPedestrian(object):
-    def __init__(self, world: 'carla.World' = None, age: str = 'adult', gender: str = 'female', pose_cls: Type[Pose] = Pose, max_spawn_tries=10, reference_pose: Pose = None, *args, **kwargs):
+P = TypeVar('P', Pose, 'P3dPose')
+
+
+class ControlledPedestrian(Generic[P]):
+    def __init__(self, world: 'carla.World' = None, age: str = 'adult', gender: str = 'female', max_spawn_tries=10, reference_pose: Union[P, Type[P]] = Pose, *args, **kwargs):
         """
         Initializes the pedestrian that keeps track of its current pose.
 
@@ -35,17 +38,19 @@ class ControlledPedestrian(object):
         self._age = age
         self._gender = gender
 
-        if reference_pose is not None:
+        pose_dict, root_hips_transform = self._load_reference_pose()
+        if isinstance(reference_pose, Pose):
             self._current_pose = copy.deepcopy(reference_pose)
         else:
-            self._current_pose: pose_cls = pose_cls(**kwargs)
-            self._current_pose.relative = self._load_reference_pose()
+            self._current_pose: P = reference_pose(**kwargs)
+            self._current_pose.relative = pose_dict
+        self._root_hips_transform = root_hips_transform
 
         # spawn point (may be different than actual location the pedesrian has spawned, especially Z-wise);
         # if world is not specified this will always be point 0,0,0
         self._spawn_loc = carla.Location()
-        self._world = None
-        self._walker = None
+        self._world: 'carla.World' = None
+        self._walker: 'carla.Walker' = None
         self._initial_transform = carla.Transform()
         self._world_transform = carla.Transform()
         self._max_spawn_tries = max_spawn_tries
@@ -107,7 +112,7 @@ class ControlledPedestrian(object):
 
         self.apply_pose(True)
 
-    def _spawn_walker(self):
+    def _spawn_walker(self) -> 'carla.Walker':
         blueprint_library = self._world.get_blueprint_library()
         matching_blueprints = [bp for bp in blueprint_library.filter("walker.pedestrian.*")
                                if bp.get_attribute('age') == self._age and bp.get_attribute('gender') == self._gender]
@@ -131,9 +136,10 @@ class ControlledPedestrian(object):
 
     def _load_reference_pose(self):
         unreal_pose = load('{}_{}'.format(self._age, self._gender))
-        relative_pose = yaml_to_pose_dict(unreal_pose['transforms'])
+        relative_pose, root_hips_transform = yaml_to_pose_dict(
+            unreal_pose['transforms'])
 
-        return relative_pose
+        return relative_pose, root_hips_transform
 
     def teleport_by(self, transform: carla.Transform, cue_tick=False, from_initial=False) -> int:
         """
@@ -194,27 +200,48 @@ class ControlledPedestrian(object):
         self._current_pose.move(rotations)
         return self.apply_pose(cue_tick)
 
-    def apply_pose(self, cue_tick=False, abs_pose_snapshot=None) -> int:
+    def apply_pose(self, cue_tick: bool = False, pose_snapshot: PoseDict = None, root_hips_transform: carla.Transform = None) -> int:
         """
         Applies the current absolute pose to the carla.Walker if it exists.
 
         :param cue_tick: should carla.World.tick() be called after sending control; defaults to False
         :type cue_tick: bool, optional
-        :param abs_pose_snapshot: if not None, will be used instead of self._current_pose.
+        :param pose_snapshot: OrderedDict containing pose relative coordinates.
+            If not None, will be used instead of self._current_pose.
             This will **NOT** update the internal pose representation.
-        :type abs_pose_snapshot: OrderedDict[str, carla.Transform], optional
+        :type pose_snapshot: PoseDict, optional
+        :param root_hips_transform: Transform used to recover hips vs root point location,
+            needed to actually position the Pedestrian in space correctly.
+            If not None, will be used instead of self._root_hips_transform.
+            This will **NOT** update the internal pose representation.
+        :type root_hips_transform: carla.Transform, optional
         :return: World frame number if cue_tick==True else 0
         :rtype: int
         """
         if self._walker is not None:
-            control = carla.WalkerBoneControl()
+            control = carla.WalkerBoneControlIn()
 
-            if abs_pose_snapshot is None:
-                abs_pose_snapshot = self._current_pose.absolute
+            if pose_snapshot is None:
+                # this is a deepcopy
+                pose_snapshot = self._current_pose.relative
 
-            control.bone_transforms = list(abs_pose_snapshot.items())
+            if root_hips_transform is None:
+                root_hips_transform = self._root_hips_transform
 
-            self._walker.apply_control(control)
+            pose_snapshot[CARLA_SKELETON.crl_hips__C.name] = carla.Transform(
+                location=deepcopy_location(root_hips_transform.location),
+                rotation=deepcopy_rotation(
+                    pose_snapshot[CARLA_SKELETON.crl_hips__C.name].rotation)
+            )
+            pose_snapshot[CARLA_SKELETON.crl_root.name] = carla.Transform(
+                location=carla.Location(),
+                rotation=deepcopy_rotation(root_hips_transform.rotation)
+            )
+
+            control.bone_transforms = list(pose_snapshot.items())
+
+            self._walker.set_bones(control)
+            self._walker.blend_pose(1)
 
             if cue_tick:
                 return self._world.tick()
@@ -229,7 +256,7 @@ class ControlledPedestrian(object):
         return self._gender
 
     @ property
-    def walker(self) -> 'carla.Actor':
+    def walker(self) -> 'carla.Walker':
         return self._walker
 
     @ property
@@ -270,11 +297,16 @@ class ControlledPedestrian(object):
         return deepcopy_transform(self._initial_transform)
 
     @ property
-    def current_pose(self):
+    def current_pose(self) -> P:
+        # TODO: for bound pedestrians, should this ask CARLA for the current pose (and update)?
+        # or should requesting pose from CARLA be done explicitly, to avoid unintended
+        # slowdowns and/or non-obvious bugs? The current implementations is such that when
+        # utilizing the ControlledPedestrian methods, the changes are applied to CARLA,
+        # but when manipulating Pose directly, they are not, since Pose is abstracted.
         return self._current_pose
 
     @ property
-    def spawn_shift(self):
+    def spawn_shift(self) -> carla.Location:
         """
         Difference between spawn point and actual spawn location
         """
@@ -283,52 +315,3 @@ class ControlledPedestrian(object):
             y=self._initial_transform.location.y - self._spawn_loc.y,
             z=self._initial_transform.location.z - self._spawn_loc.z
         )
-
-
-if __name__ == "__main__":
-    from queue import Queue, Empty
-    from collections import OrderedDict
-
-    from pedestrians_video_2_carla.carla_utils.destroy import destroy_client_and_world
-    from pedestrians_video_2_carla.carla_utils.setup import *
-
-    client, world = setup_client_and_world()
-    pedestrian = ControlledPedestrian(world, 'adult', 'female')
-
-    sensor_dict = OrderedDict()
-    camera_queue = Queue()
-
-    sensor_dict['camera_rgb'] = setup_camera(
-        world, camera_queue, pedestrian
-    )
-
-    ticks = 0
-    while ticks < 10:
-        w_frame = world.tick()
-
-        try:
-            sensor_data = camera_queue.get(True, 1.0)
-            sensor_data.save_to_disk(
-                '/outputs/carla/{:06d}.png'.format(sensor_data.frame))
-            ticks += 1
-        except Empty:
-            print("Some sensor information is missed in frame {:06d}".format(w_frame))
-
-        # teleport/rotate pedestrian a bit to see if teleport_by is working
-        pedestrian.teleport_by(carla.Transform(
-            location=carla.Location(
-                x=random.random()-0.5,
-                y=random.random()-0.5
-            ),
-            rotation=carla.Rotation(
-                yaw=random.random()*60-30
-            )
-        ))
-
-        # apply some movement to the left arm to see apply_movement in action
-        pedestrian.update_pose({
-            'crl_arm__L': carla.Rotation(yaw=-random.random()*15),
-            'crl_foreArm__L': carla.Rotation(pitch=-random.random()*15)
-        })
-
-    destroy_client_and_world(client, world, sensor_dict)

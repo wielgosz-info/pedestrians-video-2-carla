@@ -221,6 +221,7 @@ class PedestrianWriter(object):
         }
 
         for renderer_type in self._used_renderers:
+            # TODO: this should be done in parallel
             output_videos.append(render[renderer_type]())
 
         for vid_idx, vids in enumerate(zip(*output_videos)):
