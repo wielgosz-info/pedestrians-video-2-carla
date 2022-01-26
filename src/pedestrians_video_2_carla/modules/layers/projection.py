@@ -1,4 +1,5 @@
-from typing import Tuple, Union
+from typing import Dict, Tuple, Union
+from importlib_metadata import re
 
 from scipy.fftpack import shift
 from pedestrians_video_2_carla.modules.base.output_types import MovementsModelOutputType, TrajectoryModelOutputType
@@ -79,7 +80,7 @@ class ProjectionModule(nn.Module):
         self.__world_rotations = torch.eye(3, device=frames.device).reshape(
             (1, 3, 3)).repeat((batch_size, 1, 1))
 
-    def project_pose(self, pose_inputs_batch: Union[Tensor, Tuple[Tensor, Tensor]], world_loc_change_batch: Tensor = None, world_rot_change_batch: Tensor = None) -> Tuple[Tensor, Tensor, Tensor]:
+    def project_pose(self, pose_inputs_batch: Union[Tensor, Tuple[Tensor, Tensor]], world_loc_change_batch: Tensor = None, world_rot_change_batch: Tensor = None) -> Tuple[Tensor, Dict[str, Tensor]]:
         """
         Handles calculation of the pose projection.
 
@@ -93,7 +94,7 @@ class ProjectionModule(nn.Module):
         :type world_rot_change_batch: Tensor
         :raises RuntimeError: when pose_inputs_batch dimensionality is incorrect
         :return: Pose projection, absolute pose locations & absolute pose rotations
-        :rtype: Tuple[Tensor, Tensor, Tensor]
+        :rtype: Tuple[Tensor, Dict[str, Tensor]]
         """
         # TODO: switch batch and clip length dimensions?
         if self.movements_output_type == MovementsModelOutputType.pose_changes and pose_inputs_batch.ndim < 5:
@@ -106,28 +107,30 @@ class ProjectionModule(nn.Module):
             raise RuntimeError(
                 'Absolute location with rotation should be a Tuple of tensors.')
 
-        absolute_loc, absolute_rot = self.__calculate_abs(pose_inputs_batch)
+        (relative_pose_loc, relative_pose_rot,
+         absolute_pose_loc, absolute_pose_rot) = self.__calculate_abs(pose_inputs_batch)
         world_loc, world_rot = self.__calculate_world(
-            absolute_loc, world_loc_change_batch, world_rot_change_batch)
+            absolute_pose_loc, world_loc_change_batch, world_rot_change_batch)
 
-        projections = torch.empty_like(absolute_loc)
+        projections = torch.empty_like(absolute_pose_loc)
 
         # for every frame in clip
         # TODO: combine batch and clip length dimensions?
-        for i in range(absolute_loc.shape[1]):
+        for i in range(absolute_pose_loc.shape[1]):
             projections[:, i] = self.__pose_projection(
-                absolute_loc[:, i],
+                absolute_pose_loc[:, i],
                 world_loc[:, i],
                 world_rot[:, i]
             )
 
-        # adjust absolute pose locations so that hips are at the origin; this is consistent with other models (e.g. SMPL)
-        # ProjectionModule only works with CARLA_SKELETON so we can just hardcode hips index
-        # shift = absolute_loc[:, :,
-        #                      CARLA_SKELETON.crl_hips__C.value].clone().unsqueeze(2)
-        # absolute_loc -= shift
-
-        return projections, absolute_loc, absolute_rot, world_loc, world_rot
+        return projections, {
+            'relative_pose_loc': relative_pose_loc,
+            'relative_pose_rot': relative_pose_rot,
+            'absolute_pose_loc': absolute_pose_loc,
+            'absolute_pose_rot': absolute_pose_rot,
+            'world_loc': world_loc,
+            'world_rot': world_rot
+        }
 
     def _calculate_abs_from_abs_loc_output(self, pose_inputs_batch):
         # if the movements_output_type is absolute_loc, we need to convert it
@@ -138,12 +141,15 @@ class ProjectionModule(nn.Module):
             'gender': [p.gender for p in self.__pedestrians]
         })
         absolute_rot = None
-        return absolute_loc, absolute_rot
+        relative_loc = None
+        relative_rot = None
+        return relative_loc, relative_rot, absolute_loc, absolute_rot
 
     def _calculate_abs_from_abs_loc_rot_output(self, pose_inputs_batch):
-        absolute_loc, _ = self._calculate_abs_from_abs_loc_output(pose_inputs_batch[0])
+        relative_loc, relative_rot, absolute_loc, _ = self._calculate_abs_from_abs_loc_output(
+            pose_inputs_batch[0])
         absolute_rot = pose_inputs_batch[1]
-        return absolute_loc, absolute_rot
+        return relative_loc, relative_rot, absolute_loc, absolute_rot
 
     def _calculate_abs_from_relative_rot(self, pose_inputs_batch):
         (batch_size, clip_length, points, *_) = pose_inputs_batch.shape
@@ -166,7 +172,10 @@ class ProjectionModule(nn.Module):
             (absolute_loc[:, i], absolute_rot[:, i]) = pose.relative_to_absolute(
                 prev_relative_loc, pose_inputs_batch[:, i])
 
-        return absolute_loc, absolute_rot
+        relative_rot = pose_inputs_batch
+        relative_loc = prev_relative_loc.unsqueeze(1).repeat((1, clip_length, 1, 1))
+
+        return relative_loc, relative_rot, absolute_loc, absolute_rot
 
     def _calculate_abs_from_pose_changes(self, pose_inputs_batch):
         (batch_size, clip_length, points, *_) = pose_inputs_batch.shape
@@ -182,13 +191,18 @@ class ProjectionModule(nn.Module):
         absolute_rot = torch.empty(
             (batch_size, clip_length, points, 3, 3), device=pose_inputs_batch.device)
 
+        relative_loc = prev_relative_loc.unsqueeze(1).repeat((1, clip_length, 1, 1))
+        relative_rot = torch.empty(
+            (batch_size, clip_length, points, 3, 3), device=pose_inputs_batch.device)
+
         pose: P3dPose = self.__pedestrians[0].current_pose
 
         for i in range(clip_length):
-            (absolute_loc[:, i], absolute_rot[:, i], prev_relative_rot) = pose(
+            (absolute_loc[:, i], absolute_rot[:, i], relative_rot[:, i]) = pose(
                 pose_inputs_batch[:, i], prev_relative_loc, prev_relative_rot)
+            prev_relative_rot = relative_rot[:, i]
 
-        return absolute_loc, absolute_rot
+        return relative_loc, relative_rot, absolute_loc, absolute_rot
 
     def get_reference_tensors(self):
         (prev_relative_loc, prev_relative_rot) = zip(*[
@@ -222,11 +236,11 @@ class ProjectionModule(nn.Module):
         return world_loc_inputs, world_rot_inputs
 
     def forward(self, pose_inputs: Union[Tensor, Tuple[Tensor, Tensor]], world_loc_inputs: Tensor = None, world_rot_inputs: Tensor = None) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
-        (projected_pose, absolute_pose_loc, absolute_pose_rot, world_loc, world_rot) = self.project_pose(
+        projected_pose, projection_outputs = self.project_pose(
             pose_inputs,
             world_loc_inputs,
             world_rot_inputs,
         )
         normalized_projection = self.projection_transform(projected_pose)
 
-        return (projected_pose, normalized_projection, absolute_pose_loc, absolute_pose_rot, world_loc, world_rot)
+        return (projected_pose, normalized_projection, projection_outputs)

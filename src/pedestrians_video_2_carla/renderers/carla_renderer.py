@@ -32,27 +32,43 @@ class CarlaRenderer(Renderer):
 
     @torch.no_grad()
     def render(self,
-               absolute_pose_loc: Tensor,
-               absolute_pose_rot: Tensor,
+               relative_pose_loc: Tensor,
+               relative_pose_rot: Tensor,
                world_loc: Tensor,
                world_rot: Tensor,
                meta: List[Dict[str, Any]],
                **kwargs
                ) -> List[np.ndarray]:
-        rendered_videos = len(absolute_pose_loc)
+        rendered_videos = len(relative_pose_loc)
 
-        if absolute_pose_rot is None:
+        if relative_pose_loc is None and relative_pose_loc is None:
             rank_zero_warn(
-                "Absolute pose rotations are not available, falling back to reference rotations. " +
+                "Neither relative pose locations nor rotations are available. " +
+                "This will result in rendering reference pose")
+        elif relative_pose_loc is None:
+            rank_zero_warn(
+                "Relative pose locations are not available, falling back to reference locations. " +
+                "Please note that this may result in weird rendering effects.")
+        elif relative_pose_loc is None:
+            rank_zero_warn(
+                "Relative pose rotations are not available, falling back to reference rotations. " +
                 "Please note that this may result in weird rendering effects.")
 
         # prepare connection to carla as needed - TODO: should this be in (logging) epoch start?
         client, world = setup_client_and_world(fps=self.__fps)
 
+        clip_length = self.__guess_clip_length(
+            relative_pose_loc,
+            relative_pose_rot,
+            world_loc,
+            world_rot
+        )
+
         for clip_idx in range(rendered_videos):
             video = self.render_clip(
-                absolute_pose_loc[clip_idx],
-                absolute_pose_rot[clip_idx] if absolute_pose_rot is not None else None,
+                clip_length,
+                relative_pose_loc[clip_idx] if relative_pose_loc is not None else None,
+                relative_pose_rot[clip_idx] if relative_pose_rot is not None else None,
                 world_loc[clip_idx],
                 world_rot[clip_idx],
                 meta['age'][clip_idx],
@@ -66,10 +82,20 @@ class CarlaRenderer(Renderer):
         if (client is not None) and (world is not None):
             destroy_client_and_world(client, world)
 
+    def __guess_clip_length(self,
+                            *args
+                            ) -> int:
+        """Retrieves clip length from first available source. Assumes that all clips in batch are of the same length."""
+        for arg in args:
+            if args[arg] is not None:
+                return len(arg[0])
+        return 1
+
     @torch.no_grad()
     def render_clip(self,
-                    absolute_pose_loc_clip: Tensor,
-                    absolute_pose_rot_clip: Union[Tensor, None],
+                    clip_length: int,
+                    relative_pose_loc_clip: Union[Tensor, None],
+                    relative_pose_rot_clip: Union[Tensor, None],
                     world_loc_clip: Tensor,
                     world_rot_clip: Tensor,
                     age: str,
@@ -83,25 +109,25 @@ class CarlaRenderer(Renderer):
             gender=gender,
             reference_pose=P3dPose,
             max_spawn_tries=10+rendered_videos,
-            device=absolute_pose_loc_clip.device
+            device=relative_pose_loc_clip.device
         )
         camera_queue = Queue()
         camera_rgb = setup_camera(
             world, camera_queue, bound_pedestrian, self._image_size, self.__fov)
 
-        if absolute_pose_rot_clip is None:
-            # for correct rendering, the rotations are required
-            # since we don't have them, try to salvage the situation
-            # by using the rotations from reference pose
-            (_, ref_abs_pose_rot) = bound_pedestrian.current_pose.pose_to_tensors(
-                bound_pedestrian.current_pose.absolute)
-            absolute_pose_rot_clip = [
-                ref_abs_pose_rot
-            ] * len(absolute_pose_loc_clip)
+        if relative_pose_loc_clip is None or relative_pose_rot_clip is None:
+            ref_abs_pose_loc, ref_abs_pose_rot = bound_pedestrian.current_pose.pose_to_tensors(
+                bound_pedestrian.current_pose.relative)
+
+            if relative_pose_loc_clip is None:
+                relative_pose_loc_clip = [ref_abs_pose_loc] * clip_length
+
+            if relative_pose_rot_clip is None:
+                relative_pose_rot_clip = [ref_abs_pose_rot] * clip_length
 
         video = []
-        for absolute_pose_loc_frame, absolute_pose_rot_frame, world_loc_frame, world_rot_frame in zip(absolute_pose_loc_clip, absolute_pose_rot_clip, world_loc_clip, world_rot_clip):
-            frame = self.render_frame(absolute_pose_loc_frame, absolute_pose_rot_frame,
+        for relative_pose_loc_frame, relative_pose_rot_frame, world_loc_frame, world_rot_frame in zip(relative_pose_loc_clip, relative_pose_rot_clip, world_loc_clip, world_rot_clip):
+            frame = self.render_frame(relative_pose_loc_frame, relative_pose_rot_frame,
                                       world_loc_frame, world_rot_frame,
                                       world, bound_pedestrian, camera_queue)
             video.append(frame)
@@ -115,8 +141,8 @@ class CarlaRenderer(Renderer):
 
     @torch.no_grad()
     def render_frame(self,
-                     absolute_pose_loc_frame: Tensor,
-                     absolute_pose_rot_frame: Tensor,
+                     relative_pose_loc_frame: Tensor,
+                     relative_pose_rot_frame: Tensor,
                      world_loc_frame: Tensor,
                      world_rot_frame: Tensor,
                      world: 'carla.World',
@@ -124,7 +150,7 @@ class CarlaRenderer(Renderer):
                      camera_queue: Queue
                      ):
         abs_pose = bound_pedestrian.current_pose.tensors_to_pose(
-            absolute_pose_loc_frame, absolute_pose_rot_frame)
+            relative_pose_loc_frame, relative_pose_rot_frame)
 
         # TODO: get root transform so that the contact points are correct
         root_hips_transform = None

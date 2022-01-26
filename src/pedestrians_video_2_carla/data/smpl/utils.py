@@ -47,18 +47,18 @@ def get_conventions_rot(device=torch.device('cpu')):
     ), dtype=torch.float32, device=device).reshape((1, 3, 3))
 
 
-def convert_smpl_pose_to_absolute_loc_rot(gender: str, pose_body=None, root_orient=None, reference_pose=None, device=torch.device('cpu')):
+def convert_smpl_pose_to_absolute_loc_rot(gender: str, reference_pose: 'P3dPose', pose_body=None, root_orient=None, device=torch.device('cpu')):
     """
     Gets absolute location & rotation for a sequence of body poses.
 
     :param gender: One of 'male', 'female', 'neutral'
     :type gender: str
+    :param reference_pose: P3dPose with SMPL skeleton structure loaded
+    :type reference_pose: P3dPose
     :param pose_body: Sequence of relative poses in SMPL tensor notation, defaults to None
     :type pose_body: Tensor, optional
     :param root_orient: Sequence of root orientations
     :type root_orient: Tensor, optional
-    :param reference_pose: P3dPose with SMPL skeleton structure loaded, defaults to None
-    :type reference_pose: P3dPose, optional
     :param device: Defaults to torch.device('cpu')
     :type device: torch.Device, optional
     :return: Absolute location and rotation tensors
@@ -78,19 +78,23 @@ def convert_smpl_pose_to_absolute_loc_rot(gender: str, pose_body=None, root_orie
     absolute_loc = SMPL_SKELETON.map_from_original(absolute_loc)
     absolute_loc = torch.bmm(absolute_loc, conventions_rot)
 
+    ref_rel_loc, ref_rel_rot = reference_pose.tensors
+    relative_loc = ref_rel_loc.repeat((clip_length, 1))
+
     if pose_body is None:
+        relative_rot = ref_rel_rot.repeat((clip_length, 1, 1))
         absolute_rot = eye_batch(clip_length, device=device)
     else:
-        assert reference_pose is not None, "reference_pose must be provided if pose_body is not None"
+        relative_rot = euler_angles_to_matrix(SMPL_SKELETON.map_from_original(
+            torch.cat((
+                torch.zeros((clip_length, 1, 3), device=device),
+                pose_body.reshape((clip_length, nodes_len-1, 3))
+            ), dim=1)),
+            'XYZ'
+        )
         _, absolute_rot = reference_pose.relative_to_absolute(
-            torch.zeros_like(absolute_loc),
-            euler_angles_to_matrix(SMPL_SKELETON.map_from_original(
-                torch.cat((
-                    torch.zeros((clip_length, 1, 3), device=device),
-                    pose_body.reshape((clip_length, nodes_len-1, 3))
-                ), dim=1)),
-                'XYZ'
-            )
+            relative_loc,
+            relative_rot
         )
 
-    return absolute_loc, absolute_rot
+    return relative_loc, relative_rot, absolute_loc, absolute_rot

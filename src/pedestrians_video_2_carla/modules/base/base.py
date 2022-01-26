@@ -98,6 +98,15 @@ class LitBaseMapper(pl.LightningModule):
             FB_MPJVE(dist_sync_on_step=True),
         ])
 
+        self.__crucial_keys = [
+            'relative_pose_loc',
+            'relative_pose_rot',
+            'absolute_pose_loc',
+            'absolute_pose_rot',
+            'world_loc',
+            'world_rot',
+        ]
+
         self.save_hyperparameters({
             'host': platform.node(),
             'loss_modes': [mode.name for mode in self._loss_modes],
@@ -289,10 +298,10 @@ class LitBaseMapper(pl.LightningModule):
                         'pose_changes': sliced['pose_inputs'].detach() if self.movements_model.output_type == MovementsModelOutputType.pose_changes else None,
                         'world_rot_changes': sliced['world_rot_inputs'].detach() if self.trajectory_model.output_type == TrajectoryModelOutputType.changes else None,
                         'world_loc_changes': sliced['world_loc_inputs'].detach() if self.trajectory_model.output_type == TrajectoryModelOutputType.changes else None,
-                        'absolute_pose_loc': sliced['absolute_pose_loc'].detach(),
-                        'absolute_pose_rot': sliced['absolute_pose_rot'].detach() if sliced['absolute_pose_rot'] is not None else None,
-                        'world_loc': sliced['world_loc'].detach(),
-                        'world_rot': sliced['world_rot'].detach() if sliced['world_rot'] is not None else None,
+                        **{
+                            k: sliced[k].detach() if sliced[k] is not None else None
+                            for k in self.__crucial_keys
+                        }
                     },
                     'targets': sliced['targets']
                 }
@@ -326,14 +335,20 @@ class LitBaseMapper(pl.LightningModule):
             self.log('{}_loss/{}'.format(stage, k.name), v, batch_size=batch_size)
         return loss_dict
 
-    def _get_sliced_data(self, frames, targets, pose_inputs, world_loc_inputs, world_rot_inputs, projection_outputs):
+    def _get_sliced_data(self,
+                         frames,
+                         targets,
+                         pose_inputs,
+                         world_loc_inputs,
+                         world_rot_inputs,
+                         projection_outputs
+                         ):
         # TODO: this should take into account both movements and trajectory models
         eval_slice = (slice(None), self.movements_model.eval_slice)
 
         # unpack projection outputs
         (projected_pose, normalized_projection,
-         absolute_pose_loc, absolute_pose_rot,
-         world_loc, world_rot) = projection_outputs
+         projection_outputs_dict) = projection_outputs
 
         # get all inputs/outputs properly sliced
         sliced = {}
@@ -342,21 +357,22 @@ class LitBaseMapper(pl.LightningModule):
             pose_inputs, tuple) else pose_inputs[eval_slice]
         sliced['projected_pose'] = projected_pose[eval_slice]
         sliced['normalized_projection'] = normalized_projection[eval_slice]
-        sliced['absolute_pose_loc'] = absolute_pose_loc[eval_slice]
-        sliced['absolute_pose_rot'] = absolute_pose_rot[eval_slice] if absolute_pose_rot is not None else None
         sliced['world_loc_inputs'] = world_loc_inputs[eval_slice]
         sliced['world_rot_inputs'] = world_rot_inputs[eval_slice]
-        sliced['world_loc'] = world_loc[eval_slice]
-        sliced['world_rot'] = world_rot[eval_slice]
-        sliced['frames'] = frames[eval_slice]
+        sliced['inputs'] = frames[eval_slice]
         sliced['targets'] = {k: v[eval_slice] for k, v in targets.items()}
+
+        keys_of_intrest = list(
+            set(list(projection_outputs_dict.keys()) + self.__crucial_keys))
+        for k in keys_of_intrest:
+            sliced[k] = projection_outputs_dict[k][eval_slice] if k in projection_outputs_dict and projection_outputs_dict[k] is not None else None
 
         # sometimes we need absolute target world loc/rot, which is not saved in data
         # so we need to compute it here and then slice appropriately
         # caveat - dataset needst to provide those targets in the first place
         try:
             target_world_loc, target_world_rot = calculate_world_from_changes(
-                absolute_pose_loc.shape, absolute_pose_loc.device,
+                projected_pose.shape, projected_pose.device,
                 targets['world_loc_changes'], targets['world_rot_changes']
             )
             sliced['targets']['world_loc'] = target_world_loc[eval_slice]
@@ -381,13 +397,6 @@ class LitBaseMapper(pl.LightningModule):
         )
 
     def _log_videos(self,
-                    projected_pose: Tensor,
-                    absolute_pose_loc: Tensor,
-                    absolute_pose_rot: Tensor,
-                    world_loc: Tensor,
-                    world_rot: Tensor,
-                    frames: Tensor,
-                    targets: Tensor,
                     meta: Tensor,
                     batch_idx: int,
                     stage: str,
@@ -400,17 +409,11 @@ class LitBaseMapper(pl.LightningModule):
             vid_callback = None
 
         self.logger[1].experiment.log_videos(
-            frames,
-            targets,
-            meta,
-            projected_pose,
-            absolute_pose_loc,
-            absolute_pose_rot,
-            world_loc,
-            world_rot,
-            self.global_step,
-            batch_idx,
-            stage,
-            vid_callback,
-            force=(stage != 'train')
+            meta=meta,
+            step=self.global_step,
+            batch_idx=batch_idx,
+            stage=stage,
+            vid_callback=vid_callback,
+            force=(stage != 'train'),
+            **kwargs
         )

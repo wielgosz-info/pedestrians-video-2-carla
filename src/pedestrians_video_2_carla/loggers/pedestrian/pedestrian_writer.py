@@ -104,19 +104,20 @@ class PedestrianWriter(object):
 
     @torch.no_grad()
     def log_videos(self,
-                   inputs: Tensor,
-                   targets: Tensor,
-                   meta: Tensor,
-                   projected_pose: Tensor,
-                   absolute_pose_loc: Tensor,
-                   absolute_pose_rot: Tensor,
-                   world_loc: Tensor,
-                   world_rot: Tensor,
+                   meta: Dict[str, Tensor],
                    step: int,
                    batch_idx: int,
                    stage: str,
                    vid_callback: Callable = None,
                    force: bool = False,
+                   # data that is passed from various outputs:
+                   inputs: Tensor = None,
+                   targets: Dict[str, Tensor] = None,
+                   projected_pose: Tensor = None,
+                   relative_pose_loc: Tensor = None,
+                   relative_pose_rot: Tensor = None,
+                   world_loc: Tensor = None,
+                   world_rot: Tensor = None,
                    **kwargs) -> None:
         if step % self._reduced_log_every_n_steps != 0 and not force:
             return
@@ -128,8 +129,8 @@ class PedestrianWriter(object):
                 {k: v[self.__videos_slice] for k, v in targets.items()},
                 {k: v[self.__videos_slice] for k, v in meta.items()},
                 projected_pose[self.__videos_slice],
-                absolute_pose_loc[self.__videos_slice],
-                absolute_pose_rot[self.__videos_slice] if absolute_pose_rot is not None else None,
+                relative_pose_loc[self.__videos_slice] if relative_pose_loc is not None else None,
+                relative_pose_rot[self.__videos_slice],
                 world_loc[self.__videos_slice],
                 world_rot[self.__videos_slice] if world_rot is not None else None,
                 batch_idx)), desc="Rendering clips", total=self._max_videos):
@@ -155,8 +156,8 @@ class PedestrianWriter(object):
                 targets: Dict[str, Tensor],
                 meta: Dict[str, List[Any]],
                 projected_pose: Tensor,
-                absolute_pose_loc: Tensor,
-                absolute_pose_rot: Tensor,
+                relative_pose_loc: Tensor,
+                relative_pose_rot: Tensor,
                 world_loc: Tensor,
                 world_rot: Tensor,
                 batch_idx: int
@@ -172,10 +173,10 @@ class PedestrianWriter(object):
         :type meta: Dict[str, List[Any]]
         :param projected_pose: Output of the projection layer.
         :type projected_pose: Tensor
-        :param absolute_pose_loc: Output from the .forward converted to absolute pose locations. Get it from projection layer.
-        :type absolute_pose_loc: Tensor
-        :param absolute_pose_rot: Output from the .forward converted to absolute pose rotations. May be None.
-        :type absolute_pose_rot: Tensor
+        :param relative_pose_loc: Output from the .forward converted to relative pose locations. May be None.
+        :type relative_pose_loc: Tensor
+        :param relative_pose_rot: Output from the .forward converted to absolute pose rotations.
+        :type relative_pose_rot: Tensor
         :param world_loc: Output from the .forward converted to world locations. Get it from projection layer.
         :type world_loc: Tensor
         :param world_rot: Output from the .forward converted to world rotations. May be None.
@@ -200,7 +201,7 @@ class PedestrianWriter(object):
                 meta
             ),
             PedestrianRenderers.source_carla: lambda: self.__renderers[PedestrianRenderers.source_carla].render(
-                targets['absolute_pose_loc'], targets['absolute_pose_rot'],
+                targets['relative_pose_loc'], targets['relative_pose_rot'],
                 targets['world_loc'], targets['world_rot'],
                 meta
             ),
@@ -214,17 +215,19 @@ class PedestrianWriter(object):
                 projected_pose
             ),
             PedestrianRenderers.carla: lambda: self.__renderers[PedestrianRenderers.carla].render(
-                absolute_pose_loc, absolute_pose_rot,
+                relative_pose_loc, relative_pose_rot,
                 world_loc, world_rot,
                 meta
             )
         }
 
         for renderer_type in self._used_renderers:
-            # TODO: this should be done in parallel
             output_videos.append(render[renderer_type]())
 
         for vid_idx, vids in enumerate(zip(*output_videos)):
+            # TODO: generating each item in vids should be done in parallel somehow
+            # altough the output_videos itself contains generators...
+
             merged_rows = []
             # for each row in the output
             for row in range(self._video_rows):

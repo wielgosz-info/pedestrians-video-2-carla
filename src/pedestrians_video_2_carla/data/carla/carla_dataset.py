@@ -20,6 +20,8 @@ class CarlaDataset(Dataset):
         self.pose_changes = set_file['carla_2d_3d/targets/pose_changes']
         self.world_loc_changes = set_file['carla_2d_3d/targets/world_loc_changes']
         self.world_rot_changes = set_file['carla_2d_3d/targets/world_rot_changes']
+        self.relative_pose_loc = set_file['carla_2d_3d/targets/relative_pose_loc']
+        self.relative_pose_rot = set_file['carla_2d_3d/targets/relative_pose_rot']
         self.absolute_pose_loc = set_file['carla_2d_3d/targets/absolute_pose_loc']
         self.absolute_pose_rot = set_file['carla_2d_3d/targets/absolute_pose_rot']
         self.meta = set_file['carla_2d_3d/meta']
@@ -45,6 +47,12 @@ class CarlaDataset(Dataset):
         world_loc_change_batch = self.world_loc_changes[idx]
         world_loc_change_batch = torch.from_numpy(world_loc_change_batch)
 
+        relative_pose_loc = self.relative_pose_loc[idx]
+        relative_pose_loc = torch.from_numpy(relative_pose_loc)
+
+        relative_pose_rot = self.relative_pose_rot[idx]
+        relative_pose_rot = torch.from_numpy(relative_pose_rot)
+
         absolute_pose_loc = self.absolute_pose_loc[idx]
         absolute_pose_loc = torch.from_numpy(absolute_pose_loc)
 
@@ -60,6 +68,12 @@ class CarlaDataset(Dataset):
                 'pose_changes': pose_changes_matrix,
                 'world_loc_changes': world_loc_change_batch,
                 'world_rot_changes': world_rot_change_batch,
+
+                # TODO: do we really need to keep those? maybe they should be calculated?
+                # speed vs memory issue? how to check what's the most efficient way?
+                # also, if we keep them, why not world_loc and world_rot?
+                'relative_pose_loc': relative_pose_loc,
+                'relative_pose_rot': relative_pose_rot,
                 'absolute_pose_loc': absolute_pose_loc,
                 'absolute_pose_rot': absolute_pose_rot,
             },
@@ -157,7 +171,7 @@ class Carla2D3DIterableDataset(IterableDataset):
             'age': age,
             'gender': gender
         }), 0)
-        projection_2d, absolute_pose_loc, absolute_pose_rot, *_ = self.projection.project_pose(
+        projection_2d, projection_outputs = self.projection.project_pose(
             pose_inputs_batch=pose_changes_batch,
             world_rot_change_batch=world_rot_change_batch,
             world_loc_change_batch=world_loc_change_batch,
@@ -184,8 +198,7 @@ class Carla2D3DIterableDataset(IterableDataset):
                 'pose_changes': pose_changes_batch,
                 'world_loc_changes': world_loc_change_batch,
                 'world_rot_changes': world_rot_change_batch,
-                'absolute_pose_loc': absolute_pose_loc,
-                'absolute_pose_rot': absolute_pose_rot
+                **projection_outputs
             },
             {'age': age, 'gender': gender}
         )

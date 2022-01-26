@@ -6,6 +6,7 @@ from pedestrians_video_2_carla.data.smpl.smpl_dataset import SMPLDataset
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.data.smpl.skeleton import _ORIG_SMPL_SKELETON, SMPL_SKELETON
 from pedestrians_video_2_carla.data.carla.reference import get_pedestrians, get_poses
+from pedestrians_video_2_carla.utils.world import zero_world_loc, zero_world_rot
 from pedestrians_video_2_carla.walker_control.p3d_pose_projection import P3dPoseProjection
 from PIL import Image
 
@@ -61,15 +62,14 @@ def test_convert_smpl_to_carla(test_data_dir, test_outputs_dir, device):
 
     os.makedirs(os.path.join(test_outputs_dir, 'projections'), exist_ok=True)
 
-    world_loc = torch.zeros((batch_size, 3), dtype=torch.float32, device=device)
-    world_rot = torch.eye(3, dtype=torch.float32, device=device).reshape((1, 3, 3)).repeat(
-        (batch_size, 1, 1))
+    world_loc = zero_world_loc((batch_size,), device)
+    world_rot = zero_world_rot((batch_size,), device)
 
     for (age, gender) in models_to_test:
         modifications = [[] for _ in range(batch_size)]
 
         pose_body = smpl_pose.reshape((batch_size, -1))
-        smpl_abs, _, smpl_proj, smpl_pp = amass_dataset.get_clip_projection(
+        _, _, smpl_abs, _, smpl_proj, smpl_pp = amass_dataset.get_clip_projection(
             pose_body,
             SMPL_SKELETON,
             age,
@@ -77,7 +77,7 @@ def test_convert_smpl_to_carla(test_data_dir, test_outputs_dir, device):
             world_loc,
             world_rot
         )
-        carla_abs, _, carla_proj, carla_pp = amass_dataset.get_clip_projection(
+        _, _, carla_abs, _, carla_proj, carla_pp = amass_dataset.get_clip_projection(
             pose_body,
             CARLA_SKELETON,
             age,

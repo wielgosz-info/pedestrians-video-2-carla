@@ -24,7 +24,7 @@ def get_poses(device=torch.device('cpu'), as_dict=False):
         p = P3dPose(structure=structure, device=device)
 
         p.tensors = (
-            # TODO: get bones lengths
+            # TODO: get bones lengths from SMPL model
             torch.zeros((nodes_len, 3),
                         dtype=torch.float32, device=device),
             # reference pose in SMPL is all zeros

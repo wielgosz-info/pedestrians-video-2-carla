@@ -95,7 +95,7 @@ class SMPLDataset(Dataset):
             pass
 
         # convert to absolute pose and projection
-        absolute_loc, absolute_rot, projections, _ = self.get_clip_projection(
+        relative_loc, relative_rot, absolute_loc, absolute_rot, projections, _ = self.get_clip_projection(
             smpl_pose=amass_relative_pose_rot_rad,
             nodes=self.nodes,
             age=clip_info['age'],
@@ -108,8 +108,10 @@ class SMPLDataset(Dataset):
             projections = self.transform(projections)
 
         return (projections, {
-            'absolute_pose_loc': absolute_loc,
-            'absolute_pose_rot': absolute_rot,
+            'relative_pose_loc': relative_loc.detach(),
+            'relative_pose_rot': relative_rot.detach(),
+            'absolute_pose_loc': absolute_loc.detach(),
+            'absolute_pose_rot': absolute_rot.detach(),
             'world_loc': world_loc.detach(),
             'world_rot': world_rot.detach(),
 
@@ -176,23 +178,18 @@ class SMPLDataset(Dataset):
         if nodes == SMPL_SKELETON:
             reference_pose = smpl_reference.get_poses(
                 device=self.device, as_dict=True)[(age, gender)]
-            absolute_loc, absolute_rot = convert_smpl_pose_to_absolute_loc_rot(
+            relative_loc, relative_rot, absolute_loc, absolute_rot = convert_smpl_pose_to_absolute_loc_rot(
                 gender=gender,
                 reference_pose=reference_pose,
                 pose_body=smpl_pose[:, 3:],
                 root_orient=smpl_pose[:, :3],
                 device=self.device
             )
-            shift = absolute_loc[:, SMPL_SKELETON.Pelvis.value].unsqueeze(1).clone()
-            absolute_loc -= shift
         else:
             reference_pose = carla_reference.get_poses(device=self.device, as_dict=True)[(
                 age, gender)]
-            absolute_loc, absolute_rot = self.convert_smpl_to_carla(
+            relative_loc, relative_rot, absolute_loc, absolute_rot = self.convert_smpl_to_carla(
                 smpl_pose, age, gender, reference_pose)
-            shift = absolute_loc[:, CARLA_SKELETON.crl_hips__C.value].unsqueeze(
-                1).clone()
-            absolute_loc -= shift
 
         pose_projection = P3dPoseProjection(
             device=self.device,
@@ -211,7 +208,7 @@ class SMPLDataset(Dataset):
         # this will also prevent the models from accidentally using
         # the depth data that pytorch3d leaves in the projections
         projections[..., 2] = 1.0
-        return absolute_loc, absolute_rot, projections, pose_projection
+        return relative_loc, relative_rot, absolute_loc, absolute_rot, projections, pose_projection
 
     @lru_cache(maxsize=10)
     def __get_local_rotation(self, clip_length, age, gender):
@@ -269,11 +266,11 @@ class SMPLDataset(Dataset):
             local_rot.reshape((-1, 3, 3))
         ).reshape((clip_length, -1, 3, 3))
 
-        carla_rel_loc, carla_rel_rot = self.__get_carla_reference_relative_tensors(
+        ref_carla_rel_loc, ref_carla_rel_rot = self.__get_carla_reference_relative_tensors(
             clip_length, age, gender)
 
-        carla_abs_loc, carla_abs_rot, _ = reference_pose(local_changes,
-                                                         carla_rel_loc,
-                                                         carla_rel_rot)
+        carla_abs_loc, carla_abs_rot, carla_rel_rot = reference_pose(local_changes,
+                                                                     ref_carla_rel_loc,
+                                                                     ref_carla_rel_rot)
 
-        return carla_abs_loc, carla_abs_rot
+        return ref_carla_rel_loc, carla_rel_rot, carla_abs_loc, carla_abs_rot
