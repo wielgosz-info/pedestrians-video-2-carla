@@ -1,52 +1,26 @@
 version: "3.9"
 
 services:
-  server:
-    image: carlasim/carla:0.9.13
-    entrypoint: [ "/bin/bash", "/home/carla/CarlaUE4.sh" ]
-    command:
-      [
-        "-RenderOffscreen",
-        "-carla-rpc-port=${CARLA_SERVER_PORT:-2000}",
-        "-carla-streaming-port=${CARLA_STREAMING_PORT:-2001}",
-        "-quality-level=Epic"
-      ]
-    expose:
-      - "${CARLA_SERVER_PORT:-2000}-${CARLA_STREAMING_PORT_2:-2002}"
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-    environment:
-      NVIDIA_VISIBLE_DEVICES: all
-      NVIDIA_DRIVER_CAPABILITIES: compute,graphics,utility
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: [ '${CARLA_SERVER_GPU_ID:-0}' ]
-              capabilities: [ 'compute', 'graphics', 'utility' ]
-  client:
+  video2carla:
     build:
-      context: .
+      context: ${VIDEO2CARLA_DIR:-.}
       dockerfile: Dockerfile
       args:
         USER_ID: ${USER_ID:-1000}
         GROUP_ID: ${GROUP_ID:-1000}
-        USERNAME: carla-pedestrians-client
+        USERNAME: carla
         COMMIT: ${COMMIT}
-        PLATFORM: nvidia
-    image: wielgoszinfo/carla-pedestrians-client:latest
+        PLATFORM: ${PLATFORM:-nvidia}
+    image: wielgoszinfo/pedestrians-video-2-carla:${PLATFORM:-nvidia}-latest
     user: ${USER_ID}:${GROUP_ID}
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ${DATASETS_PATH}:/datasets:ro
-      - ${PWD}:/app
-      - vscode:/home/carla-pedestrians-client/.vscode-server
-      - vscode-insiders:/home/carla-pedestrians-client/.vscode-server-insiders
+      - ${VIDEO2CARLA_DATASETS_PATH}:/datasets:ro
+      - ${VIDEO2CARLA_DIR:-PWD}:/app
+      - vscode:/home/carla/.vscode-server
+      - vscode-insiders:/home/carla/.vscode-server-insiders
       - outputs:/outputs
-      - ${RUNS_DIR_OR_VOLUME}:/runs
+      - ${VIDEO2CARLA_RUNS_DIR_OR_VOLUME}:/runs
     environment:
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,graphics,utility
@@ -56,12 +30,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: [ '${CLIENT_GPU_ID:-0}' ]
+              device_ids: [ '${VIDEO2CARLA_GPU_ID:-0}' ]
               capabilities: [ 'compute', 'graphics', 'utility' ]
     depends_on:
       - server
-
-volumes:
-  vscode: null
-  vscode-insiders: null
-  outputs: null

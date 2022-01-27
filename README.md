@@ -7,25 +7,54 @@ It isn't intended for fully standalone use. Please see the [main project README.
 
 Copy the `.env.template` file to `.env` and edit the values as required.
 
-Run the CARLA server (optional) & the container with our code (`carla-pedestrians-client-1`).
+Run the CARLA server (optional) & the containers with our code as described in [Step 2 of main project README.md](https://github.com/wielgosz-info/carla-pedestrians/blob/main/README.md#Step 2). This should result in the `carla-pedestrians_video2carla_1` container running.
 
 If you don't have the Nvidia GPU, there is CPU-only version available `docker-compose.cpu.yml`.
 Please note that currently running CARLA server requires GPU, so without it the `source_carla`
 `carla` renderers shouldn't be used, since it would result in errors.
 
-```sh
-COMMIT=$(git rev-parse --short HEAD) docker-compose -f "docker-compose.yml" --env-file .env up -d --build
-```
+### Using JAAD dataset
 
-## Running
-
-If needed, run the
+If needed (you want to use `JAADOpenPoseDataModule`), inside the container run the
 ```sh
 python src/pedestrians_video_2_carla/data/utils/jaad_annotations_xml_2_csv.py
 ```
-script to convert the JAAD annotations from XML to CSV. The output will be in `/outputs/JAAD/annotations.csv` and this is where `JAADOpenPoseDataModule` will look for it by default.
+script to convert the JAAD annotations from XML to CSV. The output will be in `/outputs/JAAD/annotations.csv` and this is where `JAADOpenPoseDataModule` will look for it by default. Please note that the data module expects to find the keypoints files in `/outputs/JAAD`, you need to process the dataset with OpenPose to get them.
 
-Inside the container, you can run the following command to start the training:
+(For now) the `annotations.csv` file needs to have `video`, `frame`, `x1`,`y1`, `x2`, `y2`, `id`, `action`, `gender`, `age`, `group_size` and `speed` columns, where `x1`,`y1`, `x2`, `y2` define pedestrian bounding box, `id` is the pedestrian id, `action` is what the pedestrian is doing (since right now only the `walking` ones will be used) and `speed` is the car speed category (for now only `stopped` cars will be used). For now we are also only using fragments where `group_size=1`.
+
+### Conda
+
+The preferred way of running is via Docker. If conda is used, in addition to creating the env from the provided `environment.yml` file, following steps need to be done:
+
+1. Create and activate conda environment with the following command:
+   
+    ```sh
+    conda create -f environment.yml
+    conda activate pedestrians
+    ```
+    
+2. Install the `pedestrians_video_2_carla` package with:
+
+    ```sh
+    COMMIT=$(git rev-parse --short HEAD) SETUPTOOLS_SCM_PRETEND_VERSION="0.0.post0.dev38+${COMMIT}.dirty" pip install -e .
+    ```
+
+3. Run `pytest tests` to see if everything is working.
+
+**Please note that conda env is not actively maintained.**
+
+## Running
+
+Full list of options is available by running inside the container:
+
+```sh
+python -m pedestrians_video_2_carla --help
+```
+
+Please note that data module and model specific options may change if you switch the DataModule or Model.
+
+### Example 'start training' command
 
 ```sh
 python -m pedestrians_video_2_carla \
@@ -47,13 +76,7 @@ python -m pedestrians_video_2_carla \
   --flush_logs_every_n_steps=64
 ```
 
-Full list of options is available by running:
-
-```sh
-python -m pedestrians_video_2_carla --help
-```
-
-## Example run with rendering
+### Example run with rendering
 
 ```sh
 python -m pedestrians_video_2_carla \
@@ -80,32 +103,11 @@ python -m pedestrians_video_2_carla \
 
 ```
 
-## Conda
-
-The preferred way of running is via Docker. If conda is used, in addition to creating the env from the provided `environment.yml` file, following steps need to be done:
-
-1. Create and activate conda environment with the following command:
-   
-    ```sh
-    conda create -f environment.yml
-    conda activate pedestrians
-    ```
-    
-2. Install the `pedestrians_video_2_carla` package with:
-
-    ```sh
-    COMMIT=$(git rev-parse --short HEAD) SETUPTOOLS_SCM_PRETEND_VERSION="0.0.post0.dev38+${COMMIT}.dirty" pip install -e .
-    ```
-
-3. Run `pytest tests` to see if everything is working.
-
-**Please note that conda env is not actively maintained.**
-
 ## Reference skeletons
-Reference skeleton data in `src/pedestrians_video_2_carla/skeletons/reference` are extracted form [CARLA project Walkers *.uasset files](https://bitbucket.org/carla-simulator/carla-content).
+Reference skeleton data in `src/pedestrians_video_2_carla/data/carla/files` are extracted form [CARLA project Walkers *.uasset files](https://bitbucket.org/carla-simulator/carla-content).
 
 ## License
-Our code is released under [MIT License](https://github.com/wielgosz-info/pedestrians-video-2-carla/blob/main/LICENSE)
+Our code is released under [MIT License](https://github.com/wielgosz-info/pedestrians-video-2-carla/blob/main/LICENSE).
 
 This project uses (and is developed to work with) [CARLA Simulator](https://carla.org/), which is released under [MIT License](https://github.com/carla-simulator/carla/blob/master/LICENSE).
 
@@ -113,7 +115,7 @@ This project uses videos and annotations from [JAAD dataset](https://data.nvisio
 
 This project uses [OpenPose](https://github.com/CMU-Perceptual-Computing-Lab/openpose), created by Ginés Hidalgo, Zhe Cao, Tomas Simon, Shih-En Wei, Yaadhav Raaj, Hanbyul Joo, and Yaser Sheikh, to extract pedestrians skeletons from videos. OpenPose has its [own licensing](https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/LICENSE) (basically, academic or non-profit organization noncommercial research use only).
 
-This project uses software, models and datasets from [Max-Planck Institute for Intelligent Systems](https://is.mpg.de/en), namely [VPoser: Variational Human Pose Prior for Body Inverse Kinematics](https://github.com/nghorbani/human_body_prior), [Body Visualizer](https://github.com/nghorbani/body_visualizer), [Configer](https://github.com/MPI-IS/configer) and [Perceiving Systems Mesh Package](https://github.com/MPI-IS/mesh), which have their own licenses (non-commercial scientific research purposes, see each repo for details). The models can be downloaded from ["Expressive Body Capture: 3D Hands, Face, and Body from a Single Image" website](https://smpl-x.is.tue.mpg.de). Required are the "SMPL-X with removed head bun" or other SMPL-based model that can be fed into [BodyModel](https://github.com/nghorbani/human_body_prior/blob/master/src/human_body_prior/body_model/body_model.py) - right now our code utilizes only [first 22 common SMPL basic joints](https://meshcapade.wiki/SMPL#related-models-the-smpl-family#skeleton-layout). For VPoser, the "VPoser v2.0" model is used. Both downloaded models need to be put in `pedestrians-video-2-carla/models` directory. If using other SMPL models, the defaults in `pedestrians-video-2-carla/src/pedestrians_video_2_carla/renderers/smpl_renderer.py` may need to be modified. SMPL-compatible datasets can be obtained from [AMASS: Archive of Motion Capture As Surface Shapes](https://amass.is.tue.mpg.de/). Each available dataset has its own license / citing requirements. During the development of this project, we mainly used [CMU](http://mocap.cs.cmu.edu/) and [Human Eva](http://humaneva.is.tue.mpg.de/) SMPL-X Gender Specific datasets.
+This project uses software, models and datasets from [Max-Planck Institute for Intelligent Systems](https://is.mpg.de/en), namely [VPoser: Variational Human Pose Prior for Body Inverse Kinematics](https://github.com/nghorbani/human_body_prior), [Body Visualizer](https://github.com/nghorbani/body_visualizer), [Configer](https://github.com/MPI-IS/configer) and [Perceiving Systems Mesh Package](https://github.com/MPI-IS/mesh), which have their own licenses (non-commercial scientific research purposes, see each repo for details). The models can be downloaded from ["Expressive Body Capture: 3D Hands, Face, and Body from a Single Image" website](https://smpl-x.is.tue.mpg.de). Required are the "SMPL-X with removed head bun" or other SMPL-based model that can be fed into [BodyModel](https://github.com/nghorbani/human_body_prior/blob/master/src/human_body_prior/body_model/body_model.py) - right now our code utilizes only [first 22 common SMPL basic joints](https://meshcapade.wiki/SMPL#related-models-the-smpl-family#skeleton-layout). For VPoser, the "VPoser v2.0" model is used. Both downloaded models need to be put in `models` directory. If using other SMPL models, the defaults in `src/pedestrians_video_2_carla/data/smpl/constants.py` may need to be modified. SMPL-compatible datasets can be obtained from [AMASS: Archive of Motion Capture As Surface Shapes](https://amass.is.tue.mpg.de/). Each available dataset has its own license / citing requirements. During the development of this project, we mainly used [CMU](http://mocap.cs.cmu.edu/) and [Human Eva](http://humaneva.is.tue.mpg.de/) SMPL-X Gender Specific datasets.
 
 ## Funding
 

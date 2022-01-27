@@ -1,62 +1,5 @@
 ARG PLATFORM=nvidia
-
-# ----------------------------------------------------------------------------
-# Choose base image based on the ${PLATFORM} variable
-# ----------------------------------------------------------------------------
-
-FROM nvidia/cuda:11.1.1-cudnn8-runtime-ubuntu20.04 as base-nvidia
-FROM ubuntu:20.04 as base-cpu
-FROM base-${PLATFORM} as base
-
-# ----------------------------------------------------------------------------
-# Common dependencies
-# ----------------------------------------------------------------------------
-
-ENV TZ=Europe/Warsaw
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    ca-certificates \
-    ffmpeg \
-    g++ \
-    gcc \
-    git \
-    libboost-python-dev \
-    libjpeg-dev \
-    libjpeg-turbo8-dev \
-    libpng-dev \
-    python3-pip \
-    python3-venv \
-    screen \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create non-root user
-ARG USER_ID=1000
-ARG GROUP_ID=1000
-ARG USERNAME=carla-pedestrians-client
-ENV HOME /home/${USERNAME}
-
-RUN groupadd -g ${GROUP_ID} ${USERNAME} \
-    && useradd -ms /bin/bash -u ${USER_ID} -g ${GROUP_ID} ${USERNAME} \
-    && echo "${USERNAME}:${USERNAME}" | chpasswd \
-    && mkdir ${HOME}/.vscode-server ${HOME}/.vscode-server-insiders /outputs /venv /app \
-    && chown ${USERNAME}:${USERNAME} ${HOME}/.vscode-server ${HOME}/.vscode-server-insiders /outputs /venv /app
-
-# Everything else can be run as user since we need venv anyway
-USER carla-pedestrians-client
-
-# Create venv to allow editable installation of python packages
-RUN python3 -m venv /venv
-
-# Update basic python packages
-RUN /venv/bin/python -m pip install --no-cache-dir -U \
-    pip==21.3.1 \
-    setuptools==59.5.0 \
-    wheel==0.37.1
-
-# Automatically activate virtualenv for user
-RUN echo 'source /venv/bin/activate' >> ${HOME}/.bashrc
+FROM wielgoszinfo/pedestrians-common:${PLATFORM}-latest AS base
 
 ENV torch_version=1.9.1
 ENV torchvision_version=0.10.1
@@ -82,7 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglu1 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=nvidia/cudagl:11.1.1-base-ubuntu20.04 /usr/share/glvnd/egl_vendor.d/10_nvidia.json /usr/share/glvnd/egl_vendor.d/10_nvidia.json
-USER carla-pedestrians-client
+USER carla
 
 RUN /venv/bin/python -m pip install --no-cache-dir -f https://download.pytorch.org/whl/torch_stable.html \
     torch==${torch_version}+cu111 \
@@ -104,7 +47,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libosmesa6 \
     libosmesa6-dev \
     && rm -rf /var/lib/apt/lists/*
-USER carla-pedestrians-client
+USER carla
 
 RUN /venv/bin/python -m pip install --no-cache-dir -f https://download.pytorch.org/whl/cpu/torch_stable.html \
     torch==${torch_version}+cpu \
@@ -118,18 +61,6 @@ FROM torch-${PLATFORM} as torch
 # PyTorch3D (need to compile to get newer version, wheels are up to 0.3.0)
 RUN /venv/bin/python -m pip install --no-cache-dir \
     "git+https://github.com/facebookresearch/pytorch3d.git@v${pytorch3d_version}"
-
-# TODO: get rid of apt packages that are only needed to compile PyTorch3D someday
-
-# separate some utility/development requirements, since they will change much slower than project ones
-RUN /venv/bin/python -m pip install --no-cache-dir \
-    autopep8 \
-    pylint \
-    pytest \
-    pytest-cov \
-    torch-tb-profiler \
-    ipykernel \
-    ipywidgets
 
 # Direct project dependencies are defined in pedestrians-video-2-carla/setup.cfg
 # However, we want to leverage the cache, so we're going to specify at least basic ones with versions here
