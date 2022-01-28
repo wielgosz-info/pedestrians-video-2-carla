@@ -77,11 +77,11 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     h5py==3.6.0 \
     matplotlib==3.5.0 \
     moviepy==1.0.3 \
-    networkx==2.4 \
+    networkx==2.2 \
     numpy==1.22.1 \
     opencv-python-headless==4.5.4.58 \
     pandas==1.3.5 \
-    Pillow==8.4.0 \
+    Pillow==9.0.0 \
     pims==0.5 \
     pyrender==0.1.45 \
     pytorch-lightning==1.5.2 \
