@@ -1,7 +1,7 @@
 from typing import Dict
 from torchmetrics import Metric
 import torch
-from pedestrians_video_2_carla.submodules.video_pose_3d.loss import mpjpe
+from pedestrians_video_2_carla.third_party.video_pose_3d.loss import mpjpe
 
 
 class FB_MPJPE(Metric):

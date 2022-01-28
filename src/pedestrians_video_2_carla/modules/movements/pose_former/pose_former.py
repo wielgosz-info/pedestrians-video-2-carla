@@ -2,7 +2,7 @@ import torch
 from pedestrians_video_2_carla.modules.base.movements import MovementsModel
 from pedestrians_video_2_carla.modules.base.output_types import MovementsModelOutputType
 from torch import nn
-from pedestrians_video_2_carla.submodules.pose_former.model_poseformer import PoseTransformer as PoseFormerModel
+from pedestrians_video_2_carla.third_party.pose_former.model_poseformer import PoseTransformer as PoseFormerModel
 
 
 class PoseFormer(MovementsModel):
