@@ -1,6 +1,8 @@
 ARG PLATFORM=nvidia
 FROM wielgoszinfo/pedestrians-common:${PLATFORM}-latest AS base
 
+ENV PACKAGE=pedestrians-video-2-carla
+
 ENV torch_version=1.9.1
 ENV torchvision_version=0.10.1
 ENV pytorch3d_version=0.6.0
@@ -25,7 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglu1 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=nvidia/cudagl:11.1.1-base-ubuntu20.04 /usr/share/glvnd/egl_vendor.d/10_nvidia.json /usr/share/glvnd/egl_vendor.d/10_nvidia.json
-USER carla
+USER ${USERNAME}
 
 RUN /venv/bin/python -m pip install --no-cache-dir -f https://download.pytorch.org/whl/torch_stable.html \
     torch==${torch_version}+cu111 \
@@ -47,7 +49,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libosmesa6 \
     libosmesa6-dev \
     && rm -rf /var/lib/apt/lists/*
-USER carla
+USER ${USERNAME}
 
 RUN /venv/bin/python -m pip install --no-cache-dir -f https://download.pytorch.org/whl/cpu/torch_stable.html \
     torch==${torch_version}+cpu \
@@ -63,7 +65,7 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     "git+https://github.com/facebookresearch/pytorch3d.git@v${pytorch3d_version}"
 
 # Direct project dependencies are defined in pedestrians-video-2-carla/setup.cfg
-# However, we want to leverage the cache, so we're going to specify at least basic ones with versions here
+# However, we want to leverage the cache, so we're going to specify them (and some of their dependencies) here
 RUN /venv/bin/python -m pip install --no-cache-dir \
     av==8.0.3 \
     cameratransform==1.2 \
@@ -75,7 +77,8 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     h5py==3.6.0 \
     matplotlib==3.5.0 \
     moviepy==1.0.3 \
-    numpy==1.21.5 \
+    networkx==2.4 \
+    numpy==1.22.1 \
     opencv-python-headless==4.5.4.58 \
     pandas==1.3.5 \
     Pillow==8.4.0 \
@@ -100,15 +103,8 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
 
 # install newer version of pyopengl, since pyrender has obsolete dependency
 RUN /venv/bin/python -m pip install --no-cache-dir \
-    PyOpenGL==3.1.5
+    PyOpenGL==3.1.5 \
+    PyOpenGL-accelerate==3.1.5
 
 # Copy client files so that we can do editable pip install
 COPY --chown=${USERNAME}:${USERNAME} . /app
-
-ARG COMMIT="0000000"
-ENV COMMIT=${COMMIT}
-
-ENTRYPOINT [ "/app/entrypoint.sh" ]
-
-# Run infinite loop to allow easily attach to container
-CMD ["/bin/sh", "-c", "while sleep 1000; do :; done"]
