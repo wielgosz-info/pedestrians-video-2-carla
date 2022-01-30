@@ -1,5 +1,5 @@
 ARG PLATFORM=nvidia
-FROM wielgoszinfo/pedestrians-common:${PLATFORM}-latest AS base
+FROM wielgoszinfo/carla-common:${PLATFORM}-latest AS base
 
 ENV PACKAGE=pedestrians-video-2-carla
 
@@ -69,7 +69,6 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
 RUN /venv/bin/python -m pip install --no-cache-dir \
     av==8.0.3 \
     cameratransform==1.2 \
-    carla==0.9.13 \
     dotmap==1.3.26 \
     einops==0.3.2 \
     gym==0.21.0 \
