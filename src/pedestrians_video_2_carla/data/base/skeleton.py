@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Type
+from typing import Dict, Tuple, Type, Union
 
 from torch import Tensor
 
@@ -8,6 +8,17 @@ class Skeleton(Enum):
     @classmethod
     def get_extractor(cls) -> Type['HipsNeckExtractor']:
         raise NotImplementedError()
+
+    @classmethod
+    def get_colors(cls) -> Dict['Skeleton', Tuple[int, int, int, int]]:
+        # try to match OpenPose color scheme for easier visual comparison
+        # entries should be in the same order as in the enum,
+        # so that .values() returns the same order and can be used for indexing
+        raise NotImplementedError()
+
+    @classmethod
+    def get_root_point(cls) -> Union[int, None]:
+        return None
 
 
 class HipsNeckExtractor(object):

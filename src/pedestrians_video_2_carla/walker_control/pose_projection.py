@@ -1,155 +1,18 @@
 import os
 import warnings
 from collections import OrderedDict
-from typing import Tuple, Union, List
+from typing import Tuple
 
 import cameratransform as ct
 import numpy as np
 from pedestrians_video_2_carla.carla_utils.setup import get_camera_transform
-from pedestrians_video_2_carla.data import OUTPUTS_BASE
-from PIL import Image, ImageDraw
+
 
 try:
     import carla
 except ImportError:
     import pedestrians_video_2_carla.carla_utils.mock_carla as carla
     warnings.warn("Using mock carla.", ImportWarning)
-
-# try to match OpenPose color scheme for easier visual comparison
-# TODO: colors definitions should be with nodes, not here
-POSE_COLORS = {
-    'crl_root': (0, 0, 0, 128),
-    #
-    #
-
-    'crl_hips__C': (255, 0, 0, 192),
-    'hips__C': (255, 0, 0, 192),
-    'Pelvis': (255, 0, 0, 192),
-
-    'crl_spine__C': (255, 0, 0, 128),
-    #
-    'Spine1': (255, 0, 0, 128),
-
-    #
-    #
-    'Spine2': (255, 0, 0, 128),
-
-    'crl_spine01__C': (255, 0, 0, 128),
-    #
-    'Spine3': (255, 0, 0, 128),
-
-    'crl_shoulder__L': (170, 255, 0, 128),
-    #
-    'L_Collar': (170, 255, 0, 128),
-
-    'crl_arm__L': (170, 255, 0, 255),
-    'arm__L': (170, 255, 0, 255),
-    'L_Shoulder': (170, 255, 0, 255),
-
-    'crl_foreArm__L': (85, 255, 0, 255),
-    'foreArm__L': (85, 255, 0, 255),
-    'L_Elbow': (85, 255, 0, 255),
-
-    'crl_hand__L': (0, 255, 0, 255),
-    'hand__L': (0, 255, 0, 255),
-    'L_Wrist': (0, 255, 0, 255),
-
-    #
-    #
-    'L_Hand': (0, 255, 0, 255),
-
-    'crl_neck__C': (255, 0, 0, 192),
-    'neck__C': (255, 0, 0, 192),
-    'Neck': (255, 0, 0, 192),
-
-    'crl_Head__C': (255, 0, 85, 255),
-    'head__C': (255, 0, 85, 255),
-    'Head': (255, 0, 85, 255),
-
-    'crl_shoulder__R': (255, 85, 0, 128),
-    #
-    'R_Collar': (255, 85, 0, 128),
-
-    'crl_arm__R': (255, 85, 0, 255),
-    'arm__R': (255, 85, 0, 255),
-    'R_Shoulder': (255, 85, 0, 255),
-
-    'crl_foreArm__R': (255, 170, 0, 255),
-    'foreArm__R': (255, 170, 0, 255),
-    'R_Elbow': (255, 170, 0, 255),
-
-    'crl_hand__R': (255, 255, 0, 255),
-    'hand__R': (255, 255, 0, 255),
-    'R_Wrist': (255, 255, 0, 255),
-
-    #
-    #
-    'R_Hand': (255, 255, 0, 128),
-
-    'crl_eye__L': (170, 0, 255, 255),
-    'eye__L': (170, 0, 255, 255),
-    'L_Eye': (170, 0, 255, 255),
-
-    'crl_eye__R': (255, 0, 170, 255),
-    'eye__R': (255, 0, 170, 255),
-    'R_Eye': (255, 0, 170, 255),
-
-    #
-    'ear__L': (170, 0, 255, 128),
-    #
-
-    #
-    'ear__R': (255, 0, 170, 128),
-    #
-
-    'crl_thigh__R': (0, 255, 85, 255),
-    'thigh__R': (0, 255, 85, 255),
-    'R_Hip': (0, 255, 85, 255),
-
-    'crl_leg__R': (0, 255, 170, 255),
-    'leg__R': (0, 255, 170, 255),
-    'R_Knee': (0, 255, 170, 255),
-
-    'crl_foot__R': (0, 255, 255, 255),
-    'foot__R': (0, 255, 255, 255),
-    'R_Ankle': (0, 255, 255, 255),
-
-    'crl_toe__R': (0, 255, 255, 255),
-    'toe__R': (0, 255, 255, 255),
-    'R_Foot': (0, 255, 255, 255),
-
-    'crl_toeEnd__R': (0, 255, 255, 255),
-    'toeEnd__R': (0, 255, 255, 255),
-    #
-
-    #
-    'heel__R': (0, 255, 255, 128),
-    #
-
-    'crl_thigh__L': (0, 170, 255, 255),
-    'thigh__L': (0, 170, 255, 255),
-    'L_Hip': (0, 170, 255, 255),
-
-    'crl_leg__L': (0, 85, 255, 255),
-    'leg__L': (0, 85, 255, 255),
-    'L_Knee': (0, 85, 255, 255),
-
-    'crl_foot__L': (0, 0, 255, 255),
-    'foot__L': (0, 0, 255, 255),
-    'L_Ankle': (0, 0, 255, 255),
-
-    'crl_toe__L': (0, 0, 255, 255),
-    'toe__L': (0, 0, 255, 255),
-    'L_Foot': (0, 0, 255, 255),
-
-    'crl_toeEnd__L': (0, 0, 255, 255),
-    'toeEnd__L': (0, 0, 255, 255),
-    #
-
-    #
-    'heel__L': (0, 0, 255, 128),
-    #
-}
 
 
 class RGBCameraMock(object):
@@ -190,9 +53,6 @@ class PoseProjection(object):
             int(camera_rgb.attributes['image_size_y'])
         )
         self.camera = self._setup_camera(camera_rgb)
-
-        self.outputs_dir = os.path.join(OUTPUTS_BASE, 'projections')
-        os.makedirs(self.outputs_dir, exist_ok=True)
 
     @property
     def image_size(self) -> Tuple:
@@ -276,58 +136,6 @@ class PoseProjection(object):
             for bone in relativeBones
         ], hide_backpoints=False)
 
-    def _raw_to_pixel_points(self, points):
-        return np.round(points).astype(int)
-
-    def current_pose_to_image(self, image_id: Union[str, int] = 'reference', points: np.ndarray = None, pose_keys: List[str] = None):
-        if points is None:
-            points = self.current_pose_to_points()
-        else:
-            assert points.ndim == 2 and points.shape[
-                1] == 2, f'points must be Bx2 numpy array, this is {points.shape}'
-
-        if pose_keys is None:
-            pose_keys = self._pedestrian.current_pose.empty.keys()
-
-        pixel_points = self._raw_to_pixel_points(points)
-
-        canvas = np.zeros((self._image_size[1], self._image_size[0], 4), np.uint8)
-        canvas = self.draw_projection_points(
-            canvas, pixel_points, pose_keys
-        )
-
-        if image_id is not None:
-            img = Image.fromarray(canvas, 'RGBA')
-            img.save(os.path.join(self.outputs_dir, '{:s}_pose.png'.format("{:06d}".format(image_id)
-                                                                           if isinstance(image_id, int) else image_id)), 'PNG')
-
-        return canvas
-
-    @staticmethod
-    def draw_projection_points(frame, rounded_points, pose_keys):
-        end = frame.shape[-1]
-        has_alpha = end == 4
-        img = Image.fromarray(frame, 'RGBA' if has_alpha else 'RGB')
-        draw = ImageDraw.Draw(img, 'RGBA' if has_alpha else 'RGB')
-
-        color_values = [POSE_COLORS[k] for k in pose_keys]
-
-        # special root point handling
-        draw.rectangle(
-            [tuple(rounded_points[0] - 2), tuple(rounded_points[0] + 2)],
-            fill=color_values[0][:end],
-            outline=None
-        )
-
-        for idx, point in enumerate(rounded_points[1:]):
-            draw.ellipse(
-                [tuple(point - 2), tuple(point + 2)],
-                fill=color_values[idx + 1][:end],
-                outline=None
-            )
-
-        return np.array(img)
-
 
 if __name__ == "__main__":
     from collections import OrderedDict
@@ -362,7 +170,6 @@ if __name__ == "__main__":
             sensor_data = camera_queue.get(True, 1.0)
             sensor_data.save_to_disk(
                 '/outputs/carla/{:06d}.png'.format(sensor_data.frame))
-            projection.current_pose_to_image(w_frame)
             ticks += 1
         except Empty:
             print("Some sensor information is missed in frame {:06d}".format(w_frame))

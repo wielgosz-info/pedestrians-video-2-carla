@@ -1,4 +1,4 @@
-from typing import Type, Union
+from typing import Dict, Tuple, Type, Union
 
 from torch import Tensor
 from pedestrians_video_2_carla.data.base.skeleton import register_skeleton, Skeleton
@@ -37,6 +37,37 @@ class BODY_25_SKELETON(Skeleton):
     def get_extractor(cls) -> Type[HipsNeckExtractor]:
         return OpenPoseHipsNeckExtractor(cls)
 
+    @classmethod
+    def get_colors(cls) -> Dict['BODY_25_SKELETON', Tuple[int, int, int, int]]:
+        # try to match OpenPose color scheme for easier visual comparison
+        return {
+            BODY_25_SKELETON.Nose: (255, 0, 85, 255),
+            BODY_25_SKELETON.Neck: (255, 0, 0, 192),
+            BODY_25_SKELETON.RShoulder: (255, 85, 0, 255),
+            BODY_25_SKELETON.RElbow: (255, 170, 0, 255),
+            BODY_25_SKELETON.RWrist: (255, 255, 0, 255),
+            BODY_25_SKELETON.LShoulder: (170, 255, 0, 255),
+            BODY_25_SKELETON.LElbow: (85, 255, 0, 255),
+            BODY_25_SKELETON.LWrist: (0, 255, 0, 255),
+            BODY_25_SKELETON.MidHip: (255, 0, 0, 255),
+            BODY_25_SKELETON.RHip: (0, 255, 85, 255),
+            BODY_25_SKELETON.RKnee: (0, 255, 170, 255),
+            BODY_25_SKELETON.RAnkle: (0, 255, 255, 255),
+            BODY_25_SKELETON.LHip: (0, 170, 255, 255),
+            BODY_25_SKELETON.LKnee: (0, 85, 255, 255),
+            BODY_25_SKELETON.LAnkle: (0, 0, 255, 255),
+            BODY_25_SKELETON.REye: (255, 0, 170, 255),
+            BODY_25_SKELETON.LEye: (170, 0, 255, 255),
+            BODY_25_SKELETON.REar: (255, 0, 255, 255),
+            BODY_25_SKELETON.LEar: (85, 0, 255, 255),
+            BODY_25_SKELETON.LBigToe: (0, 0, 255, 255),
+            BODY_25_SKELETON.LSmallToe: (0, 0, 255, 255),
+            BODY_25_SKELETON.LHeel: (0, 0, 255, 255),
+            BODY_25_SKELETON.RBigToe: (0, 255, 255, 255),
+            BODY_25_SKELETON.RSmallToe: (0, 255, 255, 255),
+            BODY_25_SKELETON.RHeel: (0, 255, 255, 255),
+        }
+
 
 class COCO_SKELETON(Skeleton):
     Nose = 0
@@ -61,6 +92,30 @@ class COCO_SKELETON(Skeleton):
     @classmethod
     def get_extractor(cls) -> Type[HipsNeckExtractor]:
         return OpenPoseHipsNeckExtractor(cls)
+
+    @classmethod
+    def get_colors(cls) -> Dict['COCO_SKELETON', Tuple[int, int, int, int]]:
+        # try to match OpenPose color scheme for easier visual comparison
+        {
+            COCO_SKELETON.Nose: (255, 0, 85, 255),
+            COCO_SKELETON.Neck: (255, 0, 0, 192),
+            COCO_SKELETON.RShoulder: (255, 85, 0, 255),
+            COCO_SKELETON.RElbow: (255, 170, 0, 255),
+            COCO_SKELETON.RWrist: (255, 255, 0, 255),
+            COCO_SKELETON.LShoulder: (170, 255, 0, 255),
+            COCO_SKELETON.LElbow: (85, 255, 0, 255),
+            COCO_SKELETON.LWrist: (0, 255, 0, 255),
+            COCO_SKELETON.RHip: (0, 255, 85, 255),
+            COCO_SKELETON.RKnee: (0, 255, 170, 255),
+            COCO_SKELETON.RAnkle: (0, 255, 255, 255),
+            COCO_SKELETON.LHip: (0, 170, 255, 255),
+            COCO_SKELETON.LKnee: (0, 85, 255, 255),
+            COCO_SKELETON.LAnkle: (0, 0, 255, 255),
+            COCO_SKELETON.REye: (255, 0, 170, 255),
+            COCO_SKELETON.LEye: (170, 0, 255, 255),
+            COCO_SKELETON.REar: (255, 0, 255, 255),
+            COCO_SKELETON.LEar: (85, 0, 255, 255),
+        }
 
 
 class OpenPoseHipsNeckExtractor(HipsNeckExtractor):

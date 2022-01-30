@@ -5,9 +5,8 @@ from pedestrians_video_2_carla.data import DATASETS_BASE
 from pedestrians_video_2_carla.data.smpl.smpl_dataset import SMPLDataset
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.data.smpl.skeleton import _ORIG_SMPL_SKELETON, SMPL_SKELETON
-from pedestrians_video_2_carla.data.carla.reference import get_pedestrians, get_poses
+from pedestrians_video_2_carla.renderers.points_renderer import PointsRenderer
 from pedestrians_video_2_carla.utils.world import zero_world_loc, zero_world_rot
-from pedestrians_video_2_carla.walker_control.p3d_pose_projection import P3dPoseProjection
 from PIL import Image
 
 
@@ -60,7 +59,11 @@ def test_convert_smpl_to_carla(test_data_dir, test_outputs_dir, device):
     # moves batch ready
     # -----------------------------------------------------------------------------
 
-    os.makedirs(os.path.join(test_outputs_dir, 'projections'), exist_ok=True)
+    outputs_dir = os.path.join(test_outputs_dir, 'projections')
+    os.makedirs(outputs_dir, exist_ok=True)
+
+    smpl_renderer = PointsRenderer(SMPL_SKELETON)
+    carla_renderer = PointsRenderer(CARLA_SKELETON)
 
     world_loc = zero_world_loc((batch_size,), device)
     world_rot = zero_world_rot((batch_size,), device)
@@ -94,10 +97,10 @@ def test_convert_smpl_to_carla(test_data_dir, test_outputs_dir, device):
             None
         ):
             for i in range(batch_size):
-                carla_canvas = carla_pp.current_pose_to_image(None, carla_proj[i, :, :2].cpu().numpy(),
-                                                              CARLA_SKELETON.__members__.keys())
-                smpl_canvas = smpl_pp.current_pose_to_image(None, smpl_proj[i, :, :2].cpu().numpy(),
-                                                            SMPL_SKELETON.__members__.keys())
+                carla_canvas = carla_renderer.points_to_image(carla_proj[i, :, :2].cpu().numpy(),
+                                                              image_id=None)
+                smpl_canvas = smpl_renderer.points_to_image(smpl_proj[i, :, :2].cpu().numpy(),
+                                                            image_id=None)
 
                 modifications[i].append(np.concatenate(
                     (smpl_canvas, carla_canvas), axis=1))
@@ -112,7 +115,7 @@ def test_convert_smpl_to_carla(test_data_dir, test_outputs_dir, device):
         for mi, rows in enumerate(modifications):
             full = np.concatenate(rows, axis=0)
             img = Image.fromarray(full, 'RGBA')
-            img.save(os.path.join(test_outputs_dir, 'projections',
+            img.save(os.path.join(outputs_dir,
                                   f'full_pose_{gender}_{names[mi]}.png'), 'PNG')
 
         # And now manually check if the rendered poses look correct ;)

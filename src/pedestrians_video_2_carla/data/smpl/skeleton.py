@@ -1,4 +1,4 @@
-from typing import Type
+from typing import Dict, Tuple, Type
 
 from torch import Tensor
 from pedestrians_video_2_carla.data.base.skeleton import register_skeleton, Skeleton
@@ -66,6 +66,38 @@ class SMPL_SKELETON(Skeleton):
     @classmethod
     def get_extractor(cls) -> Type[HipsNeckExtractor]:
         return SMPLHipsNeckExtractor(cls)
+
+    @classmethod
+    def get_colors(cls) -> Dict['SMPL_SKELETON', Tuple[int, int, int, int]]:
+        # try to match OpenPose color scheme for easier visual comparison
+        return {
+            SMPL_SKELETON.Pelvis: (255, 0, 0, 192),
+            SMPL_SKELETON.Spine1: (255, 0, 0, 128),
+            SMPL_SKELETON.Spine2: (255, 0, 0, 128),
+            SMPL_SKELETON.Spine3: (255, 0, 0, 128),
+            SMPL_SKELETON.L_Collar: (170, 255, 0, 128),
+            SMPL_SKELETON.L_Shoulder: (170, 255, 0, 255),
+            SMPL_SKELETON.L_Elbow: (85, 255, 0, 255),
+            SMPL_SKELETON.L_Wrist: (0, 255, 0, 255),
+            SMPL_SKELETON.Neck: (255, 0, 0, 192),
+            SMPL_SKELETON.Head: (255, 0, 85, 255),
+            SMPL_SKELETON.R_Collar: (255, 85, 0, 128),
+            SMPL_SKELETON.R_Shoulder: (255, 85, 0, 255),
+            SMPL_SKELETON.R_Elbow: (255, 170, 0, 255),
+            SMPL_SKELETON.R_Wrist: (255, 255, 0, 255),
+            SMPL_SKELETON.R_Hip: (0, 255, 85, 255),
+            SMPL_SKELETON.R_Knee: (0, 255, 170, 255),
+            SMPL_SKELETON.R_Ankle: (0, 255, 255, 255),
+            SMPL_SKELETON.R_Foot: (0, 255, 255, 255),
+            SMPL_SKELETON.L_Hip: (0, 170, 255, 255),
+            SMPL_SKELETON.L_Knee: (0, 85, 255, 255),
+            SMPL_SKELETON.L_Ankle: (0, 0, 255, 255),
+            SMPL_SKELETON.L_Foot: (0, 0, 255, 255),
+        }
+
+    @classmethod
+    def get_root_point(cls) -> int:
+        return SMPL_SKELETON.Pelvis.value
 
     @staticmethod
     def map_from_original(tensor: Tensor) -> Tensor:
