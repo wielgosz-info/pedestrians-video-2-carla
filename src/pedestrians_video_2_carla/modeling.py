@@ -30,10 +30,6 @@ from pedestrians_video_2_carla.modules.base.trajectory import TrajectoryModel
 from pedestrians_video_2_carla.modules.movements import MOVEMENTS_MODELS
 from pedestrians_video_2_carla.modules.trajectory import TRAJECTORY_MODELS
 
-__author__ = "Maciej Wielgosz"
-__copyright__ = "Maciej Wielgosz"
-__license__ = "MIT"
-
 # ---- CLI ----
 # The functions defined in this section are wrappers around the main Python
 # API allowing them to be called directly from the terminal as a CLI

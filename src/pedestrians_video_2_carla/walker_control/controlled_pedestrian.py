@@ -110,6 +110,7 @@ class ControlledPedestrian(Generic[P]):
         if not ignore_shift:  # there was no shift
             self.teleport_by(shift)
 
+        self._walker.set_simulate_physics(enabled=True)
         self.apply_pose(True)
 
     def _spawn_walker(self) -> 'carla.Walker':
@@ -117,6 +118,10 @@ class ControlledPedestrian(Generic[P]):
         matching_blueprints = [bp for bp in blueprint_library.filter("walker.pedestrian.*")
                                if bp.get_attribute('age') == self._age and bp.get_attribute('gender') == self._gender]
         walker_bp = random.choice(matching_blueprints)
+
+        # Make pedestrian mortal
+        if walker_bp.has_attribute('is_invincible'):
+            walker_bp.set_attribute('is_invincible', 'false')
 
         walker = None
         tries = 0
