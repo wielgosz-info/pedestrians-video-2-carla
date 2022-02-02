@@ -6,6 +6,7 @@ services:
       args:
         PLATFORM: ${PLATFORM:-cpu}
     image: wielgoszinfo/pedestrians-video-2-carla:${PLATFORM:-cpu}-latest
-    environment: []
+    environment:
+      COMMIT: ${COMMIT}
     deploy: null
     depends_on: []
