@@ -69,9 +69,10 @@ class PointsRenderer(Renderer):
         return canvas
 
     @staticmethod
-    def draw_projection_points(canvas, points, skeleton):
-        # TODO: also draw bones and not only dots?
-
+    def draw_projection_points(canvas, points, skeleton, color_values=None, lines=False):
+        """
+        Draws the points on the copy of the canvas.
+        """
         rounded_points = np.round(points).astype(int)
 
         end = canvas.shape[-1]
@@ -79,10 +80,11 @@ class PointsRenderer(Renderer):
         img = Image.fromarray(canvas, 'RGBA' if has_alpha else 'RGB')
         draw = ImageDraw.Draw(img, 'RGBA' if has_alpha else 'RGB')
 
-        color_values = list(skeleton.get_colors().values())
+        if color_values is None:
+            color_values = list(skeleton.get_colors().values())
 
         # if we know that skeleton has root point, we can draw it
-        root_idx = skeleton.get_root_point()
+        root_idx = skeleton.get_root_point() if skeleton is not None else None
         if root_idx is not None:
             draw.rectangle(
                 [tuple(rounded_points[0] - 2), tuple(rounded_points[0] + 2)],
@@ -98,5 +100,21 @@ class PointsRenderer(Renderer):
                 fill=color_values[idx][:end],
                 outline=None
             )
+
+        if lines and hasattr(skeleton, 'get_edges'):
+            height, width = canvas.shape[:2]
+            edges = skeleton.get_edges()
+            for edge in edges:
+                line_start = tuple(rounded_points[edge[0].value])
+                line_end = tuple(rounded_points[edge[1].value])
+                # skip line if either one of the points is not visible
+                if not (line_start[0] > 0 and line_start[1] > 0 and line_end[0] > 0 and line_end[1] > 0
+                        and line_start[0] < width and line_start[1] < height and line_end[0] < width and line_end[1] < height):
+                    continue
+                draw.line(
+                    [line_start, line_end],
+                    fill=color_values[edge[0].value][:end],
+                    width=2
+                )
 
         return np.array(img)
