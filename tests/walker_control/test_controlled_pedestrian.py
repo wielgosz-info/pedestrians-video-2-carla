@@ -168,6 +168,8 @@ def test_carla_rendering(carla_world, carla_pedestrian, test_outputs_dir):
     from queue import Queue, Empty
     from collections import OrderedDict
     from pedestrians_video_2_carla.carla_utils.setup import setup_camera
+    from pedestrians_video_2_carla.walker_control.pose_projection import PoseProjection
+    from pedestrians_video_2_carla.renderers.points_renderer import PointsRenderer
 
     sensor_dict = OrderedDict()
     camera_queue = Queue()
@@ -175,6 +177,9 @@ def test_carla_rendering(carla_world, carla_pedestrian, test_outputs_dir):
     sensor_dict['camera_rgb'] = setup_camera(
         carla_world, camera_queue, carla_pedestrian
     )
+
+    base_projection = PoseProjection(carla_pedestrian, sensor_dict['camera_rgb'])
+    renderer = PointsRenderer()
 
     ticks = 0
     while ticks < 10:
@@ -185,6 +190,12 @@ def test_carla_rendering(carla_world, carla_pedestrian, test_outputs_dir):
             sensor_data.save_to_disk(
                 os.path.join(test_outputs_dir, '{:06d}.png'.format(sensor_data.frame))
             )
+            # TODO: since pedestrian was adjusted to have hips at 0,0,0,
+            # we need to adjust the projection to have the same offset
+            assert False
+            points = base_projection.current_pose_to_points()
+            renderer.points_to_image(points, os.path.join(
+                test_outputs_dir, '{:06d}'.format(sensor_data.frame)))
             ticks += 1
         except Empty:
             print("Some sensor information is missed in frame {:06d}".format(w_frame))
@@ -205,3 +216,7 @@ def test_carla_rendering(carla_world, carla_pedestrian, test_outputs_dir):
             'crl_arm__L': carla.Rotation(yaw=-random.random()*15),
             'crl_foreArm__L': carla.Rotation(pitch=-random.random()*15)
         })
+
+
+def test_if_pose_and_carla_bone_transform_match():
+    assert False
