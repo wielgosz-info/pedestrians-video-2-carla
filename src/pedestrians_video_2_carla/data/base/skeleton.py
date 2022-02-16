@@ -1,35 +1,6 @@
-from enum import Enum
-from typing import Dict, Tuple, Type, Union
+from typing import Type
 
-from torch import Tensor
-
-
-class Skeleton(Enum):
-    @classmethod
-    def get_extractor(cls) -> Type['HipsNeckExtractor']:
-        raise NotImplementedError()
-
-    @classmethod
-    def get_colors(cls) -> Dict['Skeleton', Tuple[int, int, int, int]]:
-        # try to match OpenPose color scheme for easier visual comparison
-        # entries should be in the same order as in the enum,
-        # so that .values() returns the same order and can be used for indexing
-        raise NotImplementedError()
-
-    @classmethod
-    def get_root_point(cls) -> Union[int, None]:
-        return None
-
-
-class HipsNeckExtractor(object):
-    def __init__(self, input_nodes: Type[Skeleton]) -> None:
-        self.input_nodes = input_nodes
-
-    def get_hips_point(self, sample: Tensor) -> Tensor:
-        raise NotImplementedError()
-
-    def get_neck_point(self, sample: Tensor) -> Tensor:
-        raise NotImplementedError()
+from pedestrians_scenarios.karma.pose.skeleton import Skeleton
 
 
 SKELETONS = {}

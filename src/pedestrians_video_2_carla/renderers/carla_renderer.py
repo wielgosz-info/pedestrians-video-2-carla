@@ -6,7 +6,8 @@ import warnings
 import numpy as np
 import PIL
 import torch
-from pedestrians_video_2_carla.renderers.renderer import Renderer
+from pedestrians_scenarios.karma.renderers.renderer import Renderer
+
 from pedestrians_video_2_carla.carla_utils.destroy import destroy_client_and_world
 from pedestrians_video_2_carla.carla_utils.setup import *
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import \
@@ -25,6 +26,7 @@ except ImportError:
 
 
 class CarlaRenderer(Renderer):
+    # TODO: reuse Karma and its CamerasManager
     def __init__(self, fps=30.0, fov=90.0, **kwargs) -> None:
         super().__init__(**kwargs)
         self.__fps = fps

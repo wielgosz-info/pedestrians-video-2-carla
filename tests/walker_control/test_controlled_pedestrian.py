@@ -169,7 +169,7 @@ def test_carla_rendering(carla_world, carla_pedestrian, test_outputs_dir):
     from collections import OrderedDict
     from pedestrians_video_2_carla.carla_utils.setup import setup_camera
     from pedestrians_video_2_carla.walker_control.pose_projection import PoseProjection
-    from pedestrians_video_2_carla.renderers.points_renderer import PointsRenderer
+    from pedestrians_scenarios.karma.renderers.points_renderer import PointsRenderer
 
     sensor_dict = OrderedDict()
     camera_queue = Queue()

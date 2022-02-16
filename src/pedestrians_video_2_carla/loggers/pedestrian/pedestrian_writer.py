@@ -4,13 +4,14 @@ from typing import Any, Callable, Dict, Iterator, List, Tuple
 import numpy as np
 import torch
 import torchvision
+from pedestrians_scenarios.karma.renderers.points_renderer import \
+    PointsRenderer
+from pedestrians_scenarios.karma.renderers.renderer import Renderer
+from pedestrians_scenarios.karma.renderers.source_videos_renderer import \
+    SourceVideosRenderer
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 from pedestrians_video_2_carla.renderers.carla_renderer import CarlaRenderer
-from pedestrians_video_2_carla.renderers.points_renderer import PointsRenderer
-from pedestrians_video_2_carla.renderers.renderer import Renderer
 from pedestrians_video_2_carla.renderers.smpl_renderer import SMPLRenderer
-from pedestrians_video_2_carla.renderers.source_videos_renderer import \
-    SourceVideosRenderer
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 from pedestrians_video_2_carla.transforms.reference_skeletons import \
     ReferenceSkeletonsDenormalize

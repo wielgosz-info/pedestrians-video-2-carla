@@ -1,9 +1,7 @@
-from typing import Dict, Tuple, Type, Union
+from typing import Dict, List, Tuple
 
-from torch import Tensor
 from pedestrians_video_2_carla.data.base.skeleton import register_skeleton, Skeleton
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 
 
 class BODY_25_SKELETON(Skeleton):
@@ -32,10 +30,6 @@ class BODY_25_SKELETON(Skeleton):
     RBigToe = 22
     RSmallToe = 23
     RHeel = 24
-
-    @classmethod
-    def get_extractor(cls) -> Type[HipsNeckExtractor]:
-        return OpenPoseHipsNeckExtractor(cls)
 
     @classmethod
     def get_colors(cls) -> Dict['BODY_25_SKELETON', Tuple[int, int, int, int]]:
@@ -68,6 +62,14 @@ class BODY_25_SKELETON(Skeleton):
             BODY_25_SKELETON.RHeel: (0, 255, 255, 255),
         }
 
+    @classmethod
+    def get_neck_point(cls) -> 'BODY_25_SKELETON':
+        return BODY_25_SKELETON.Neck
+
+    @classmethod
+    def get_hips_point(cls) -> 'BODY_25_SKELETON':
+        return BODY_25_SKELETON.MidHip
+
 
 class COCO_SKELETON(Skeleton):
     Nose = 0
@@ -88,10 +90,6 @@ class COCO_SKELETON(Skeleton):
     LEye = 15
     REar = 16
     LEar = 17
-
-    @classmethod
-    def get_extractor(cls) -> Type[HipsNeckExtractor]:
-        return OpenPoseHipsNeckExtractor(cls)
 
     @classmethod
     def get_colors(cls) -> Dict['COCO_SKELETON', Tuple[int, int, int, int]]:
@@ -117,20 +115,13 @@ class COCO_SKELETON(Skeleton):
             COCO_SKELETON.LEar: (85, 0, 255, 255),
         }
 
+    @classmethod
+    def get_neck_point(cls) -> 'COCO_SKELETON':
+        return COCO_SKELETON.Neck
 
-class OpenPoseHipsNeckExtractor(HipsNeckExtractor):
-    def __init__(self, input_nodes: Union[Type[BODY_25_SKELETON], Type[COCO_SKELETON]] = BODY_25_SKELETON) -> None:
-        super().__init__(input_nodes)
-
-    def get_hips_point(self, sample: Tensor) -> Tensor:
-        try:
-            return sample[..., self.input_nodes.MidHip.value, :]
-        except AttributeError:
-            # since COCO does not have hips point, we're using mean of tights
-            return sample[..., [self.input_nodes.LHip.value, self.input_nodes.RHip.value], :].mean(axis=-2)
-
-    def get_neck_point(self, sample: Tensor) -> Tensor:
-        return sample[..., self.input_nodes.Neck.value, :]
+    @classmethod
+    def get_hips_point(cls) -> List['COCO_SKELETON']:
+        return [COCO_SKELETON.LHip, COCO_SKELETON.RHip]
 
 
 register_skeleton('BODY_25_SKELETON', BODY_25_SKELETON, [

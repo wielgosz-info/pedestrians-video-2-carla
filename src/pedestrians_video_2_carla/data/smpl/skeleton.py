@@ -3,7 +3,6 @@ from typing import Dict, Tuple, Type
 from torch import Tensor
 from pedestrians_video_2_carla.data.base.skeleton import register_skeleton, Skeleton
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 from enum import Enum
 
 
@@ -64,10 +63,6 @@ class SMPL_SKELETON(Skeleton):
     L_Foot = 21
 
     @classmethod
-    def get_extractor(cls) -> Type[HipsNeckExtractor]:
-        return SMPLHipsNeckExtractor(cls)
-
-    @classmethod
     def get_colors(cls) -> Dict['SMPL_SKELETON', Tuple[int, int, int, int]]:
         # try to match OpenPose color scheme for easier visual comparison
         return {
@@ -96,8 +91,16 @@ class SMPL_SKELETON(Skeleton):
         }
 
     @classmethod
-    def get_root_point(cls) -> int:
-        return SMPL_SKELETON.Pelvis.value
+    def get_root_point(cls) -> 'SMPL_SKELETON':
+        return SMPL_SKELETON.Pelvis
+
+    @classmethod
+    def get_neck_point(cls) -> 'SMPL_SKELETON':
+        return SMPL_SKELETON.Neck
+
+    @classmethod
+    def get_hips_point(cls) -> 'SMPL_SKELETON':
+        return SMPL_SKELETON.Pelvis
 
     @staticmethod
     def map_from_original(tensor: Tensor) -> Tensor:
@@ -124,17 +127,6 @@ class SMPL_SKELETON(Skeleton):
         mapped = tensor[n]
 
         return mapped.reshape((s[0], -1)) if reshape else mapped
-
-
-class SMPLHipsNeckExtractor(HipsNeckExtractor):
-    def __init__(self, input_nodes: Type[SMPL_SKELETON] = SMPL_SKELETON) -> None:
-        super().__init__(input_nodes)
-
-    def get_hips_point(self, sample: Tensor) -> Tensor:
-        return sample[..., self.input_nodes.Pelvis.value, :]
-
-    def get_neck_point(self, sample: Tensor) -> Tensor:
-        return sample[..., self.input_nodes.Neck.value, :]
 
 
 register_skeleton('SMPL_SKELETON', SMPL_SKELETON, [

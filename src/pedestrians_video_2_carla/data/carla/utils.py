@@ -2,8 +2,8 @@ from functools import lru_cache
 from typing import Any, Dict
 import os
 import warnings
-from pedestrians_video_2_carla.carla_utils.spatial import deepcopy_location, deepcopy_rotation
 
+from pedestrians_scenarios.karma.utils.deepcopy import deepcopy_location, deepcopy_rotation
 from pedestrians_video_2_carla.data.base.utils import load_reference_file
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 try:

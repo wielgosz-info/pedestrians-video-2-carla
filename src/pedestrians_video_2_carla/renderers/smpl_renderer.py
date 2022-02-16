@@ -6,7 +6,7 @@ import trimesh
 from OpenGL.error import GLError
 from torch import Tensor
 
-from pedestrians_video_2_carla.renderers.renderer import Renderer
+from pedestrians_scenarios.karma.renderers.renderer import Renderer
 from pedestrians_video_2_carla.data.smpl.utils import get_body_model
 
 

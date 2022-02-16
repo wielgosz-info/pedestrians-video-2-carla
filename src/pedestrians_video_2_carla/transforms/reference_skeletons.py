@@ -1,7 +1,7 @@
 from typing import Any, Dict, List
 
 import torch
-from pedestrians_video_2_carla.data.carla.skeleton import CarlaHipsNeckExtractor
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.data.carla.reference import get_absolute_tensors, get_projections
 from pedestrians_video_2_carla.transforms.hips_neck import (HipsNeckDeNormalize, HipsNeckExtractor,
                                                             HipsNeckNormalize)
@@ -19,7 +19,7 @@ class ReferenceSkeletonsDenormalize(object):
                  extractor: HipsNeckExtractor = None
                  ) -> None:
         if extractor is None:
-            extractor = CarlaHipsNeckExtractor()
+            extractor = HipsNeckExtractor(CARLA_SKELETON)
         self._extractor = extractor
 
         if autonormalize:

@@ -1,12 +1,16 @@
 import os
+
 import numpy as np
 import torch
+from pedestrians_scenarios.karma.renderers.points_renderer import \
+    PointsRenderer
 from pedestrians_video_2_carla.data import DATASETS_BASE
-from pedestrians_video_2_carla.data.smpl.smpl_dataset import SMPLDataset
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
-from pedestrians_video_2_carla.data.smpl.skeleton import _ORIG_SMPL_SKELETON, SMPL_SKELETON
-from pedestrians_video_2_carla.renderers.points_renderer import PointsRenderer
-from pedestrians_video_2_carla.utils.world import zero_world_loc, zero_world_rot
+from pedestrians_video_2_carla.data.smpl.skeleton import (_ORIG_SMPL_SKELETON,
+                                                          SMPL_SKELETON)
+from pedestrians_video_2_carla.data.smpl.smpl_dataset import SMPLDataset
+from pedestrians_video_2_carla.utils.world import (zero_world_loc,
+                                                   zero_world_rot)
 from PIL import Image
 
 

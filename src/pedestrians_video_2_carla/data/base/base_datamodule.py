@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 import yaml
 
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckNormalize
+from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor, HipsNeckNormalize
 
 try:
     from yaml import CDumper as Dumper
@@ -81,7 +81,7 @@ class BaseDataModule(LightningDataModule):
             yaml.dump(self.settings, f, Dumper=Dumper)
 
     def _setup_data_transform(self):
-        return HipsNeckNormalize(self.nodes.get_extractor())
+        return HipsNeckNormalize(HipsNeckExtractor(self.nodes))
 
     @ staticmethod
     def add_data_specific_args(parent_parser):

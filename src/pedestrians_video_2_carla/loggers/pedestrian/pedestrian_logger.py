@@ -4,7 +4,7 @@ from typing import List, Union
 import numpy as np
 from pedestrians_video_2_carla.modules.base.output_types import \
     MovementsModelOutputType
-from pedestrians_video_2_carla.data.carla.skeleton import CarlaHipsNeckExtractor
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 from pytorch_lightning.loggers import LightningLoggerBase
 from pytorch_lightning.loggers.base import rank_zero_experiment
@@ -46,7 +46,7 @@ class PedestrianLogger(LightningLoggerBase):
         :type video_saving_frequency_reduction: int
         :param renderers: List of used renderers. Default: ['input_points', 'projection_points'].
         :type renderers: List[PedestrianRenderers]
-        :param extractor: Extractor used for denormalization. Default: CarlaHipsNeckExtractor().
+        :param extractor: Extractor used for denormalization. Default: HipsNeckExtractor().
         :type extractor: HipsNeckExtractor
         """
         super().__init__(
@@ -104,7 +104,7 @@ class PedestrianLogger(LightningLoggerBase):
             self._writer_cls = DisabledPedestrianWriter
 
         if extractor is None:
-            extractor = CarlaHipsNeckExtractor()
+            extractor = HipsNeckExtractor(kwargs.get('output_nodes', CARLA_SKELETON))
         self._extractor = extractor
 
         self._movements_output_type = movements_output_type

@@ -12,7 +12,7 @@ except ImportError:
     import pedestrians_video_2_carla.carla_utils.mock_carla as carla
     warnings.warn("Using mock carla.", ImportWarning)
 
-from pedestrians_video_2_carla.carla_utils.spatial import deepcopy_location, deepcopy_rotation, deepcopy_transform
+from pedestrians_scenarios.karma.utils.deepcopy import deepcopy_location, deepcopy_rotation, deepcopy_transform
 
 from pedestrians_video_2_carla.data.carla.utils import load, yaml_to_pose_dict
 

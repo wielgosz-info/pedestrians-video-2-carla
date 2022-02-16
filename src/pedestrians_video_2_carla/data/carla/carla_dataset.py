@@ -206,14 +206,14 @@ class Carla2D3DIterableDataset(IterableDataset):
 
 if __name__ == "__main__":
     from pedestrians_video_2_carla.transforms.hips_neck import \
-        HipsNeckNormalize
+        HipsNeckNormalize, HipsNeckExtractor
     from pedestrians_video_2_carla.utils.timing import print_timing, timing
 
     nodes = CARLA_SKELETON
     iter_dataset = Carla2D3DIterableDataset(
         batch_size=256,
         clip_length=180,
-        transform=HipsNeckNormalize(nodes.get_extractor()),
+        transform=HipsNeckNormalize(HipsNeckExtractor(nodes)),
         nodes=nodes
     )
 

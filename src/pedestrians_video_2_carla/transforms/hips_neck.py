@@ -1,9 +1,26 @@
-from typing import Any, Callable
+from typing import Any, Callable, Iterable, Tuple, Type, Union
 
 import torch
 from torch import Tensor
+from pedestrians_scenarios.karma.pose.skeleton import Skeleton
 
-from pedestrians_video_2_carla.data.base.skeleton import HipsNeckExtractor
+
+class HipsNeckExtractor(object):
+    def __init__(self, input_nodes: Type[Skeleton]) -> None:
+        self.input_nodes = input_nodes
+
+    def __point_to_tuple(self, point: Union[Skeleton, Iterable[Skeleton]]) -> Tuple[int]:
+        if isinstance(point, Skeleton):
+            return (point.value, )
+        return tuple(p.value for p in point)
+
+    def get_hips_point(self, sample: Tensor) -> Tensor:
+        points = self.__point_to_tuple(self.input_nodes.get_hips_point())
+        return sample[..., points, :].mean(dim=-2)
+
+    def get_neck_point(self, sample: Tensor) -> Tensor:
+        points = self.__point_to_tuple(self.input_nodes.get_neck_point())
+        return sample[..., points, :].mean(dim=-2)
 
 
 class HipsNeckNormalize(object):

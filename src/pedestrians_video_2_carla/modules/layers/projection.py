@@ -5,8 +5,8 @@ from scipy.fftpack import shift
 from pedestrians_video_2_carla.modules.base.output_types import MovementsModelOutputType, TrajectoryModelOutputType
 
 
-from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON, CarlaHipsNeckExtractor
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckNormalize
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
+from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckNormalize, HipsNeckExtractor
 from pedestrians_video_2_carla.transforms.reference_skeletons import ReferenceSkeletonsDenormalize
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import ControlledPedestrian
 from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose
@@ -29,7 +29,7 @@ class ProjectionModule(nn.Module):
         super().__init__()
 
         if projection_transform is None:
-            projection_transform = HipsNeckNormalize(CarlaHipsNeckExtractor())
+            projection_transform = HipsNeckNormalize(HipsNeckExtractor(CARLA_SKELETON))
         self.projection_transform = projection_transform
 
         self.movements_output_type = movements_output_type

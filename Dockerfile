@@ -1,4 +1,12 @@
 ARG PLATFORM=nvidia
+
+# Reuse the pedestrians-scenarios code
+# TODO: pedestrians-scenarios should be publicly avaliable and a dependency of pedestrians-video-2-carla
+FROM wielgoszinfo/pedestrians-scenarios:${PLATFORM}-latest AS scenarios
+RUN /venv/bin/python -m pip install --no-cache-dir build
+WORKDIR /app
+RUN SETUPTOOLS_SCM_PRETEND_VERSION=0.0.1 /venv/bin/python -m build
+
 FROM wielgoszinfo/carla-common:${PLATFORM}-latest AS base
 
 ENV PACKAGE=pedestrians-video-2-carla
@@ -74,7 +82,7 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     gym==0.21.0 \
     h5pickle==0.4.2 \
     h5py==3.6.0 \
-    matplotlib==3.5.0 \
+    matplotlib==3.5.1 \
     moviepy==1.0.3 \
     networkx==2.2 \
     numpy==1.22.1 \
@@ -104,6 +112,11 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
 RUN /venv/bin/python -m pip install --no-cache-dir \
     PyOpenGL==3.1.5 \
     PyOpenGL-accelerate==3.1.5
+
+# reuse pedestrians-scenarios code
+COPY --from=scenarios --chown=${USERNAME}:${USERNAME} /app/third_party/scenario_runner/srunner /venv/lib/python3.8/site-packages/srunner
+COPY --from=scenarios --chown=${USERNAME}:${USERNAME} /app/dist/pedestrians_scenarios-0.0.1-py3-none-any.whl ${HOME}
+RUN /venv/bin/python -m pip install --no-cache-dir ${HOME}/pedestrians_scenarios-0.0.1-py3-none-any.whl
 
 # Copy client files so that we can do editable pip install
 COPY --chown=${USERNAME}:${USERNAME} . /app

@@ -1,6 +1,7 @@
 from typing import Dict, Type
 from torchmetrics import Metric
 import torch
+from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.utils.world import calculate_world_from_changes
 
@@ -31,8 +32,8 @@ class MRPE(Metric):
         self.add_state("errors", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
 
-        self.pred_extractor = output_nodes.get_extractor()
-        self.target_extractor = input_nodes.get_extractor()
+        self.pred_extractor = HipsNeckExtractor(output_nodes)
+        self.target_extractor = HipsNeckExtractor(input_nodes)
 
     def update(self, predictions: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]):
         try:
