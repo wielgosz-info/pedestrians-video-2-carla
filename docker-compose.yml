@@ -9,8 +9,8 @@ services:
         USER_ID: ${USER_ID:-1000}
         GROUP_ID: ${GROUP_ID:-1000}
         USERNAME: carla
-        PLATFORM: ${PLATFORM:-nvidia}
-    image: wielgoszinfo/pedestrians-video-2-carla:${PLATFORM:-nvidia}-latest
+        PLATFORM: ${PLATFORM:-cpu}
+    image: wielgoszinfo/pedestrians-video-2-carla:${PLATFORM:-cpu}-latest
     user: ${USER_ID}:${GROUP_ID}
     volumes:
       - /etc/localtime:/etc/localtime:ro
@@ -22,15 +22,4 @@ services:
       - ${VIDEO2CARLA_RUNS_DIR_OR_VOLUME}:/runs
     environment:
       COMMIT: ${COMMIT}
-      NVIDIA_VISIBLE_DEVICES: all
-      NVIDIA_DRIVER_CAPABILITIES: compute,graphics,utility
     shm_size: ${SHM_SIZE:-2gb}
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: [ '${VIDEO2CARLA_GPU_ID:-0}' ]
-              capabilities: [ 'compute', 'graphics', 'utility' ]
-    depends_on:
-      - server

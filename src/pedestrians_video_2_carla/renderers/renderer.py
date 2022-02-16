@@ -1,7 +1,14 @@
+from enum import Enum
 from typing import List, Tuple
-from torch import Tensor
-from pedestrians_video_2_carla.renderers import AlphaBehavior
+
 import numpy as np
+from torch import Tensor
+
+
+class AlphaBehavior(Enum):
+    drop = 0
+    blend = 1
+    keep = 2
 
 
 class Renderer(object):
