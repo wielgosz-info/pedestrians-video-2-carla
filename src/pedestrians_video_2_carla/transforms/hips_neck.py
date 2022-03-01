@@ -45,7 +45,7 @@ class HipsNeckNormalize(object):
         normalized_sample[..., 0:dim] = (sample[..., 0:dim] -
                                          torch.unsqueeze(hips, -2)) / dist[(..., ) + (None, ) * 2]
 
-        if dim == 2:
+        if dim == 2 and sample.shape[-1] > 2:
             normalized_sample[..., 2] = sample[..., 2]
 
         if getattr(torch, 'nan_to_num', False):
@@ -60,16 +60,21 @@ class HipsNeckNormalize(object):
         # if confidence is 0, we will assume the point overlaps with hips
         # so that values that were originally 0,0 (not detected)
         # do not skew the values range
-        if dim == 2:
+        if dim == 2 and normalized_sample.shape[-1] > 2:
             normalized_sample[..., 0:2] = normalized_sample[..., 0:2].where(
                 normalized_sample[..., 2:] >= self.__near_zero, torch.tensor(0.0, device=normalized_sample.device))
 
         self.__last_dist = dist
+        self.__last_hips = hips
         return normalized_sample
 
     @property
-    def last_dist(self) -> Tensor:
-        return self.__last_dist
+    def scale(self) -> Tensor:
+        return self.__last_dist.clone()
+
+    @property
+    def shift(self) -> Tensor:
+        return self.__last_hips.clone()
 
 
 class HipsNeckDeNormalize(object):
@@ -82,14 +87,14 @@ class HipsNeckDeNormalize(object):
 
         # match dims
         # dist[:, as_many_dims_as_needed].ndim == sample.ndim
-        d = dist[(slice(None), ) + (None, ) * (sample.ndim - dist.ndim)]
+        d = dist[(slice(None), ) * dist.ndim + (None, ) * (sample.ndim - dist.ndim)]
         # hips[:, as_many_dims_as_needed, :].ndim == sample.ndim
-        h = hips[(slice(None), ) + (None, ) *
+        h = hips[(slice(None), ) * dist.ndim + (None, ) *
                  (sample.ndim - hips.ndim) + (slice(None), )]
 
         denormalized_sample[..., 0:dim] = (sample[..., 0:dim] * d) + h
 
-        if dim == 2:
+        if dim == 2 and sample.shape[-1] > 2:
             denormalized_sample[..., 2] = sample[..., 2]
 
         return denormalized_sample

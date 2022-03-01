@@ -62,10 +62,16 @@ class OpenPoseDataset(Dataset):
 
         torch_frames = torch.tensor(frames, dtype=torch.float32)
 
+        orig_2d = torch_frames.clone()
+
         if self.transform is not None:
             torch_frames = self.transform(torch_frames)
 
-        return (torch_frames, {}, {
+        return (torch_frames, {
+            'projection_2d': orig_2d,
+            'projection_2d_shift': self.transform.shift if self.transform else None,
+            'projection_2d_scale': self.transform.scale if self.transform else None,
+        }, {
             'age': pedestrian_info.iloc[0]['age'],
             'gender': pedestrian_info.iloc[0]['gender'],
             'video_id': video_id,
@@ -73,7 +79,7 @@ class OpenPoseDataset(Dataset):
             'clip_id': clip_id,
             'start_frame': start_frame,
             'end_frame': stop_frame,
-            'bboxes': torch.stack(bboxes, dim=0)
+            'bboxes': torch.stack(bboxes, dim=0)  # TODO: move bboxes to targets
         })
 
     def __select_best_candidate(self, candidates: List[np.ndarray], gt_bbox: np.ndarray, near_zero: float = 1e-5) -> np.ndarray:

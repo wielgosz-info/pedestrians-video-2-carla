@@ -12,7 +12,7 @@ from pedestrians_scenarios.karma.renderers.source_videos_renderer import \
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 from pedestrians_video_2_carla.renderers.carla_renderer import CarlaRenderer
 from pedestrians_video_2_carla.renderers.smpl_renderer import SMPLRenderer
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
+from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckDeNormalize, HipsNeckExtractor, HipsNeckNormalize
 from pedestrians_video_2_carla.transforms.reference_skeletons import \
     ReferenceSkeletonsDenormalize
 from torch import Tensor
@@ -34,6 +34,7 @@ class PedestrianWriter(object):
                  merging_method: MergingMethod = MergingMethod.square,
                  source_videos_dir: str = None,
                  body_model_dir: str = None,
+                 source_videos_overlay: bool = False,
                  **kwargs) -> None:
         self._log_dir = log_dir
 
@@ -84,7 +85,8 @@ class PedestrianWriter(object):
         self.__renderers: Dict[PedestrianRenderers, Renderer] = {
             PedestrianRenderers.zeros: zeros_renderer,
             PedestrianRenderers.source_videos: SourceVideosRenderer(
-                data_dir=source_videos_dir
+                data_dir=source_videos_dir,
+                overlay_skeletons=source_videos_overlay
             ) if PedestrianRenderers.source_videos in self._used_renderers else zeros_renderer,
             PedestrianRenderers.source_carla: CarlaRenderer(
                 fps=self._fps
@@ -131,8 +133,8 @@ class PedestrianWriter(object):
                 {k: v[self.__videos_slice] for k, v in meta.items()},
                 projected_pose[self.__videos_slice],
                 relative_pose_loc[self.__videos_slice] if relative_pose_loc is not None else None,
-                relative_pose_rot[self.__videos_slice],
-                world_loc[self.__videos_slice],
+                relative_pose_rot[self.__videos_slice] if relative_pose_rot is not None else None,
+                world_loc[self.__videos_slice] if world_loc is not None else None,
                 world_rot[self.__videos_slice] if world_rot is not None else None,
                 batch_idx)), desc="Rendering clips", total=self._max_videos):
             video_dir = os.path.join(self._log_dir, stage, meta['video_id'])
@@ -194,6 +196,8 @@ class PedestrianWriter(object):
 
         output_videos = []
 
+        self._prepare_overlay_skeletons(targets, meta, projected_pose)
+
         render = {
             PedestrianRenderers.zeros: lambda: self.__renderers[PedestrianRenderers.zeros].render(
                 frames
@@ -251,5 +255,40 @@ class PedestrianWriter(object):
             vid_meta.update({
                 k: v[vid_idx]
                 for k, v in meta.items()
+                if k != 'skeletons'
             })
             yield merged_vid, vid_meta
+
+    def _prepare_overlay_skeletons(self, targets, meta, projected_pose):
+        if PedestrianRenderers.source_videos not in self._used_renderers or not self.__renderers[PedestrianRenderers.source_videos].overlay_skeletons:
+            return
+
+        # convert projection_2d to something that can be rendered
+        if 'projection_2d' in targets:
+            # TODO: skeletons should be in targets, not meta?
+            skeletons = [
+                {
+                    'type': self._input_nodes,
+                    # red; TODO: make it configurable
+                    'color': (255, 0, 0),
+                    'keypoints': targets['projection_2d']
+                }
+            ]
+
+            if projected_pose is not None and 'projection_2d_shift' in targets and 'projection_2d_scale' in targets:
+                # TODO: make normalization/denormalization type configurable; should match whatever was used in the dataset
+                output_normalizer = HipsNeckNormalize(
+                    extractor=HipsNeckExtractor(input_nodes=self._output_nodes))
+                output_denormalizer = HipsNeckDeNormalize()
+                skeletons.append({
+                    'type': self._output_nodes,
+                    # green; TODO: make it configurable
+                    'color': (0, 255, 0),
+                    'keypoints': output_denormalizer(
+                        output_normalizer(projected_pose[..., :2]),
+                        targets['projection_2d_scale'],
+                        targets['projection_2d_shift']
+                    ).numpy()
+                })
+
+            meta['skeletons'] = skeletons

@@ -12,7 +12,7 @@ from torch import Tensor
 from torch.utils.data import Dataset, IterableDataset
 
 
-class CarlaDataset(Dataset):
+class Carla2D3DDataset(Dataset):
     def __init__(self, set_filepath: str, nodes: CARLA_SKELETON = CARLA_SKELETON, transform=None, **kwargs) -> None:
         set_file = h5py.File(set_filepath, 'r')
 
@@ -35,6 +35,9 @@ class CarlaDataset(Dataset):
     def __getitem__(self, idx: int) -> torch.Tensor:
         projection_2d = self.projection_2d[idx]
         projection_2d = torch.tensor(projection_2d)
+
+        orig_projection_2d = projection_2d.clone()
+
         if self.transform:
             projection_2d = self.transform(projection_2d)
 
@@ -65,6 +68,10 @@ class CarlaDataset(Dataset):
         return (
             projection_2d,
             {
+                'projection_2d': orig_projection_2d,
+                'projection_2d_shift': self.transform.shift if self.transform else None,
+                'projection_2d_scale': self.transform.scale if self.transform else None,
+
                 'pose_changes': pose_changes_matrix,
                 'world_loc_changes': world_loc_change_batch,
                 'world_rot_changes': world_rot_change_batch,
@@ -183,6 +190,8 @@ class Carla2D3DIterableDataset(IterableDataset):
         # the depth data that pytorch3d leaves in the projections
         projection_2d[..., 2] = 1.0
 
+        orig_projection_2d = projection_2d.clone()
+
         if self.missing_point_probability > 0.0:
             missing_indices = torch.rand(
                 (batch_size, self.clip_length, nodes_size)) < self.missing_point_probability
@@ -195,6 +204,7 @@ class Carla2D3DIterableDataset(IterableDataset):
         return (
             projection_2d,
             {
+                'projection_2d': orig_projection_2d,
                 'pose_changes': pose_changes_batch,
                 'world_loc_changes': world_loc_change_batch,
                 'world_rot_changes': world_rot_change_batch,

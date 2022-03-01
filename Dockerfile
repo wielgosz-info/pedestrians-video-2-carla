@@ -95,6 +95,7 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     pyyaml==6.0 \
     randomname==0.1.5 \
     scikit-image==0.18.3 \
+    scikit-learn==1.0.2 \
     scipy==1.7.2 \
     timm==0.4.12 \
     torchmetrics==0.6.0 \

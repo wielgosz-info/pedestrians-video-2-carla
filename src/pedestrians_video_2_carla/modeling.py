@@ -22,7 +22,7 @@ from pytorch_lightning.utilities.warnings import rank_zero_warn
 from pedestrians_video_2_carla import __version__
 from pedestrians_video_2_carla.data import discover as discover_datamodules
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
-from pedestrians_video_2_carla.data.carla.carla2d3d_datamodule import Carla2D3DDataModule
+from pedestrians_video_2_carla.data.carla.carla_2d3d_datamodule import Carla2D3DDataModule
 from pedestrians_video_2_carla.loggers.pedestrian import PedestrianLogger
 from pedestrians_video_2_carla.modules.base.base import LitBaseMapper
 from pedestrians_video_2_carla.modules.base.movements import MovementsModel

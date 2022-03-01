@@ -1,3 +1,4 @@
+from email.policy import default
 import logging
 from typing import List, Union
 
@@ -163,6 +164,13 @@ class PedestrianLogger(LightningLoggerBase):
             dest="source_videos_dir",
             help="Directory to read source videos from. Required if 'source_videos' renderer is used. Default: None",
             default=None,
+        )
+        parser.add_argument(
+            "--source_videos_overlay",
+            dest="source_videos_overlay",
+            help="Draw 2D input skeleton on top of source video. Default: False",
+            default=False,
+            action='store_true'
         )
 
         return parent_parser
