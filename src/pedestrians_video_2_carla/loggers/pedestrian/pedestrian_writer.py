@@ -138,7 +138,7 @@ class PedestrianWriter(object):
                 relative_pose_rot[self.__videos_slice] if relative_pose_rot is not None else None,
                 world_loc[self.__videos_slice] if world_loc is not None else None,
                 world_rot[self.__videos_slice] if world_rot is not None else None,
-                batch_idx)), desc="Rendering clips", total=self._max_videos):
+                batch_idx)), desc="Rendering clips", total=self._max_videos, leave=False):
             video_dir = os.path.join(self._log_dir, stage, meta['video_id'])
             os.makedirs(video_dir, exist_ok=True)
 
@@ -277,7 +277,7 @@ class PedestrianWriter(object):
                     'type': self._input_nodes,
                     # red; TODO: make it configurable
                     'color': (255, 0, 0),
-                    'keypoints': targets['projection_2d']
+                    'keypoints': targets['projection_2d'].cpu().numpy()
                 }
             ]
 
@@ -292,7 +292,7 @@ class PedestrianWriter(object):
                         projection_2d_normalized[..., :2],
                         targets['projection_2d_scale'],
                         targets['projection_2d_shift']
-                    ).numpy()
+                    ).cpu().numpy()
                 })
 
             if projection_2d is not None:
@@ -300,7 +300,7 @@ class PedestrianWriter(object):
                     'type': self._output_nodes,
                     # blue; TODO: make it configurable
                     'color': (0, 0, 255),
-                    'keypoints': projection_2d[..., :2]
+                    'keypoints': projection_2d[..., :2].cpu().numpy()
                 })
 
             meta['skeletons'] = skeletons

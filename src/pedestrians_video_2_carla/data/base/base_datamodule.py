@@ -26,8 +26,8 @@ class BaseDataModule(LightningDataModule):
                  outputs_dir: Optional[str] = None,
                  clip_length: Optional[int] = 30,
                  batch_size: Optional[int] = 64,
-                 num_workers: Optional[int] = os.cpu_count()
-                 ** kwargs):
+                 num_workers: Optional[int] = os.cpu_count(),
+                 **kwargs):
         super().__init__()
 
         if outputs_dir is None:
