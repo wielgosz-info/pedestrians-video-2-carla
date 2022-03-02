@@ -126,7 +126,7 @@ class PedestrianWriter(object):
         if step % self._reduced_log_every_n_steps != 0 and not force:
             return
 
-        # TODO: we should render videos in background so rendering is not blocking the main thread
+        # TODO: render videos in background so rendering is not blocking the main thread
 
         for vid_idx, (vid, meta) in tqdm(enumerate(self._render(
                 inputs[self.__videos_slice],

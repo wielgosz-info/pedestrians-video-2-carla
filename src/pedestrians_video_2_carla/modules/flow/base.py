@@ -330,6 +330,6 @@ class LitBaseFlow(pl.LightningModule):
             batch_idx=batch_idx,
             stage=stage,
             vid_callback=vid_callback,
-            force=(stage != 'train'),
+            force=(stage != 'train' and batch_idx == 0),
             **kwargs
         )
