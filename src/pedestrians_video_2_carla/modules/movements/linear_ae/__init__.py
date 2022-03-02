@@ -5,3 +5,4 @@ This module contains various movements models belonging to the Linear Autoencode
 from .linear_ae import LinearAE
 from .linear_ae_residual import LinearAEResidual
 from .linear_ae_residual_leaky import LinearAEResidualLeaky
+from .linear_ae_2d import LinearAE2D
