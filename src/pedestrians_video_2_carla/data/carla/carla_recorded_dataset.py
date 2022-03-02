@@ -8,13 +8,10 @@ import h5pickle as h5py
 
 class CarlaRecordedDataset(Dataset):
     def __init__(self, set_filepath: str, nodes: CARLA_SKELETON = CARLA_SKELETON, transform=None, **kwargs) -> None:
-        set_file = h5py.File(set_filepath, 'r')
+        self.set_file = h5py.File(set_filepath, 'r')
 
-        self.projection_2d = set_file['carla_recorded/projection_2d']
-        self.relative_pose = set_file['carla_recorded/targets/relative_pose']
-        self.absolute_pose = set_file['carla_recorded/targets/component_pose']
-        self.world_pose = set_file['carla_recorded/targets/world_pose']
-        self.meta = set_file['carla_recorded/meta']
+        self.projection_2d = self.set_file['carla_recorded/projection_2d']
+        self.meta = self.set_file['carla_recorded/meta']
 
         self.transform = transform
         self.nodes = nodes
@@ -24,24 +21,21 @@ class CarlaRecordedDataset(Dataset):
 
     def __getitem__(self, idx: int) -> torch.Tensor:
         projection_2d = self.projection_2d[idx]
-        projection_2d = torch.from_numpy(projection_2d).float()
+        projection_2d = torch.from_numpy(projection_2d)
 
         orig_projection_2d = projection_2d.clone()
 
         if self.transform:
             projection_2d = self.transform(projection_2d)
 
-        relative_pose = self.relative_pose[idx]
-        relative_pose[..., 3:] = np.deg2rad(relative_pose[..., 3:])
-        relative_pose = torch.from_numpy(relative_pose).float()
-
-        absolute_pose = self.absolute_pose[idx]
-        absolute_pose[..., 3:] = np.deg2rad(absolute_pose[..., 3:])
-        absolute_pose = torch.from_numpy(absolute_pose).float()
-
-        world_pose = self.world_pose[idx]
-        world_pose[..., 3:] = np.deg2rad(world_pose[..., 3:])
-        world_pose = torch.from_numpy(world_pose).float()
+        relative_pose_loc, relative_pose_rot = self.__extract_transform(
+            'carla_recorded/targets/relative_pose', idx)
+        absolute_pose_loc, absolute_pose_rot = self.__extract_transform(
+            'carla_recorded/targets/component_pose', idx)
+        world_pose_loc, world_pose_rot = self.__extract_transform(
+            'carla_recorded/targets/world_pose', idx)
+        world_loc, world_rot = self.__extract_transform(
+            'carla_recorded/targets/transform', idx)
 
         meta = {k: self.meta[k].attrs['labels'][v[idx]].decode(
             "latin-1") for k, v in self.meta.items()}
@@ -57,12 +51,23 @@ class CarlaRecordedDataset(Dataset):
                 'projection_2d': orig_projection_2d,
                 'projection_2d_shift': self.transform.shift if self.transform else None,
                 'projection_2d_scale': self.transform.scale if self.transform else None,
-                'relative_pose_loc': relative_pose[..., :3],
-                'relative_pose_rot': euler_angles_to_matrix(relative_pose[..., 3:], 'XYZ'),
-                'absolute_pose_loc': absolute_pose[..., :3],
-                'absolute_pose_rot': euler_angles_to_matrix(absolute_pose[..., 3:], 'XYZ'),
-                'world_pose_loc': world_pose[..., :3],
-                'world_pose_rot': euler_angles_to_matrix(world_pose[..., 3:], 'XYZ'),
+                'projection_2d_normalized': projection_2d if self.transform else None,
+
+                'world_loc': world_loc,
+                'world_rot': world_rot,
+
+                'relative_pose_loc': relative_pose_loc,
+                'relative_pose_rot': relative_pose_rot,
+                'absolute_pose_loc': absolute_pose_loc,
+                'absolute_pose_rot': absolute_pose_rot,
+                'world_pose_loc': world_pose_loc,
+                'world_pose_rot': world_pose_rot,
             },
             meta
         )
+
+    def __extract_transform(self, set_name, idx):
+        carla_transforms = self.set_file[set_name][idx]
+        carla_transforms[..., 3:] = np.deg2rad(carla_transforms[..., 3:])
+        carla_transforms = torch.from_numpy(carla_transforms)
+        return carla_transforms[..., :3], euler_angles_to_matrix(carla_transforms[..., 3:], 'XYZ')

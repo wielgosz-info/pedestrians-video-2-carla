@@ -2,7 +2,7 @@ import os
 import pytest
 
 from pedestrians_video_2_carla.modules.loss import LossModes
-from pedestrians_video_2_carla.modules.base.output_types import MovementsModelOutputType
+from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
 from pedestrians_video_2_carla.modules.movements import MOVEMENTS_MODELS
 from pedestrians_video_2_carla.modules.trajectory import TRAJECTORY_MODELS
 

@@ -1,9 +1,9 @@
 from pytorch3d.transforms.rotation_conversions import rotation_6d_to_matrix
 import torch
 from torch import nn
-from pedestrians_video_2_carla.modules.base.movements import MovementsModel
+from pedestrians_video_2_carla.modules.flow.movements import MovementsModel
 
-from pedestrians_video_2_carla.modules.base.output_types import MovementsModelOutputType
+from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
 
 
 class Linear(MovementsModel):
@@ -39,6 +39,9 @@ class Linear(MovementsModel):
         elif self.__movements_output_type == MovementsModelOutputType.relative_rot:
             self.__output_features = 6  # rotation 6D
             self.__transform = lambda x: rotation_6d_to_matrix(x)
+        elif self.__movements_output_type == MovementsModelOutputType.pose_2d:
+            self.__output_features = 2
+            self.__transform = lambda x: x
 
         self.__input_size = self.__input_nodes_len * self.__input_features
         self.__output_size = self.__output_nodes_len * self.__output_features

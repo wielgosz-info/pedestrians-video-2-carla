@@ -6,7 +6,7 @@ from torch import Tensor
 from torch.nn.modules import loss
 
 
-def calculate_loss_common_loc_2d(criterion: loss._Loss, input_nodes: Type[Skeleton], normalized_projection: Tensor, inputs: Tensor, **kwargs) -> Tensor:
+def calculate_loss_common_loc_2d(criterion: loss._Loss, input_nodes: Type[Skeleton], projection_2d_normalized: Tensor, inputs: Tensor, **kwargs) -> Tensor:
     """
     Calculates the loss for the 2D pose projection.
     Only accounts for common nodes between input skeleton and CARLA_SKELETON, as defined in MAPPINGS.
@@ -15,8 +15,8 @@ def calculate_loss_common_loc_2d(criterion: loss._Loss, input_nodes: Type[Skelet
     :type criterion: _Loss
     :param input_nodes: Type of the input skeleton, e.g. BODY_25_SKELETON or CARLA_SKELETON.
     :type input_nodes: Type[Skeleton]
-    :param normalized_projection: Normalized projection as calculated by the projection module.
-    :type normalized_projection: Tensor
+    :param projection_2d_normalized: Normalized projection as calculated by the projection module.
+    :type projection_2d_normalized: Tensor
     :param inputs: Model input frames, containing the normalized inputs 2D projection.
     :type inputs: Tensor
     :return: Calculated loss.
@@ -24,7 +24,7 @@ def calculate_loss_common_loc_2d(criterion: loss._Loss, input_nodes: Type[Skelet
     """
     carla_indices, input_indices = get_common_indices(input_nodes)
 
-    common_projection = normalized_projection[..., carla_indices, 0:2]
+    common_projection = projection_2d_normalized[..., carla_indices, 0:2]
     common_input = inputs[..., input_indices, 0:2]
 
     loss = criterion(

@@ -1,5 +1,5 @@
 import torch
-from pedestrians_video_2_carla.modules.base.trajectory import TrajectoryModel
+from pedestrians_video_2_carla.modules.flow.trajectory import TrajectoryModel
 
 
 class ZeroTrajectory(TrajectoryModel):

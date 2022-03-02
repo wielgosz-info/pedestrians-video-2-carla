@@ -1,8 +1,8 @@
 import torch
 from torch import nn
-from pedestrians_video_2_carla.modules.base.movements import MovementsModel
+from pedestrians_video_2_carla.modules.flow.movements import MovementsModel
 
-from pedestrians_video_2_carla.modules.base.output_types import MovementsModelOutputType
+from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
 from pytorch3d.transforms.rotation_conversions import rotation_6d_to_matrix
 
 

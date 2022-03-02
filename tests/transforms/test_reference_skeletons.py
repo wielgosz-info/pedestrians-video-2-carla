@@ -33,19 +33,19 @@ def test_reference_skeletons_denormalization_identity(device):
 
     projections = get_projections(device)
 
-    denormalized_projections = denormalizer.from_projection(projections, meta)
+    deprojection_2d_normalizeds = denormalizer.from_projection(projections, meta)
     assert torch.allclose(
-        projections, denormalized_projections), "Projections are not equal"
+        projections, deprojection_2d_normalizeds), "Projections are not equal"
 
     projections_scaled = projections.clone()
     projections_scaled[..., 0:2] = projections[..., 0:2] * \
         torch.rand((1), device=device)
-    denormalized_projections_scaled = denormalizer.from_projection(
+    deprojection_2d_normalizeds_scaled = denormalizer.from_projection(
         projections_scaled, meta)
 
     assert torch.allclose(
         projections,
-        denormalized_projections_scaled,
+        deprojection_2d_normalizeds_scaled,
         rtol=1e-4,
         atol=1e-4
     ), "Projections are not equal when input is scaled"

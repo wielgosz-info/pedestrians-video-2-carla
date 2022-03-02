@@ -8,26 +8,22 @@ import torch
 from pedestrians_video_2_carla.metrics.fb import *
 from pedestrians_video_2_carla.metrics.mpjpe import MPJPE
 from pedestrians_video_2_carla.metrics.mrpe import MRPE
-from pedestrians_video_2_carla.modules.base.movements import MovementsModel
-from pedestrians_video_2_carla.modules.base.output_types import (
+from pedestrians_video_2_carla.modules.flow.movements import MovementsModel
+from pedestrians_video_2_carla.modules.flow.output_types import (
     MovementsModelOutputType, TrajectoryModelOutputType)
-from pedestrians_video_2_carla.modules.base.trajectory import TrajectoryModel
-from pedestrians_video_2_carla.modules.layers.projection import \
-    ProjectionModule
+from pedestrians_video_2_carla.modules.flow.trajectory import TrajectoryModel
 from pedestrians_video_2_carla.modules.loss import LossModes
 from pedestrians_video_2_carla.modules.movements.zero import ZeroMovements
 from pedestrians_video_2_carla.modules.trajectory.zero import ZeroTrajectory
 from pedestrians_video_2_carla.data.base.skeleton import get_skeleton_type_by_name
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.utils.argparse import DictAction
-from pedestrians_video_2_carla.utils.world import \
-    calculate_world_from_changes
 from pytorch_lightning.utilities import rank_zero_only
 from torch import Tensor
-from torchmetrics import MetricCollection
+from torchmetrics import MeanSquaredError, MetricCollection
 
 
-class LitBaseMapper(pl.LightningModule):
+class LitBaseFlow(pl.LightningModule):
     """
     Base LightningModule - all other LightningModules should inherit from this.
     It contains movements model, trajectory model, projection layer, loss modes handling and video logging.
@@ -52,14 +48,10 @@ class LitBaseMapper(pl.LightningModule):
             movements_model = ZeroMovements()
         self.movements_model = movements_model
 
+        # TODO: extract trajectory model from Base into PoseLifting flow
         if trajectory_model is None:
             trajectory_model = ZeroTrajectory()
         self.trajectory_model = trajectory_model
-
-        self.projection = ProjectionModule(
-            movements_output_type=self.movements_model.output_type,
-            trajectory_output_type=self.trajectory_model.output_type,
-        )
 
         # losses
         if loss_weights is None:
@@ -80,32 +72,9 @@ class LitBaseMapper(pl.LightningModule):
         self._losses_to_calculate = list(dict.fromkeys(modes))
 
         # default metrics
-        self.metrics = MetricCollection([
-            MPJPE(
-                dist_sync_on_step=True,
-                input_nodes=self.movements_model.input_nodes
-            ),
-            MRPE(
-                dist_sync_on_step=True,
-                input_nodes=self.movements_model.input_nodes,
-                output_nodes=self.movements_model.output_nodes
-            ),
-            FB_MPJPE(dist_sync_on_step=True),
-            # FB_WeightedMPJPE should be same as FB_MPJPE since we provide no weights:
-            FB_WeightedMPJPE(dist_sync_on_step=True),
-            FB_PA_MPJPE(dist_sync_on_step=True),
-            FB_N_MPJPE(dist_sync_on_step=True),
-            FB_MPJVE(dist_sync_on_step=True),
-        ])
+        self._metrics = MetricCollection(self._get_metrics())
 
-        self.__crucial_keys = [
-            'relative_pose_loc',
-            'relative_pose_rot',
-            'absolute_pose_loc',
-            'absolute_pose_rot',
-            'world_loc',
-            'world_rot',
-        ]
+        self._crucial_keys = self._get_crucial_keys()
 
         self.save_hyperparameters({
             'host': platform.node(),
@@ -114,6 +83,15 @@ class LitBaseMapper(pl.LightningModule):
             **self.movements_model.hparams,
             **self.trajectory_model.hparams,
         })
+
+    def _get_crucial_keys(self):
+        return [
+            'projection_2d',
+            'projection_2d_normalized',
+        ]
+
+    def _get_metrics(self):
+        return []
 
     def configure_optimizers(self):
         movements_optimizers = self.movements_model.configure_optimizers()
@@ -205,11 +183,11 @@ class LitBaseMapper(pl.LightningModule):
 
         self.logger[0].log_hyperparams(hparams, {
             "hp/{}".format(k): 0
-            for k in self.metrics.keys()
+            for k in self._metrics.keys()
         })
 
     def _on_batch_start(self, batch, batch_idx):
-        self.projection.on_batch_start(batch, batch_idx)
+        pass
 
     def on_train_batch_start(self, batch, batch_idx, *args, **kwargs):
         self._on_batch_start(batch, batch_idx)
@@ -249,39 +227,22 @@ class LitBaseMapper(pl.LightningModule):
             to_log.update(self.trajectory_model.training_epoch_end(outputs))
 
         if len(to_log) > 0:
-            batch_size = len(outputs[0]['preds']['absolute_pose_loc'])
+            batch_size = len(outputs[0]['preds']['projection_2d'])
             self.log_dict(to_log, batch_size=batch_size)
 
     def _step(self, batch, batch_idx, stage):
         (frames, targets, meta) = batch
 
-        no_conf_frames = frames[..., 0:2].clone()
-
-        pose_inputs = self.movements_model(
-            frames if self.movements_model.needs_confidence else no_conf_frames,
-            targets if self.training else None
-        )
-
-        world_loc_inputs, world_rot_inputs = self.trajectory_model(
-            no_conf_frames,
-            targets if self.training else None
-        )
-
-        projection_outputs = self.projection(
-            pose_inputs,
-            world_loc_inputs,
-            world_rot_inputs
-        )
-
-        sliced = self._get_sliced_data(frames, targets,
-                                       pose_inputs, world_loc_inputs, world_rot_inputs,
-                                       projection_outputs)
+        sliced = self._inner_step(frames, targets)
 
         loss_dict = self._calculate_lossess(stage, len(frames), sliced, meta)
 
         self._log_videos(meta=meta, batch_idx=batch_idx, stage=stage, **sliced)
 
         return self._get_outputs(stage, len(frames), sliced, loss_dict)
+
+    def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor]):
+        raise NotImplementedError()
 
     def _get_outputs(self, stage, batch_size, sliced, loss_dict):
         # return primary loss - the first one available from loss_modes list
@@ -296,11 +257,12 @@ class LitBaseMapper(pl.LightningModule):
                     'loss': loss_dict[mode],
                     'preds': {
                         'pose_changes': sliced['pose_inputs'].detach() if self.movements_model.output_type == MovementsModelOutputType.pose_changes else None,
-                        'world_rot_changes': sliced['world_rot_inputs'].detach() if self.trajectory_model.output_type == TrajectoryModelOutputType.changes else None,
-                        'world_loc_changes': sliced['world_loc_inputs'].detach() if self.trajectory_model.output_type == TrajectoryModelOutputType.changes else None,
+                        'world_rot_changes': sliced['world_rot_inputs'].detach() if self.trajectory_model.output_type == TrajectoryModelOutputType.changes and 'world_rot_inputs' in sliced else None,
+                        'world_loc_changes': sliced['world_loc_inputs'].detach() if self.trajectory_model.output_type == TrajectoryModelOutputType.changes and 'world_loc_inputs' in sliced else None,
                         **{
-                            k: sliced[k].detach() if sliced[k] is not None else None
-                            for k in self.__crucial_keys
+                            k: sliced[k].detach(
+                            ) if k in sliced and sliced[k] is not None else None
+                            for k in self._crucial_keys
                         }
                     },
                     'targets': sliced['targets']
@@ -335,56 +297,10 @@ class LitBaseMapper(pl.LightningModule):
             self.log('{}_loss/{}'.format(stage, k.name), v, batch_size=batch_size)
         return loss_dict
 
-    def _get_sliced_data(self,
-                         frames,
-                         targets,
-                         pose_inputs,
-                         world_loc_inputs,
-                         world_rot_inputs,
-                         projection_outputs
-                         ):
-        # TODO: this should take into account both movements and trajectory models
-        eval_slice = (slice(None), self.movements_model.eval_slice)
-
-        # unpack projection outputs
-        (projected_pose, normalized_projection,
-         projection_outputs_dict) = projection_outputs
-
-        # get all inputs/outputs properly sliced
-        sliced = {}
-
-        sliced['pose_inputs'] = tuple([v[eval_slice] for v in pose_inputs]) if isinstance(
-            pose_inputs, tuple) else pose_inputs[eval_slice]
-        sliced['projected_pose'] = projected_pose[eval_slice]
-        sliced['normalized_projection'] = normalized_projection[eval_slice]
-        sliced['world_loc_inputs'] = world_loc_inputs[eval_slice]
-        sliced['world_rot_inputs'] = world_rot_inputs[eval_slice]
-        sliced['inputs'] = frames[eval_slice]
-        sliced['targets'] = {k: v[eval_slice] for k, v in targets.items()}
-
-        keys_of_intrest = list(
-            set(list(projection_outputs_dict.keys()) + self.__crucial_keys))
-        for k in keys_of_intrest:
-            sliced[k] = projection_outputs_dict[k][eval_slice] if k in projection_outputs_dict and projection_outputs_dict[k] is not None else None
-
-        # sometimes we need absolute target world loc/rot, which is not saved in data
-        # so we need to compute it here and then slice appropriately
-        # caveat - dataset needst to provide those targets in the first place
-        try:
-            target_world_loc, target_world_rot = calculate_world_from_changes(
-                projected_pose.shape, projected_pose.device,
-                targets['world_loc_changes'], targets['world_rot_changes']
-            )
-            sliced['targets']['world_loc'] = target_world_loc[eval_slice]
-            sliced['targets']['world_rot'] = target_world_rot[eval_slice]
-        except KeyError:
-            pass
-        return sliced
-
     def _eval_step_end(self, outputs, stage):
         # calculate and log metrics
-        m = self.metrics(outputs['preds'], outputs['targets'])
-        batch_size = len(outputs['preds']['absolute_pose_loc'])
+        m = self._metrics(outputs['preds'], outputs['targets'])
+        batch_size = len(outputs['preds']['projection_2d'])
         for k, v in m.items():
             self.log('hp/{}'.format(k), v,
                      batch_size=batch_size)

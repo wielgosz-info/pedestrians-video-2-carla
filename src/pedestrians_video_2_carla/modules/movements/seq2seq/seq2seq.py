@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch import Tensor
-from pedestrians_video_2_carla.modules.base.movements import MovementsModel
+from pedestrians_video_2_carla.modules.flow.movements import MovementsModel
 
 
 class TeacherMode(Enum):

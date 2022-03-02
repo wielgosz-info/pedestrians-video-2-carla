@@ -116,7 +116,8 @@ class PedestrianWriter(object):
                    # data that is passed from various outputs:
                    inputs: Tensor = None,
                    targets: Dict[str, Tensor] = None,
-                   projected_pose: Tensor = None,
+                   projection_2d: Tensor = None,
+                   projection_2d_normalized: Tensor = None,
                    relative_pose_loc: Tensor = None,
                    relative_pose_rot: Tensor = None,
                    world_loc: Tensor = None,
@@ -131,7 +132,8 @@ class PedestrianWriter(object):
                 inputs[self.__videos_slice],
                 {k: v[self.__videos_slice] for k, v in targets.items()},
                 {k: v[self.__videos_slice] for k, v in meta.items()},
-                projected_pose[self.__videos_slice],
+                projection_2d[self.__videos_slice],
+                projection_2d_normalized[self.__videos_slice] if projection_2d_normalized is not None else None,
                 relative_pose_loc[self.__videos_slice] if relative_pose_loc is not None else None,
                 relative_pose_rot[self.__videos_slice] if relative_pose_rot is not None else None,
                 world_loc[self.__videos_slice] if world_loc is not None else None,
@@ -158,7 +160,8 @@ class PedestrianWriter(object):
                 frames: Tensor,
                 targets: Dict[str, Tensor],
                 meta: Dict[str, List[Any]],
-                projected_pose: Tensor,
+                projection_2d: Tensor,
+                projection_2d_normalized: Tensor,
                 relative_pose_loc: Tensor,
                 relative_pose_rot: Tensor,
                 world_loc: Tensor,
@@ -174,8 +177,8 @@ class PedestrianWriter(object):
         :type targets: Dict[str, Tensor]
         :param meta: Meta data for each clips
         :type meta: Dict[str, List[Any]]
-        :param projected_pose: Output of the projection layer.
-        :type projected_pose: Tensor
+        :param projection_2d: Output of the projection layer.
+        :type projection_2d: Tensor
         :param relative_pose_loc: Output from the .forward converted to relative pose locations. May be None.
         :type relative_pose_loc: Tensor
         :param relative_pose_rot: Output from the .forward converted to absolute pose rotations.
@@ -193,10 +196,13 @@ class PedestrianWriter(object):
         # TODO: handle world_loc and world_rot in carla renderers
         # TODO: denormalization should be aware of the camera position if possible
         denormalized_frames = self.__denormalize.from_projection(frames, meta)
+        denormalized_projection_2d = self.__denormalize.from_projection(
+            projection_2d_normalized, meta) if projection_2d_normalized is not None else None
 
         output_videos = []
 
-        self._prepare_overlay_skeletons(targets, meta, projected_pose)
+        self._prepare_overlay_skeletons(
+            targets, meta, projection_2d, projection_2d_normalized)
 
         render = {
             PedestrianRenderers.zeros: lambda: self.__renderers[PedestrianRenderers.zeros].render(
@@ -217,7 +223,7 @@ class PedestrianWriter(object):
                 denormalized_frames
             ),
             PedestrianRenderers.projection_points: lambda: self.__renderers[PedestrianRenderers.projection_points].render(
-                projected_pose
+                denormalized_projection_2d if denormalized_projection_2d is not None else projection_2d
             ),
             PedestrianRenderers.carla: lambda: self.__renderers[PedestrianRenderers.carla].render(
                 relative_pose_loc, relative_pose_rot,
@@ -259,7 +265,7 @@ class PedestrianWriter(object):
             })
             yield merged_vid, vid_meta
 
-    def _prepare_overlay_skeletons(self, targets, meta, projected_pose):
+    def _prepare_overlay_skeletons(self, targets, meta, projection_2d, projection_2d_normalized):
         if PedestrianRenderers.source_videos not in self._used_renderers or not self.__renderers[PedestrianRenderers.source_videos].overlay_skeletons:
             return
 
@@ -275,20 +281,26 @@ class PedestrianWriter(object):
                 }
             ]
 
-            if projected_pose is not None and 'projection_2d_shift' in targets and 'projection_2d_scale' in targets:
+            if projection_2d_normalized is not None and 'projection_2d_shift' in targets and 'projection_2d_scale' in targets:
                 # TODO: make normalization/denormalization type configurable; should match whatever was used in the dataset
-                output_normalizer = HipsNeckNormalize(
-                    extractor=HipsNeckExtractor(input_nodes=self._output_nodes))
                 output_denormalizer = HipsNeckDeNormalize()
                 skeletons.append({
                     'type': self._output_nodes,
                     # green; TODO: make it configurable
                     'color': (0, 255, 0),
                     'keypoints': output_denormalizer(
-                        output_normalizer(projected_pose[..., :2]),
+                        projection_2d_normalized[..., :2],
                         targets['projection_2d_scale'],
                         targets['projection_2d_shift']
                     ).numpy()
+                })
+
+            if projection_2d is not None:
+                skeletons.append({
+                    'type': self._output_nodes,
+                    # blue; TODO: make it configurable
+                    'color': (0, 0, 255),
+                    'keypoints': projection_2d[..., :2]
                 })
 
             meta['skeletons'] = skeletons

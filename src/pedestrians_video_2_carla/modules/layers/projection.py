@@ -2,7 +2,7 @@ from typing import Dict, Tuple, Union
 from importlib_metadata import re
 
 from scipy.fftpack import shift
-from pedestrians_video_2_carla.modules.base.output_types import MovementsModelOutputType, TrajectoryModelOutputType
+from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType, TrajectoryModelOutputType
 
 
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
@@ -236,11 +236,11 @@ class ProjectionModule(nn.Module):
         return world_loc_inputs, world_rot_inputs
 
     def forward(self, pose_inputs: Union[Tensor, Tuple[Tensor, Tensor]], world_loc_inputs: Tensor = None, world_rot_inputs: Tensor = None) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
-        projected_pose, projection_outputs = self.project_pose(
+        projection_2d, projection_outputs = self.project_pose(
             pose_inputs,
             world_loc_inputs,
             world_rot_inputs,
         )
-        normalized_projection = self.projection_transform(projected_pose)
+        projection_2d_normalized = self.projection_transform(projection_2d)
 
-        return (projected_pose, normalized_projection, projection_outputs)
+        return (projection_2d, projection_2d_normalized, projection_outputs)

@@ -16,6 +16,9 @@ class MovementsModelOutputType(Enum):
     # somewhat ok
     relative_rot = 3
 
+    # 2D pose to 2D pose; used in autoencoder flow
+    pose_2d = 4
+
 
 class TrajectoryModelOutputType(Enum):
     """

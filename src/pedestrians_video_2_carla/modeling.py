@@ -9,6 +9,12 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 
+from pedestrians_video_2_carla.modules.flow.autoencoder import \
+    LitAutoencoderFlow
+from pedestrians_video_2_carla.modules.flow.base import LitBaseFlow
+from pedestrians_video_2_carla.modules.flow.pose_lifting import \
+    LitPoseLiftingFlow
+
 try:
     import wandb
     from pytorch_lightning.loggers.wandb import WandbLogger
@@ -16,17 +22,16 @@ except ImportError:
     WandbLogger = None
 
 import randomname
-
 from pytorch_lightning.utilities.warnings import rank_zero_warn
 
 from pedestrians_video_2_carla import __version__
 from pedestrians_video_2_carla.data import discover as discover_datamodules
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
-from pedestrians_video_2_carla.data.carla.carla_2d3d_datamodule import Carla2D3DDataModule
+from pedestrians_video_2_carla.data.carla.carla_2d3d_datamodule import \
+    Carla2D3DDataModule
 from pedestrians_video_2_carla.loggers.pedestrian import PedestrianLogger
-from pedestrians_video_2_carla.modules.base.base import LitBaseMapper
-from pedestrians_video_2_carla.modules.base.movements import MovementsModel
-from pedestrians_video_2_carla.modules.base.trajectory import TrajectoryModel
+from pedestrians_video_2_carla.modules.flow.movements import MovementsModel
+from pedestrians_video_2_carla.modules.flow.trajectory import TrajectoryModel
 from pedestrians_video_2_carla.modules.movements import MOVEMENTS_MODELS
 from pedestrians_video_2_carla.modules.trajectory import TRAJECTORY_MODELS
 
@@ -36,8 +41,8 @@ from pedestrians_video_2_carla.modules.trajectory import TRAJECTORY_MODELS
 # executable/script.
 
 
-def get_base_model_cls() -> LitBaseMapper:
-    return LitBaseMapper
+def get_flow_module_cls(flow_models, model_name: str = 'pose_lifting') -> Type[LitBaseFlow]:
+    return flow_models[model_name]
 
 
 def get_movements_model_cls(movements_models: Dict, model_name: str = "Baseline3DPoseRot") -> Type[MovementsModel]:
@@ -52,7 +57,7 @@ def get_data_module_cls(data_modules: Dict, data_module_name: str = "Carla2D3D")
     return data_modules[data_module_name]
 
 
-def add_program_args(data_modules, movements_models, trajectory_models):
+def add_program_args(data_modules, flow_modules, movements_models, trajectory_models):
     """
     Add program-level command line parameters
     """
@@ -87,6 +92,14 @@ def add_program_args(data_modules, movements_models, trajectory_models):
         help="set mode to train or test",
         default="train",
         choices=["train", "test"],
+    )
+    parser.add_argument(
+        "--flow",
+        dest="flow",
+        help="Flow to use",
+        default="pose_lifting",
+        choices=list(flow_modules.keys()),
+        type=str,
     )
     parser.add_argument(
         "--data_module_name",
@@ -155,9 +168,14 @@ def main(args: List[str]):
 
     # TODO: handle movements & trajectory models similarly
     data_modules = discover_datamodules()
+    flow_modules = {
+        'pose_lifting': LitPoseLiftingFlow,
+        'autoencoder': LitAutoencoderFlow,
+    }
 
     parser = add_program_args(
         data_modules,
+        flow_modules,
         MOVEMENTS_MODELS,
         TRAJECTORY_MODELS,
     )
@@ -175,14 +193,15 @@ def main(args: List[str]):
     parser = pl.Trainer.add_argparse_args(parser)
 
     data_module_cls = get_data_module_cls(data_modules, program_args.data_module_name)
-    base_model_cls = get_base_model_cls()
+    flow_module_cls = get_flow_module_cls(
+        flow_modules, program_args.flow)  # TODO: should this be subcommand?
     movements_model_cls = get_movements_model_cls(
         MOVEMENTS_MODELS, program_args.movements_model_name)
     trajectory_model_cls = get_trajectory_model_cls(
         TRAJECTORY_MODELS, program_args.trajectory_model_name)
 
     parser = data_module_cls.add_data_specific_args(parser)
-    parser = base_model_cls.add_model_specific_args(parser)
+    parser = flow_module_cls.add_model_specific_args(parser)
     parser = movements_model_cls.add_model_specific_args(parser)
     parser = trajectory_model_cls.add_model_specific_args(parser)
 
@@ -219,7 +238,7 @@ def main(args: List[str]):
     # model
     movements_model = movements_model_cls(**dict_args)
     trajectory_model = trajectory_model_cls(**dict_args)
-    model = base_model_cls(
+    model = flow_module_cls(
         movements_model=movements_model, trajectory_model=trajectory_model, **dict_args
     )
 

@@ -1,4 +1,4 @@
-from pedestrians_video_2_carla.modules.base.output_types import MovementsModelOutputType
+from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
 from torch import nn
 from .pose_former import PoseFormer
 from pytorch3d.transforms.rotation_conversions import rotation_6d_to_matrix
@@ -24,7 +24,7 @@ class PoseFormerRot(PoseFormer):
 
     def __init__(self,
                  **kwargs):
-        super().__init__(output_features = 9, **kwargs)
+        super().__init__(output_features=9, **kwargs)
 
         single_joint_embeddings_size = kwargs.get('single_joint_embeddings_size', 32)
         embed_dim = len(self.input_nodes) * single_joint_embeddings_size
@@ -33,7 +33,7 @@ class PoseFormerRot(PoseFormer):
 
         self.pose_former.head = nn.Sequential(
             nn.LayerNorm(embed_dim),
-            nn.Linear(embed_dim , out_dim),
+            nn.Linear(embed_dim, out_dim),
         )
 
     @property

@@ -14,17 +14,8 @@ from torch.utils.data import Dataset, IterableDataset
 
 class Carla2D3DDataset(Dataset):
     def __init__(self, set_filepath: str, nodes: CARLA_SKELETON = CARLA_SKELETON, transform=None, **kwargs) -> None:
-        set_file = h5py.File(set_filepath, 'r')
-
-        self.projection_2d = set_file['carla_2d_3d/projection_2d']
-        self.pose_changes = set_file['carla_2d_3d/targets/pose_changes']
-        self.world_loc_changes = set_file['carla_2d_3d/targets/world_loc_changes']
-        self.world_rot_changes = set_file['carla_2d_3d/targets/world_rot_changes']
-        self.relative_pose_loc = set_file['carla_2d_3d/targets/relative_pose_loc']
-        self.relative_pose_rot = set_file['carla_2d_3d/targets/relative_pose_rot']
-        self.absolute_pose_loc = set_file['carla_2d_3d/targets/absolute_pose_loc']
-        self.absolute_pose_rot = set_file['carla_2d_3d/targets/absolute_pose_rot']
-        self.meta = set_file['carla_2d_3d/meta']
+        self.set_file = h5py.File(set_filepath, 'r')
+        self.meta = self.set_file['carla_2d_3d/meta']
 
         self.transform = transform
         self.nodes = nodes
@@ -33,34 +24,26 @@ class Carla2D3DDataset(Dataset):
         return len(self.projection_2d)
 
     def __getitem__(self, idx: int) -> torch.Tensor:
-        projection_2d = self.projection_2d[idx]
-        projection_2d = torch.tensor(projection_2d)
-
+        projection_2d = self.__extract_from_set('carla_2d_3d/projection_2d', idx)
         orig_projection_2d = projection_2d.clone()
 
         if self.transform:
             projection_2d = self.transform(projection_2d)
 
-        pose_changes_matrix = self.pose_changes[idx]
-        pose_changes_matrix = torch.from_numpy(pose_changes_matrix)
-
-        world_rot_change_batch = self.world_rot_changes[idx]
-        world_rot_change_batch = torch.from_numpy(world_rot_change_batch)
-
-        world_loc_change_batch = self.world_loc_changes[idx]
-        world_loc_change_batch = torch.from_numpy(world_loc_change_batch)
-
-        relative_pose_loc = self.relative_pose_loc[idx]
-        relative_pose_loc = torch.from_numpy(relative_pose_loc)
-
-        relative_pose_rot = self.relative_pose_rot[idx]
-        relative_pose_rot = torch.from_numpy(relative_pose_rot)
-
-        absolute_pose_loc = self.absolute_pose_loc[idx]
-        absolute_pose_loc = torch.from_numpy(absolute_pose_loc)
-
-        absolute_pose_rot = self.absolute_pose_rot[idx]
-        absolute_pose_rot = torch.from_numpy(absolute_pose_rot)
+        pose_changes_matrix = self.__extract_from_set(
+            'carla_2d_3d/targets/pose_changes', idx)
+        world_rot_change_batch = self.__extract_from_set(
+            'carla_2d_3d/targets/world_rot_changes', idx)
+        world_loc_change_batch = self.__extract_from_set(
+            'carla_2d_3d/targets/world_loc_changes', idx)
+        relative_pose_loc = self.__extract_from_set(
+            'carla_2d_3d/targets/relative_pose_loc', idx)
+        relative_pose_rot = self.__extract_from_set(
+            'carla_2d_3d/targets/relative_pose_rot', idx)
+        absolute_pose_loc = self.__extract_from_set(
+            'carla_2d_3d/targets/absolute_pose_loc', idx)
+        absolute_pose_rot = self.__extract_from_set(
+            'carla_2d_3d/targets/absolute_pose_rot', idx)
 
         meta = {k: self.meta[k].attrs['labels'][v[idx]].decode(
             "latin-1") for k, v in self.meta.items()}
@@ -71,6 +54,7 @@ class Carla2D3DDataset(Dataset):
                 'projection_2d': orig_projection_2d,
                 'projection_2d_shift': self.transform.shift if self.transform else None,
                 'projection_2d_scale': self.transform.scale if self.transform else None,
+                'projection_2d_normalized': projection_2d if self.transform else None,
 
                 'pose_changes': pose_changes_matrix,
                 'world_loc_changes': world_loc_change_batch,
@@ -86,6 +70,10 @@ class Carla2D3DDataset(Dataset):
             },
             meta
         )
+
+    def __extract_from_set(self, set_name, idx):
+        data = self.set_file[set_name][idx]
+        return torch.from_numpy(data)
 
 
 class Carla2D3DIterableDataset(IterableDataset):
@@ -205,9 +193,14 @@ class Carla2D3DIterableDataset(IterableDataset):
             projection_2d,
             {
                 'projection_2d': orig_projection_2d,
+                'projection_2d_shift': self.transform.shift if self.transform else None,
+                'projection_2d_scale': self.transform.scale if self.transform else None,
+                'projection_2d_normalized': projection_2d if self.transform else None,
+
                 'pose_changes': pose_changes_batch,
                 'world_loc_changes': world_loc_change_batch,
                 'world_rot_changes': world_rot_change_batch,
+
                 **projection_outputs
             },
             {'age': age, 'gender': gender}

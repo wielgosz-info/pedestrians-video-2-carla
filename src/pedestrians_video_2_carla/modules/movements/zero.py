@@ -1,5 +1,5 @@
 import torch
-from pedestrians_video_2_carla.modules.base.movements import MovementsModel
+from pedestrians_video_2_carla.modules.flow.movements import MovementsModel
 
 
 class ZeroMovements(MovementsModel):

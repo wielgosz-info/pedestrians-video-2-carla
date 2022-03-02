@@ -3,7 +3,7 @@ import logging
 from typing import List, Union
 
 import numpy as np
-from pedestrians_video_2_carla.modules.base.output_types import \
+from pedestrians_video_2_carla.modules.flow.output_types import \
     MovementsModelOutputType
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
