@@ -4,6 +4,7 @@ from nbformat import write
 import numpy as np
 import pandas as pd
 import h5py
+import sklearn
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
 from pedestrians_video_2_carla.data.carla.carla_recorded_dataset import CarlaRecordedDataset
 from .constants import CARLA_RECORDED_DIR
@@ -180,7 +181,7 @@ class CarlaRecordedDataModule(BaseDataModule):
             # only save 'useful' clips (i.e. those that have the pedestrian in all frames)
             frame_width = first_row.get('camera.width', 800)
             frame_height = first_row.get('camera.height', 600)
-            useful_clips = np.all(
+            useful_clips_mask = np.all(
                 np.stack((
                     np.all(projection_2d >= 0, axis=(1, 2, 3)),
                     np.all(projection_2d[..., 0] <= frame_width, axis=(1, 2)),
@@ -188,6 +189,9 @@ class CarlaRecordedDataModule(BaseDataModule):
                 ), axis=1),
                 axis=1
             )
+            # Shuffle the data, so that the order in val/test is random.
+            # This is better when visualizing/using only part of the dataset.
+            useful_clips = sklearn.utils.shuffle(*np.nonzero(useful_clips_mask))
 
             with h5py.File(os.path.join(self._subsets_dir, "{}.hdf5".format(name)), "w") as f:
                 f.create_dataset("carla_recorded/projection_2d", data=projection_2d[useful_clips],
@@ -241,21 +245,4 @@ class CarlaRecordedDataModule(BaseDataModule):
         return clips.reshape((-1, self.clip_length, *continuous_series.shape[1:]))
 
     def setup(self, stage: Optional[str] = None) -> None:
-        if stage == "fit" or stage is None:
-            self.train_set = CarlaRecordedDataset(
-                os.path.join(self._subsets_dir, 'train.hdf5'),
-                nodes=self.nodes,
-                transform=self.transform
-            )
-            self.val_set = CarlaRecordedDataset(
-                os.path.join(self._subsets_dir, 'val.hdf5'),
-                nodes=self.nodes,
-                transform=self.transform
-            )
-
-        if stage == "test" or stage is None:
-            self.test_set = CarlaRecordedDataset(
-                os.path.join(self._subsets_dir, 'test.hdf5'),
-                nodes=self.nodes,
-                transform=self.transform
-            )
+        return self._setup(CarlaRecordedDataset, stage, 'hdf5')

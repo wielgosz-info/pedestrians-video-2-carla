@@ -26,8 +26,8 @@ class BaseDataModule(LightningDataModule):
                  outputs_dir: Optional[str] = None,
                  clip_length: Optional[int] = 30,
                  batch_size: Optional[int] = 64,
-                 num_workers: Optional[int] = os.cpu_count(),
-                 **kwargs):
+                 num_workers: Optional[int] = os.cpu_count()
+                 ** kwargs):
         super().__init__()
 
         if outputs_dir is None:
@@ -225,28 +225,28 @@ class BaseDataModule(LightningDataModule):
         # save settings
         self.save_settings()
 
-    def _setup(self, dataset_creator: Callable, stage: Optional[str] = None) -> None:
+    def _setup(self, dataset_creator: Callable, stage: Optional[str] = None, set_ext: Optional[str] = 'csv') -> None:
         """
-        Helper for setup function when using CSV train/val/test splits.
+        Helper for setup function when using CSV/something train/val/test splits.
 
         :param stage: Pytorch Lightning processing stage, defaults to None
         :type stage: Optional[str], optional
         """
         if stage == "fit" or stage is None:
             self.train_set = dataset_creator(
-                os.path.join(self._subsets_dir, 'train.csv'),
+                os.path.join(self._subsets_dir, f'train.{set_ext}'),
                 points=self.nodes,
                 transform=self.transform
             )
             self.val_set = dataset_creator(
-                os.path.join(self._subsets_dir, 'val.csv'),
+                os.path.join(self._subsets_dir, f'val.{set_ext}'),
                 points=self.nodes,
                 transform=self.transform
             )
 
         if stage == "test" or stage is None:
             self.test_set = dataset_creator(
-                os.path.join(self._subsets_dir, 'test.csv'),
+                os.path.join(self._subsets_dir, f'test.{set_ext}'),
                 points=self.nodes,
                 transform=self.transform
             )
