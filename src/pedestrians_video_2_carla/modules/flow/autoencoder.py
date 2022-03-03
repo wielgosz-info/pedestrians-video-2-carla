@@ -1,6 +1,7 @@
 from typing import Dict
 import torch
 from torchmetrics import MeanSquaredError
+from pedestrians_video_2_carla.metrics.missing_joints_ratio import MissingJointsRatio
 from pedestrians_video_2_carla.metrics.multiinput_wrapper import MultiinputWrapper
 from pedestrians_video_2_carla.modules.flow.base import LitBaseFlow
 
@@ -8,8 +9,19 @@ from pedestrians_video_2_carla.modules.flow.base import LitBaseFlow
 class LitAutoencoderFlow(LitBaseFlow):
     def _get_metrics(self):
         return {
-            'pose_MSE': MultiinputWrapper(MeanSquaredError(dist_sync_on_step=True), 'projection_2d', 'projection_2d'),
-            'norm_pose_MSE': MultiinputWrapper(MeanSquaredError(dist_sync_on_step=True), 'projection_2d_normalized', 'projection_2d_normalized'),
+            'MSE/projection_2d': MultiinputWrapper(
+                MeanSquaredError(dist_sync_on_step=True),
+                'projection_2d', 'projection_2d'
+            ),
+            'MSE/projection_2d_normalized': MultiinputWrapper(
+                MeanSquaredError(dist_sync_on_step=True),
+                'projection_2d_normalized', 'projection_2d_normalized'
+            ),
+            'MJR': MissingJointsRatio(
+                dist_sync_on_step=True,
+                input_nodes=self.movements_model.input_nodes,
+                output_nodes=self.movements_model.output_nodes
+            )
         }
 
     def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor]):

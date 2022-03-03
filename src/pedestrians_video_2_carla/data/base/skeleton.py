@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Type
 
 from pedestrians_scenarios.karma.pose.skeleton import Skeleton
@@ -21,13 +22,31 @@ def register_skeleton(name, skeleton, mapping=None):
         MAPPINGS[skeleton] = mapping
 
 
-def get_common_indices(input_nodes: Type[Skeleton] = None):
-    if input_nodes is None or input_nodes not in MAPPINGS:
-        carla_indices = slice(None)
-        input_indices = slice(None)
-    else:
-        mappings = MAPPINGS[input_nodes]
-        (carla_indices, input_indices) = zip(
-            *[(c.value, o.value) for (c, o) in mappings])
+@lru_cache(maxsize=None)
+def get_common_indices(input_nodes: Type[Skeleton] = None, output_nodes: Type[Skeleton] = None):
+    # input and output are the same or mappings are not defined
+    if (input_nodes == output_nodes) or (input_nodes is not None and input_nodes not in MAPPINGS) or (output_nodes is not None and output_nodes not in MAPPINGS):
+        return slice(None), slice(None)
 
-    return carla_indices, input_indices
+    if input_nodes is not None:
+        (input_carla_indices, input_indices) = zip(
+            *[(c.value, o.value) for (c, o) in MAPPINGS[input_nodes]])
+
+        if output_nodes is None:
+            return input_carla_indices, input_indices
+
+    if output_nodes is not None:
+        (output_carla_indices, output_indices) = zip(
+            *[(c.value, o.value) for (c, o) in MAPPINGS[output_nodes]])
+
+        if input_nodes is None:
+            return output_indices, output_carla_indices
+
+    # we have both input and output nodes and their intersections with CARLA_SKELETON
+    common_carla_indices = set(input_carla_indices).intersection(output_carla_indices)
+    input_indices = [i for c, i in zip(
+        input_carla_indices, input_indices) if c in common_carla_indices]
+    output_indices = [o for c, o in zip(
+        output_carla_indices, output_indices) if c in common_carla_indices]
+
+    return output_indices, input_indices

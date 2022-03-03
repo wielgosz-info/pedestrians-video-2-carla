@@ -1,13 +1,10 @@
 
 import platform
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 import torch
-from pedestrians_video_2_carla.metrics.fb import *
-from pedestrians_video_2_carla.metrics.mpjpe import MPJPE
-from pedestrians_video_2_carla.metrics.mrpe import MRPE
 from pedestrians_video_2_carla.modules.flow.movements import MovementsModel
 from pedestrians_video_2_carla.modules.flow.output_types import (
     MovementsModelOutputType, TrajectoryModelOutputType)
@@ -20,7 +17,7 @@ from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.utils.argparse import DictAction
 from pytorch_lightning.utilities import rank_zero_only
 from torch import Tensor
-from torchmetrics import MeanSquaredError, MetricCollection
+from torchmetrics import MetricCollection
 
 
 class LitBaseFlow(pl.LightningModule):
@@ -60,7 +57,8 @@ class LitBaseFlow(pl.LightningModule):
 
         if loss_modes is None or len(loss_modes) == 0:
             loss_modes = [LossModes.common_loc_2d]
-        self._loss_modes = [ LossModes[lm] if isinstance(lm, str) else lm for lm in loss_modes ]
+        self._loss_modes = [LossModes[lm] if isinstance(
+            lm, str) else lm for lm in loss_modes]
 
         modes = []
         for mode in self._loss_modes:
@@ -72,7 +70,7 @@ class LitBaseFlow(pl.LightningModule):
         self._losses_to_calculate = list(dict.fromkeys(modes))
 
         # default metrics
-        self._metrics = MetricCollection(self._get_metrics())
+        self.metrics = MetricCollection(self._get_metrics())
 
         self._crucial_keys = self._get_crucial_keys()
 
@@ -181,10 +179,20 @@ class LitBaseFlow(pl.LightningModule):
         # additionally, store info on train set size for easy access
         hparams.update(additional_config)
 
-        self.logger[0].log_hyperparams(hparams, {
-            "hp/{}".format(k): 0
-            for k in self._metrics.keys()
-        })
+        # TODO: figure out how to log tensor/list/iterable metrics
+        self.logger[0].log_hyperparams(
+            hparams,
+            self._unwrap_nested_metrics(self.metrics, ['hp'], zeros=True)
+        )
+
+    def _unwrap_nested_metrics(self, items: Union[Dict, float], keys: List[str], zeros: bool = False):
+        r = {}
+        if hasattr(items, 'items'):
+            for k, v in items.items():
+                r.update(self._unwrap_nested_metrics(v, keys + [k], zeros))
+        else:
+            r['/'.join(keys)] = 0.0 if zeros else items
+        return r
 
     def _on_batch_start(self, batch, batch_idx):
         pass
@@ -299,28 +307,31 @@ class LitBaseFlow(pl.LightningModule):
 
     def _eval_step_end(self, outputs, stage):
         # calculate and log metrics
-        m = self._metrics(outputs['preds'], outputs['targets'])
+        m = self.metrics(outputs['preds'], outputs['targets'])
         batch_size = len(outputs['preds']['projection_2d'])
-        for k, v in m.items():
-            self.log('hp/{}'.format(k), v,
-                     batch_size=batch_size)
 
-    def _log_to_tensorboard(self, vid, vid_idx, fps, stage, meta):
-        vid = vid.permute(0, 1, 4, 2, 3).unsqueeze(0)  # B,T,H,W,C -> B,T,C,H,W
-        self.logger[0].experiment.add_video(
-            '{}_{}_render'.format(stage, vid_idx),
-            vid, self.global_step, fps=fps
-        )
+        unwrapped_m = self._unwrap_nested_metrics(m, ['hp'])
+        for k, v in unwrapped_m.items():
+            self.log(k, v, batch_size=batch_size)
+
+    def _video_to_logger(self, vid, vid_idx, fps, stage, meta):
+        if isinstance(self.logger[0], TensorBoardLogger):
+            vid = vid.permute(0, 1, 4, 2, 3).unsqueeze(0)  # B,T,H,W,C -> B,T,C,H,W
+            self.logger[0].experiment.add_video(
+                '{}_{}_render'.format(stage, vid_idx),
+                vid, self.global_step, fps=fps
+            )
+        # TODO: handle W&B too
 
     def _log_videos(self,
                     meta: Tensor,
                     batch_idx: int,
                     stage: str,
-                    log_to_tb: bool = False,
+                    save_to_logger: bool = False,
                     **kwargs
                     ):
-        if log_to_tb:
-            vid_callback = self._log_to_tensorboard
+        if save_to_logger:
+            vid_callback = self._video_to_logger
         else:
             vid_callback = None
 

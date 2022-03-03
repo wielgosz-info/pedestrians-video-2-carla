@@ -212,7 +212,7 @@ class CarlaRecordedDataModule(BaseDataModule):
                                      data=[mapping[s] for s in used_v], dtype=np.uint16)
                     f["carla_recorded/meta/{}".format(k)].attrs["labels"] = labels
 
-            self.__settings['{}_set_size'.format(name)] = int(np.sum(useful_clips))
+            self.__settings['{}_set_size'.format(name)] = int(np.sum(useful_clips_mask))
 
         # save settings
         self.save_settings()
