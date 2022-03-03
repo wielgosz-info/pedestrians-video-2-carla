@@ -12,7 +12,6 @@ class CarlaRecordedDataset(Dataset, Projection2DMixin):
     def __init__(self,
                  set_filepath: str,
                  nodes: CARLA_SKELETON = CARLA_SKELETON,
-                 transform=None,
                  **kwargs
                  ) -> None:
         super().__init__(**kwargs)
@@ -22,7 +21,6 @@ class CarlaRecordedDataset(Dataset, Projection2DMixin):
         self.projection_2d = self.set_file['carla_recorded/projection_2d']
         self.meta = self.set_file['carla_recorded/meta']
 
-        self.transform = transform
         self.nodes = nodes
 
     def __len__(self) -> int:

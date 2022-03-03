@@ -9,11 +9,7 @@ from pedestrians_video_2_carla.modules.flow.base import LitBaseFlow
 class LitAutoencoderFlow(LitBaseFlow):
     def _get_metrics(self):
         return {
-            'MSE/projection_2d': MultiinputWrapper(
-                MeanSquaredError(dist_sync_on_step=True),
-                'projection_2d', 'projection_2d'
-            ),
-            'MSE/projection_2d_transformed': MultiinputWrapper(
+            'MSE': MultiinputWrapper(
                 MeanSquaredError(dist_sync_on_step=True),
                 'projection_2d_transformed', 'projection_2d_transformed'
             ),
@@ -23,6 +19,11 @@ class LitAutoencoderFlow(LitBaseFlow):
                 output_nodes=self.movements_model.output_nodes
             )
         }
+
+    def _get_crucial_keys(self):
+        return [
+            'projection_2d_transformed',
+        ]
 
     def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor]):
         no_conf_frames = frames[..., 0:2].clone()
@@ -44,20 +45,8 @@ class LitAutoencoderFlow(LitBaseFlow):
         # get all inputs/outputs properly sliced
         sliced = {}
 
-        sliced['projection_2d'] = pose_inputs[eval_slice]
-
-        # re-normalize, because depending on the data module transform & used autoencoder
-        # projection_2d can be already normalized, but it's not guaranteed
-        # TODO: this assumes that DataSet.transform only deals with normalization, nothing else
-        dm = self.trainer.datamodule
-        if dm.val_set is not None and dm.val_set.transform is not None:
-            sliced['projection_2d_transformed'] = dm.val_set.transform(
-                sliced['projection_2d'])
-        elif dm.test_set is not None and dm.test_set.transform is not None:
-            sliced['projection_2d_transformed'] = dm.test_set.transform(
-                sliced['projection_2d'])
-        else:
-            sliced['projection_2d_transformed'] = sliced['projection_2d']
+        # assumption: model output is in 'normalized' space
+        sliced['projection_2d_transformed'] = pose_inputs[eval_slice]
 
         sliced['inputs'] = frames[eval_slice]
         sliced['targets'] = {k: v[eval_slice] for k, v in targets.items()}

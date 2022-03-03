@@ -11,6 +11,8 @@ from pytorch_lightning.loggers import LightningLoggerBase
 from pytorch_lightning.loggers.base import rank_zero_experiment
 from pytorch_lightning.utilities import rank_zero_only, rank_zero_warn
 
+from pedestrians_video_2_carla.transforms.normalization import Extractor
+
 from .disabled_pedestrian_writer import DisabledPedestrianWriter
 from .enums import MergingMethod, PedestrianRenderers
 from .pedestrian_writer import PedestrianWriter
@@ -28,7 +30,7 @@ class PedestrianLogger(LightningLoggerBase):
                  log_every_n_steps: int = 50,
                  video_saving_frequency_reduction: int = 10,
                  renderers: List[PedestrianRenderers] = None,
-                 extractor: HipsNeckExtractor = None,
+                 extractor: Extractor = None,
                  movements_output_type: MovementsModelOutputType = MovementsModelOutputType.pose_changes,
                  **kwargs):
         """
@@ -48,7 +50,7 @@ class PedestrianLogger(LightningLoggerBase):
         :param renderers: List of used renderers. Default: ['input_points', 'projection_points'].
         :type renderers: List[PedestrianRenderers]
         :param extractor: Extractor used for denormalization. Default: HipsNeckExtractor().
-        :type extractor: HipsNeckExtractor
+        :type extractor: Extractor
         """
         super().__init__(
             agg_key_funcs=kwargs.get('agg_key_funcs', None),

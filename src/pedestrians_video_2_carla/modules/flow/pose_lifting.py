@@ -42,7 +42,8 @@ class LitPoseLiftingFlow(LitBaseFlow):
         ]
 
     def _get_crucial_keys(self):
-        return super()._get_crucial_keys() + [
+        return [
+            'projection_2d_transformed',
             'relative_pose_loc',
             'relative_pose_rot',
             'absolute_pose_loc',
@@ -89,8 +90,7 @@ class LitPoseLiftingFlow(LitBaseFlow):
         eval_slice = (slice(None), self.movements_model.eval_slice)
 
         # unpack projection outputs
-        (projection_2d, projection_2d_transformed,
-         projection_outputs_dict) = projection_outputs
+        (projection_2d, projection_outputs_dict) = projection_outputs
 
         # get all inputs/outputs properly sliced
         sliced = {}
@@ -98,7 +98,12 @@ class LitPoseLiftingFlow(LitBaseFlow):
         sliced['pose_inputs'] = tuple([v[eval_slice] for v in pose_inputs]) if isinstance(
             pose_inputs, tuple) else pose_inputs[eval_slice]
         sliced['projection_2d'] = projection_2d[eval_slice]
-        sliced['projection_2d_transformed'] = projection_2d_transformed[eval_slice]
+
+        dm = self.trainer.datamodule
+        if dm.transform is not None:
+            sliced['projection_2d_transformed'] = dm.transform(
+                projection_2d[eval_slice])
+
         sliced['world_loc_inputs'] = world_loc_inputs[eval_slice]
         sliced['world_rot_inputs'] = world_rot_inputs[eval_slice]
         sliced['inputs'] = frames[eval_slice]

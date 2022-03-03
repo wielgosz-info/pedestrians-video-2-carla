@@ -12,7 +12,7 @@ from pedestrians_scenarios.karma.renderers.source_videos_renderer import \
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 from pedestrians_video_2_carla.renderers.carla_renderer import CarlaRenderer
 from pedestrians_video_2_carla.renderers.smpl_renderer import SMPLRenderer
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckDeNormalize, HipsNeckExtractor, HipsNeckNormalize
+from pedestrians_video_2_carla.transforms.normalization import DeNormalizer, Extractor
 from pedestrians_video_2_carla.transforms.reference_skeletons import \
     ReferenceSkeletonsDenormalize
 from torch import Tensor
@@ -25,7 +25,7 @@ class PedestrianWriter(object):
     def __init__(self,
                  log_dir: str,
                  renderers: List[PedestrianRenderers],
-                 extractor: HipsNeckExtractor,
+                 extractor: Extractor,
                  input_nodes: Skeleton,
                  output_nodes: Skeleton,
                  reduced_log_every_n_steps: int = 500,
@@ -73,11 +73,10 @@ class PedestrianWriter(object):
         self._input_nodes = input_nodes
         self._output_nodes = output_nodes
 
-        assert self._output_nodes == self._extractor.input_nodes, "Configuration mismatch, HipsNeckExtractor and PointsRenderer need to use the same Skeleton."
+        assert self._output_nodes == self._extractor.input_nodes, "Configuration mismatch, Extractor and PointsRenderer need to use the same Skeleton."
 
         self.__denormalize = ReferenceSkeletonsDenormalize(
-            extractor=self._extractor,
-            autonormalize=False
+            extractor=self._extractor
         )
 
         # actual renderers
@@ -94,6 +93,9 @@ class PedestrianWriter(object):
             PedestrianRenderers.input_points: PointsRenderer(
                 input_nodes=self._input_nodes
             ) if PedestrianRenderers.input_points in self._used_renderers else zeros_renderer,
+            PedestrianRenderers.target_points: PointsRenderer(
+                input_nodes=self._input_nodes
+            ) if PedestrianRenderers.target_points in self._used_renderers else zeros_renderer,
             PedestrianRenderers.projection_points: PointsRenderer(
                 input_nodes=self._output_nodes
             ) if PedestrianRenderers.projection_points in self._used_renderers else zeros_renderer,
@@ -132,7 +134,7 @@ class PedestrianWriter(object):
                 inputs[self.__videos_slice],
                 {k: v[self.__videos_slice] for k, v in targets.items()},
                 {k: v[self.__videos_slice] for k, v in meta.items()},
-                projection_2d[self.__videos_slice],
+                projection_2d[self.__videos_slice] if projection_2d is not None else None,
                 projection_2d_transformed[self.__videos_slice] if projection_2d_transformed is not None else None,
                 relative_pose_loc[self.__videos_slice] if relative_pose_loc is not None else None,
                 relative_pose_rot[self.__videos_slice] if relative_pose_rot is not None else None,
@@ -179,6 +181,8 @@ class PedestrianWriter(object):
         :type meta: Dict[str, List[Any]]
         :param projection_2d: Output of the projection layer.
         :type projection_2d: Tensor
+        :param projection_2d_transformed: Output of the projection layer in the transformation space.
+        :type projection_2d_transformed: Tensor
         :param relative_pose_loc: Output from the .forward converted to relative pose locations. May be None.
         :type relative_pose_loc: Tensor
         :param relative_pose_rot: Output from the .forward converted to absolute pose rotations.
@@ -195,14 +199,27 @@ class PedestrianWriter(object):
 
         # TODO: handle world_loc and world_rot in carla renderers
         # TODO: denormalization should be aware of the camera position if possible
-        denormalized_frames = self.__denormalize.from_projection(frames, meta)
-        denormalized_projection_2d = self.__denormalize.from_projection(
-            projection_2d_transformed, meta) if projection_2d_transformed is not None else None
+        if 'projection_2d_transformed' in targets:
+            denormalized_input_projection = self.__denormalize.from_projection(
+                frames, meta)
+            denormalized_target_projection = self.__denormalize.from_projection(
+                targets['projection_2d_transformed'], meta)
+        else:
+            denormalized_input_projection = self.__denormalize.from_projection(
+                frames, meta, autonormalize=True)
+            denormalized_target_projection = self.__denormalize.from_projection(
+                targets['projection_2d'], meta, autonormalize=True)
+
+        if projection_2d_transformed is not None:
+            denormalized_output_projection = self.__denormalize.from_projection(
+                projection_2d_transformed, meta)
+        else:
+            denormalized_output_projection = self.__denormalize.from_projection(
+                projection_2d, meta, autonormalize=True)
 
         output_videos = []
 
-        self._prepare_overlay_skeletons(
-            targets, meta, projection_2d, projection_2d_transformed)
+        self._prepare_overlay_skeletons(targets, meta, projection_2d_transformed)
 
         render = {
             PedestrianRenderers.zeros: lambda: self.__renderers[PedestrianRenderers.zeros].render(
@@ -220,10 +237,13 @@ class PedestrianWriter(object):
                 targets['amass_body_pose'], meta
             ),
             PedestrianRenderers.input_points: lambda: self.__renderers[PedestrianRenderers.input_points].render(
-                denormalized_frames
+                denormalized_input_projection
+            ),
+            PedestrianRenderers.target_points: lambda: self.__renderers[PedestrianRenderers.target_points].render(
+                denormalized_target_projection
             ),
             PedestrianRenderers.projection_points: lambda: self.__renderers[PedestrianRenderers.projection_points].render(
-                denormalized_projection_2d if denormalized_projection_2d is not None else projection_2d
+                denormalized_output_projection
             ),
             PedestrianRenderers.carla: lambda: self.__renderers[PedestrianRenderers.carla].render(
                 relative_pose_loc, relative_pose_rot,
@@ -265,42 +285,31 @@ class PedestrianWriter(object):
             })
             yield merged_vid, vid_meta
 
-    def _prepare_overlay_skeletons(self, targets, meta, projection_2d, projection_2d_transformed):
+    def _prepare_overlay_skeletons(self, targets, meta, projection_2d_transformed):
         if PedestrianRenderers.source_videos not in self._used_renderers or not self.__renderers[PedestrianRenderers.source_videos].overlay_skeletons:
             return
 
         # convert projection_2d to something that can be rendered
-        if 'projection_2d' in targets:
-            # TODO: skeletons should be in targets, not meta?
-            skeletons = [
-                {
-                    'type': self._input_nodes,
-                    # red; TODO: make it configurable
-                    'color': (255, 0, 0),
-                    'keypoints': targets['projection_2d'].cpu().numpy()
-                }
-            ]
+        skeletons = [
+            {
+                'type': self._input_nodes,
+                # red; TODO: make it configurable
+                'color': (255, 0, 0),
+                'keypoints': targets['projection_2d'].cpu().numpy()
+            }
+        ]
 
-            if projection_2d_transformed is not None and 'projection_2d_shift' in targets and 'projection_2d_scale' in targets:
-                # TODO: make normalization/denormalization type configurable; should match whatever was used in the dataset
-                output_denormalizer = HipsNeckDeNormalize()
-                skeletons.append({
-                    'type': self._output_nodes,
-                    # green; TODO: make it configurable
-                    'color': (0, 255, 0),
-                    'keypoints': output_denormalizer(
-                        projection_2d_transformed[..., :2],
-                        targets['projection_2d_scale'],
-                        targets['projection_2d_shift']
-                    ).cpu().numpy()
-                })
+        if projection_2d_transformed is not None and 'projection_2d_shift' in targets and 'projection_2d_scale' in targets:
+            output_denormalizer = DeNormalizer()
+            skeletons.append({
+                'type': self._output_nodes,
+                # green; TODO: make it configurable
+                'color': (0, 255, 0),
+                'keypoints': output_denormalizer(
+                    projection_2d_transformed[..., :2],
+                    targets['projection_2d_scale'],
+                    targets['projection_2d_shift']
+                ).cpu().numpy()
+            })
 
-            if projection_2d is not None:
-                skeletons.append({
-                    'type': self._output_nodes,
-                    # blue; TODO: make it configurable
-                    'color': (0, 0, 255),
-                    'keypoints': projection_2d[..., :2].cpu().numpy()
-                })
-
-            meta['skeletons'] = skeletons
+        meta['skeletons'] = skeletons

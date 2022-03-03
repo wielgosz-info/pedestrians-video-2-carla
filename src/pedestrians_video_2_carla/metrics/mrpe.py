@@ -56,8 +56,8 @@ class MRPE(Metric):
             )
             assert prediction_world_loc.shape == target_world_loc.shape
 
-            pred_hips = self.pred_extractor.get_hips_point(prediction_pose)
-            target_hips = self.target_extractor.get_hips_point(target_pose)
+            pred_hips, _ = self.pred_extractor.get_shift_scale(prediction_pose)
+            target_hips, _ = self.target_extractor.get_shift_scale(target_pose)
 
             world_pred_hips = prediction_world_loc + pred_hips
             world_target_hips = target_world_loc + target_hips

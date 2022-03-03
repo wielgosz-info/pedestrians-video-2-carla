@@ -132,7 +132,9 @@ class Projection2DMixin(object):
 
         """
         deformed_projection_2d = self.apply_deform(projection_2d)
-        transformed_projection_2d = self.apply_transform(deformed_projection_2d)
+        transformed_deformed_projection_2d = self.apply_transform(
+            deformed_projection_2d)
+        transformed_projection_2d = self.apply_transform(projection_2d)
 
         targets = {
             'projection_2d': projection_2d
@@ -146,4 +148,4 @@ class Projection2DMixin(object):
             targets['projection_2d_shift'] = self.transform.shift
             targets['projection_2d_scale'] = self.transform.scale
 
-        return transformed_projection_2d, targets
+        return transformed_deformed_projection_2d, targets

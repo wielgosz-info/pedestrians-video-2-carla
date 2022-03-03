@@ -2,7 +2,8 @@ from typing import Dict, Type
 from pedestrians_video_2_carla.data.base.skeleton import get_common_indices
 
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor, HipsNeckNormalize
+from pedestrians_video_2_carla.transforms.normalization import Normalizer
+from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 from torch import Tensor
 from torch.nn.modules import loss
 from pytorch_lightning.utilities.warnings import rank_zero_warn
@@ -26,7 +27,8 @@ def calculate_loss_loc_3d(criterion: loss._Loss, input_nodes: Type[CARLA_SKELETO
     try:
         carla_indices, input_indices = get_common_indices(input_nodes)
 
-        transform = HipsNeckNormalize(HipsNeckExtractor(input_nodes))
+        # TODO: reuse transform from DataModule? in theory it is provided for 2D points...
+        transform = Normalizer(HipsNeckExtractor(input_nodes))
         loss = criterion(
             transform(absolute_pose_loc, dim=3)[:, :, carla_indices],
             transform(targets['absolute_pose_loc'], dim=3)[:, :, input_indices]

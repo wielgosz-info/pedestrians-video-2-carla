@@ -83,10 +83,7 @@ class LitBaseFlow(pl.LightningModule):
         })
 
     def _get_crucial_keys(self):
-        return [
-            'projection_2d',
-            'projection_2d_transformed',
-        ]
+        return []
 
     def _get_metrics(self):
         return []
@@ -235,7 +232,8 @@ class LitBaseFlow(pl.LightningModule):
             to_log.update(self.trajectory_model.training_epoch_end(outputs))
 
         if len(to_log) > 0:
-            batch_size = len(outputs[0]['preds']['projection_2d'])
+            batch_size = len(outputs[0]['preds']['projection_2d'] if 'projection_2d' in outputs[0]
+                             ['preds'] else outputs[0]['preds']['projection_2d_transformed'])
             self.log_dict(to_log, batch_size=batch_size)
 
     def _step(self, batch, batch_idx, stage):
@@ -308,7 +306,8 @@ class LitBaseFlow(pl.LightningModule):
     def _eval_step_end(self, outputs, stage):
         # calculate and log metrics
         m = self.metrics(outputs['preds'], outputs['targets'])
-        batch_size = len(outputs['preds']['projection_2d'])
+        batch_size = len(outputs['preds']['projection_2d'] if 'projection_2d' in outputs['preds']
+                         else outputs['preds']['projection_2d_transformed'])
 
         unwrapped_m = self._unwrap_nested_metrics(m, ['hp'])
         for k, v in unwrapped_m.items():

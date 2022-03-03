@@ -6,7 +6,8 @@ from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOu
 
 
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckNormalize, HipsNeckExtractor
+from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
+from pedestrians_video_2_carla.transforms.normalization import Normalizer
 from pedestrians_video_2_carla.transforms.reference_skeletons import ReferenceSkeletonsDenormalize
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import ControlledPedestrian
 from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose
@@ -21,16 +22,11 @@ from torch import Tensor
 
 class ProjectionModule(nn.Module):
     def __init__(self,
-                 projection_transform=None,
                  movements_output_type: MovementsModelOutputType = MovementsModelOutputType.pose_changes,
                  trajectory_output_type: TrajectoryModelOutputType = TrajectoryModelOutputType.changes,
                  **kwargs
                  ) -> None:
         super().__init__()
-
-        if projection_transform is None:
-            projection_transform = HipsNeckNormalize(HipsNeckExtractor(CARLA_SKELETON))
-        self.projection_transform = projection_transform
 
         self.movements_output_type = movements_output_type
         self.trajectory_output_type = trajectory_output_type
@@ -38,9 +34,7 @@ class ProjectionModule(nn.Module):
         if self.movements_output_type == MovementsModelOutputType.pose_changes:
             self.__calculate_abs = self._calculate_abs_from_pose_changes
         elif self.movements_output_type == MovementsModelOutputType.absolute_loc or self.movements_output_type == MovementsModelOutputType.absolute_loc_rot:
-            self.__denormalize = ReferenceSkeletonsDenormalize(
-                autonormalize=True
-            )
+            self.__denormalize = ReferenceSkeletonsDenormalize()
             if self.movements_output_type == MovementsModelOutputType.absolute_loc:
                 self.__calculate_abs = self._calculate_abs_from_abs_loc_output
             else:
@@ -80,7 +74,7 @@ class ProjectionModule(nn.Module):
         self.__world_rotations = torch.eye(3, device=frames.device).reshape(
             (1, 3, 3)).repeat((batch_size, 1, 1))
 
-    def project_pose(self, pose_inputs_batch: Union[Tensor, Tuple[Tensor, Tensor]], world_loc_change_batch: Tensor = None, world_rot_change_batch: Tensor = None) -> Tuple[Tensor, Dict[str, Tensor]]:
+    def forward(self, pose_inputs_batch: Union[Tensor, Tuple[Tensor, Tensor]], world_loc_change_batch: Tensor = None, world_rot_change_batch: Tensor = None) -> Tuple[Tensor, Dict[str, Tensor]]:
         """
         Handles calculation of the pose projection.
 
@@ -139,7 +133,7 @@ class ProjectionModule(nn.Module):
         absolute_loc = self.__denormalize.from_abs(pose_inputs_batch, {
             'age': [p.age for p in self.__pedestrians],
             'gender': [p.gender for p in self.__pedestrians]
-        })
+        }, autonormalize=True)
         absolute_rot = None
         relative_loc = None
         relative_rot = None
@@ -234,13 +228,3 @@ class ProjectionModule(nn.Module):
                 (1, 1, 3, 3)).repeat((batch_size, clip_length, 1, 1))  # no world rot change
 
         return world_loc_inputs, world_rot_inputs
-
-    def forward(self, pose_inputs: Union[Tensor, Tuple[Tensor, Tensor]], world_loc_inputs: Tensor = None, world_rot_inputs: Tensor = None) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
-        projection_2d, projection_outputs = self.project_pose(
-            pose_inputs,
-            world_loc_inputs,
-            world_rot_inputs,
-        )
-        projection_2d_transformed = self.projection_transform(projection_2d)
-
-        return (projection_2d, projection_2d_transformed, projection_outputs)

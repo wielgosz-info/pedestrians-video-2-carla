@@ -4,6 +4,7 @@ import math
 import os
 import sys
 from typing import Dict, List, Type
+from cv2 import transform
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
@@ -294,6 +295,7 @@ def main(args: List[str]):
         save_dir=os.path.join(log_dir, "videos"),
         name=logger.name,
         version=logger.version,
+        transform=dm.transform,
         **dict_args,
     )
 

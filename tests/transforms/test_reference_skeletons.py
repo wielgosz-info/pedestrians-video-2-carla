@@ -4,7 +4,7 @@ import torch
 
 
 def test_reference_skeletons_denormalization_identity(device):
-    denormalizer = ReferenceSkeletonsDenormalize(autonormalize=True)
+    denormalizer = ReferenceSkeletonsDenormalize()
 
     abs_reference = get_absolute_tensors(device, as_dict=True)
 
@@ -17,12 +17,13 @@ def test_reference_skeletons_denormalization_identity(device):
         meta['age'].append(age)
         meta['gender'].append(gender)
 
-    denormalized = denormalizer.from_abs(abs_tensor, meta)
+    denormalized = denormalizer.from_abs(abs_tensor, meta, autonormalize=True)
 
     assert torch.allclose(abs_tensor, denormalized), "Abs poses are not equal"
 
     abs_tensor_scaled = abs_tensor * torch.rand((1), device=device)
-    denormalized_scaled = denormalizer.from_abs(abs_tensor_scaled, meta)
+    denormalized_scaled = denormalizer.from_abs(
+        abs_tensor_scaled, meta, autonormalize=True)
 
     assert torch.allclose(
         abs_tensor,
@@ -33,7 +34,8 @@ def test_reference_skeletons_denormalization_identity(device):
 
     projections = get_projections(device)
 
-    denormalized_projection = denormalizer.from_projection(projections, meta)
+    denormalized_projection = denormalizer.from_projection(
+        projections, meta, autonormalize=True)
     assert torch.allclose(
         projections, denormalized_projection), "Projections are not equal"
 
@@ -41,7 +43,7 @@ def test_reference_skeletons_denormalization_identity(device):
     projections_scaled[..., 0:2] = projections[..., 0:2] * \
         torch.rand((1), device=device)
     denormalized_projection_scaled = denormalizer.from_projection(
-        projections_scaled, meta)
+        projections_scaled, meta, autonormalize=True)
 
     assert torch.allclose(
         projections,

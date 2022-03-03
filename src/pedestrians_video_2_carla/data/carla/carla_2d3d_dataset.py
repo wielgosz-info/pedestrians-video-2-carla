@@ -27,8 +27,9 @@ class Carla2D3DDataset(Dataset, Projection2DMixin):
 
     def __getitem__(self, idx: int) -> torch.Tensor:
         orig_projection_2d = self.__extract_from_set('carla_2d_3d/projection_2d', idx)
-        
-        projection_2d, projection_targets = self.process_projection_2d(orig_projection_2d)
+
+        projection_2d, projection_targets = self.process_projection_2d(
+            orig_projection_2d)
 
         pose_changes_matrix = self.__extract_from_set(
             'carla_2d_3d/targets/pose_changes', idx)
@@ -96,8 +97,7 @@ class Carla2D3DIterableDataset(IterableDataset, Projection2DMixin):
 
         self.projection = ProjectionModule(
             input_nodes=self.nodes,
-            output_nodes=self.nodes,
-            projection_transform=lambda x: x,
+            output_nodes=self.nodes
         )
 
     def __iter__(self):
@@ -161,7 +161,7 @@ class Carla2D3DIterableDataset(IterableDataset, Projection2DMixin):
             'age': age,
             'gender': gender
         }), 0)
-        orig_projection_2d, projection_outputs = self.projection.project_pose(
+        orig_projection_2d, projection_outputs = self.projection(
             pose_inputs_batch=pose_changes_batch,
             world_rot_change_batch=world_rot_change_batch,
             world_loc_change_batch=world_loc_change_batch,
@@ -173,7 +173,8 @@ class Carla2D3DIterableDataset(IterableDataset, Projection2DMixin):
         # the depth data that pytorch3d leaves in the projections
         orig_projection_2d[..., 2] = 1.0
 
-        projection_2d, projection_targets = self.process_projection_2d(orig_projection_2d)
+        projection_2d, projection_targets = self.process_projection_2d(
+            orig_projection_2d)
 
         return (
             projection_2d,
@@ -189,25 +190,3 @@ class Carla2D3DIterableDataset(IterableDataset, Projection2DMixin):
             {'age': age, 'gender': gender}
         )
 
-
-if __name__ == "__main__":
-    from pedestrians_video_2_carla.transforms.hips_neck import \
-        HipsNeckNormalize, HipsNeckExtractor
-    from pedestrians_video_2_carla.utils.timing import print_timing, timing
-
-    nodes = CARLA_SKELETON
-    iter_dataset = Carla2D3DIterableDataset(
-        batch_size=256,
-        clip_length=180,
-        transform=HipsNeckNormalize(HipsNeckExtractor(nodes)),
-        nodes=nodes
-    )
-
-    @timing
-    def test_iter():
-        return next(iter(iter_dataset))
-
-    for i in range(10):
-        test_iter()
-
-    print_timing()
