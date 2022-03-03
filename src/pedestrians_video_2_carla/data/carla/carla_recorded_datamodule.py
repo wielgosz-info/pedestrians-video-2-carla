@@ -1,3 +1,4 @@
+from random import choices
 from typing import Optional
 import os
 from nbformat import write
@@ -6,6 +7,7 @@ import pandas as pd
 import h5py
 import sklearn
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
+from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
 from pedestrians_video_2_carla.data.carla.carla_recorded_dataset import CarlaRecordedDataset
 from .constants import CARLA_RECORDED_DIR
 import pandas as pd
@@ -37,7 +39,7 @@ class CarlaRecordedDataModule(BaseDataModule):
         self.clip_offset = clip_offset
 
         self.__settings = {
-            'clip_offset': self.clip_offset
+            'clip_offset': self.clip_offset,
         }
 
         super().__init__(**kwargs)
@@ -71,6 +73,8 @@ class CarlaRecordedDataModule(BaseDataModule):
             type=str,
             default=CARLA_RECORDED_DIR
         )
+        Projection2DMixin.add_cli_args(parser)
+
         return parent_parser
 
     def prepare_data(self) -> None:

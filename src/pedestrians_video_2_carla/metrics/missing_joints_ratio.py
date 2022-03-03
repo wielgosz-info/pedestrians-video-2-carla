@@ -16,12 +16,14 @@ class MissingJointsRatio(Metric):
     def __init__(self,
                  dist_sync_on_step=False,
                  input_nodes: Type[CARLA_SKELETON] = CARLA_SKELETON,
-                 output_nodes: Type[CARLA_SKELETON] = CARLA_SKELETON
+                 output_nodes: Type[CARLA_SKELETON] = CARLA_SKELETON,
+                 report_per_joint=False,
                  ):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.input_nodes = input_nodes
         self.output_nodes = output_nodes
+        self.report_per_joint = report_per_joint
 
         self.input_indices, self.output_indices = get_common_indices(
             input_nodes, output_nodes)
@@ -41,7 +43,8 @@ class MissingJointsRatio(Metric):
     def update(self, predictions: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]):
         try:
             prediction = predictions["projection_2d"][:, :, self.output_indices]
-            target = targets["projection_2d"][:, :, self.input_indices]
+            target = (targets["projection_2d_deformed"] if "projection_2d_deformed" in targets else targets["projection_2d"])[
+                :, :, self.input_indices]
 
             assert prediction.shape == target.shape
 
@@ -60,12 +63,18 @@ class MissingJointsRatio(Metric):
         prediction_per_joint = 1.0 - self.prediction_joints.float() / self.total
         prediction_global = 1.0 - self.prediction_joints.sum() / (self.output_num_joints * self.total)
 
-        return {
-            "target_per_joint": self.__map_joints(target_per_joint, self.input_nodes, self.input_indices),
+        r = {
             "target_global": target_global,
-            "prediction_per_joint": self.__map_joints(prediction_per_joint, self.output_nodes, self.output_indices),
             "prediction_global": prediction_global
         }
+
+        if self.report_per_joint:
+            r["target_per_joint"] = self.__map_joints(
+                target_per_joint, self.input_nodes, self.input_indices)
+            r["prediction_per_joint"] = self.__map_joints(
+                prediction_per_joint, self.output_nodes, self.output_indices)
+
+        return r
 
     def __map_joints(self, joint_results: Iterable[float], nodes: Type[Skeleton], indices: Iterable[int]):
         if isinstance(indices, slice):
@@ -76,9 +85,15 @@ class MissingJointsRatio(Metric):
         }
 
     def items(self) -> Iterable[Tuple[str, torch.Tensor]]:
-        return {
-            "target_per_joint": self.__map_joints(self.target_joints, self.input_nodes, self.input_indices),
+        r = {
             "target_global": 0.0,
-            "prediction_per_joint": self.__map_joints(self.prediction_joints, self.output_nodes, self.output_indices),
             "prediction_global": 0.0
-        }.items()
+        }
+
+        if self.report_per_joint:
+            r["target_per_joint"] = self.__map_joints(
+                self.target_joints, self.input_nodes, self.input_indices)
+            r["prediction_per_joint"] = self.__map_joints(
+                self.prediction_joints, self.output_nodes, self.output_indices)
+
+        return r.items()

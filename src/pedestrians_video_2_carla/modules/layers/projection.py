@@ -241,6 +241,6 @@ class ProjectionModule(nn.Module):
             world_loc_inputs,
             world_rot_inputs,
         )
-        projection_2d_normalized = self.projection_transform(projection_2d)
+        projection_2d_transformed = self.projection_transform(projection_2d)
 
-        return (projection_2d, projection_2d_normalized, projection_outputs)
+        return (projection_2d, projection_2d_transformed, projection_outputs)

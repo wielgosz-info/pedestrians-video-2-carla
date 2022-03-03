@@ -5,6 +5,7 @@ import numpy
 import pandas
 
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
+from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
 from pedestrians_video_2_carla.data.smpl.constants import AMASS_DIR
 from pedestrians_video_2_carla.data.smpl.smpl_dataset import \
     SMPLDataset
@@ -65,6 +66,7 @@ class AMASSDataModule(BaseDataModule):
             default=False,
             action='store_true'
         )
+        Projection2DMixin.add_cli_args(parser)
         return parent_parser
 
     def prepare_data(self) -> None:

@@ -5,6 +5,7 @@ import h5py
 import numpy as np
 import torch
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
+from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
 from pedestrians_video_2_carla.data.carla.carla_2d3d_dataset import (
     Carla2D3DDataset, Carla2D3DIterableDataset)
 from tqdm import trange
@@ -20,7 +21,6 @@ class Carla2D3DDataModule(BaseDataModule):
                  **kwargs):
         self.val_set_size = val_set_size
         self.test_set_size = test_set_size
-        self.kwargs = kwargs
 
         super().__init__(**kwargs)
 
@@ -32,7 +32,6 @@ class Carla2D3DDataModule(BaseDataModule):
             'max_change_in_deg': self.kwargs.get('max_change_in_deg'),
             'max_world_rot_change_in_deg': self.kwargs.get('max_world_rot_change_in_deg'),
             'max_initial_world_rot_change_in_deg': self.kwargs.get('max_initial_world_rot_change_in_deg'),
-            'missing_point_probability': self.kwargs.get('missing_point_probability'),
             'val_set_size': self.val_set_size,
             'test_set_size': self.test_set_size,
         }
@@ -80,16 +79,6 @@ class Carla2D3DDataModule(BaseDataModule):
             help="Max random [+/-] 'world' rotation yaw change in degrees applied to first frame."
         )
         parser.add_argument(
-            "--missing_point_probability",
-            type=float,
-            default=0.0,
-            metavar='PROB',
-            help="""
-                Probability that a joint/node will be missing ("not detected") in a skeleton in a frame.
-                Missing nodes are selected separately for each frame.
-            """
-        )
-        parser.add_argument(
             "--val_set_size",
             type=int,
             default=8192,
@@ -103,6 +92,7 @@ class Carla2D3DDataModule(BaseDataModule):
             metavar='NUM_SAMPLES',
             help="Number of samples (clips) to use for testing."
         )
+        Projection2DMixin.add_cli_args(parser)
         return parent_parser
 
     def prepare_data(self) -> None:
@@ -114,7 +104,10 @@ class Carla2D3DDataModule(BaseDataModule):
             nodes=self.nodes,
             **{
                 **self.kwargs,
-                'transform': None  # we want raw data in dataset
+                # we want raw data in dataset, not deformed/transformed
+                'transform': None,
+                'missing_point_probability': 0,
+                'noise': 'zero'
             },
         )
 
@@ -164,14 +157,18 @@ class Carla2D3DDataModule(BaseDataModule):
             self.val_set = Carla2D3DDataset(
                 os.path.join(self._subsets_dir, 'val.hdf5'),
                 nodes=self.nodes,
-                transform=self.transform
+                transform=self.transform,
+                **self.kwargs,
+                seed=22752
             )
 
         if stage == "test" or stage is None:
             self.test_set = Carla2D3DDataset(
                 os.path.join(self._subsets_dir, 'test.hdf5'),
                 nodes=self.nodes,
-                transform=self.transform
+                transform=self.transform,
+                **self.kwargs,
+                seed=22753
             )
 
     def train_dataloader(self):

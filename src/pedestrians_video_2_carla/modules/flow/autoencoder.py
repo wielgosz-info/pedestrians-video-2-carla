@@ -13,9 +13,9 @@ class LitAutoencoderFlow(LitBaseFlow):
                 MeanSquaredError(dist_sync_on_step=True),
                 'projection_2d', 'projection_2d'
             ),
-            'MSE/projection_2d_normalized': MultiinputWrapper(
+            'MSE/projection_2d_transformed': MultiinputWrapper(
                 MeanSquaredError(dist_sync_on_step=True),
-                'projection_2d_normalized', 'projection_2d_normalized'
+                'projection_2d_transformed', 'projection_2d_transformed'
             ),
             'MJR': MissingJointsRatio(
                 dist_sync_on_step=True,
@@ -51,13 +51,13 @@ class LitAutoencoderFlow(LitBaseFlow):
         # TODO: this assumes that DataSet.transform only deals with normalization, nothing else
         dm = self.trainer.datamodule
         if dm.val_set is not None and dm.val_set.transform is not None:
-            sliced['projection_2d_normalized'] = dm.val_set.transform(
+            sliced['projection_2d_transformed'] = dm.val_set.transform(
                 sliced['projection_2d'])
         elif dm.test_set is not None and dm.test_set.transform is not None:
-            sliced['projection_2d_normalized'] = dm.test_set.transform(
+            sliced['projection_2d_transformed'] = dm.test_set.transform(
                 sliced['projection_2d'])
         else:
-            sliced['projection_2d_normalized'] = sliced['projection_2d']
+            sliced['projection_2d_transformed'] = sliced['projection_2d']
 
         sliced['inputs'] = frames[eval_slice]
         sliced['targets'] = {k: v[eval_slice] for k, v in targets.items()}

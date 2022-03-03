@@ -4,6 +4,7 @@ from typing import Callable, Optional, Type
 import h5pickle as h5py
 import numpy as np
 import torch
+from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
 from pedestrians_video_2_carla.modules.layers.projection import \
     ProjectionModule
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
@@ -12,23 +13,22 @@ from torch import Tensor
 from torch.utils.data import Dataset, IterableDataset
 
 
-class Carla2D3DDataset(Dataset):
-    def __init__(self, set_filepath: str, nodes: CARLA_SKELETON = CARLA_SKELETON, transform=None, **kwargs) -> None:
+class Carla2D3DDataset(Dataset, Projection2DMixin):
+    def __init__(self, set_filepath: str, nodes: CARLA_SKELETON = CARLA_SKELETON, **kwargs) -> None:
+        super().__init__(**kwargs)
+
         self.set_file = h5py.File(set_filepath, 'r')
         self.meta = self.set_file['carla_2d_3d/meta']
 
-        self.transform = transform
         self.nodes = nodes
 
     def __len__(self) -> int:
         return len(self.projection_2d)
 
     def __getitem__(self, idx: int) -> torch.Tensor:
-        projection_2d = self.__extract_from_set('carla_2d_3d/projection_2d', idx)
-        orig_projection_2d = projection_2d.clone()
-
-        if self.transform:
-            projection_2d = self.transform(projection_2d)
+        orig_projection_2d = self.__extract_from_set('carla_2d_3d/projection_2d', idx)
+        
+        projection_2d, projection_targets = self.process_projection_2d(orig_projection_2d)
 
         pose_changes_matrix = self.__extract_from_set(
             'carla_2d_3d/targets/pose_changes', idx)
@@ -51,10 +51,7 @@ class Carla2D3DDataset(Dataset):
         return (
             projection_2d,
             {
-                'projection_2d': orig_projection_2d,
-                'projection_2d_shift': self.transform.shift if self.transform else None,
-                'projection_2d_scale': self.transform.scale if self.transform else None,
-                'projection_2d_normalized': projection_2d if self.transform else None,
+                **projection_targets,
 
                 'pose_changes': pose_changes_matrix,
                 'world_loc_changes': world_loc_change_batch,
@@ -76,7 +73,7 @@ class Carla2D3DDataset(Dataset):
         return torch.from_numpy(data)
 
 
-class Carla2D3DIterableDataset(IterableDataset):
+class Carla2D3DIterableDataset(IterableDataset, Projection2DMixin):
     def __init__(self,
                  batch_size: Optional[int] = 64,
                  clip_length: Optional[int] = 30,
@@ -84,11 +81,10 @@ class Carla2D3DIterableDataset(IterableDataset):
                  max_change_in_deg: Optional[int] = 5,
                  max_world_rot_change_in_deg: Optional[int] = 0,
                  max_initial_world_rot_change_in_deg: Optional[int] = 0,
-                 missing_point_probability: Optional[float] = 0.0,
                  nodes: Optional[Type[CARLA_SKELETON]] = CARLA_SKELETON,
-                 transform: Optional[Callable[[Tensor], Tensor]] = None,
                  **kwargs) -> None:
-        self.transform = transform
+        super().__init__(**kwargs)
+
         self.nodes = nodes
         self.clip_length = clip_length
         self.random_changes_each_frame = random_changes_each_frame
@@ -96,7 +92,6 @@ class Carla2D3DIterableDataset(IterableDataset):
         self.max_world_rot_change_in_rad = np.deg2rad(max_world_rot_change_in_deg)
         self.max_initial_world_rot_change_in_rad = np.deg2rad(
             max_initial_world_rot_change_in_deg)
-        self.missing_point_probability = missing_point_probability
         self.batch_size = batch_size
 
         self.projection = ProjectionModule(
@@ -166,7 +161,7 @@ class Carla2D3DIterableDataset(IterableDataset):
             'age': age,
             'gender': gender
         }), 0)
-        projection_2d, projection_outputs = self.projection.project_pose(
+        orig_projection_2d, projection_outputs = self.projection.project_pose(
             pose_inputs_batch=pose_changes_batch,
             world_rot_change_batch=world_rot_change_batch,
             world_loc_change_batch=world_loc_change_batch,
@@ -176,26 +171,14 @@ class Carla2D3DIterableDataset(IterableDataset):
         # so we're compatible with OpenPose
         # this will also prevent the models from accidentally using
         # the depth data that pytorch3d leaves in the projections
-        projection_2d[..., 2] = 1.0
+        orig_projection_2d[..., 2] = 1.0
 
-        orig_projection_2d = projection_2d.clone()
-
-        if self.missing_point_probability > 0.0:
-            missing_indices = torch.rand(
-                (batch_size, self.clip_length, nodes_size)) < self.missing_point_probability
-            projection_2d[missing_indices] = torch.tensor(
-                [0.0, 0.0, 0.0], device=projection_2d.device)
-
-        if self.transform:
-            projection_2d = self.transform(projection_2d)
+        projection_2d, projection_targets = self.process_projection_2d(orig_projection_2d)
 
         return (
             projection_2d,
             {
-                'projection_2d': orig_projection_2d,
-                'projection_2d_shift': self.transform.shift if self.transform else None,
-                'projection_2d_scale': self.transform.scale if self.transform else None,
-                'projection_2d_normalized': projection_2d if self.transform else None,
+                **projection_targets,
 
                 'pose_changes': pose_changes_batch,
                 'world_loc_changes': world_loc_change_batch,

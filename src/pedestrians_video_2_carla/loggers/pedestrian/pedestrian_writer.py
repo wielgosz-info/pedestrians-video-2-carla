@@ -117,7 +117,7 @@ class PedestrianWriter(object):
                    inputs: Tensor = None,
                    targets: Dict[str, Tensor] = None,
                    projection_2d: Tensor = None,
-                   projection_2d_normalized: Tensor = None,
+                   projection_2d_transformed: Tensor = None,
                    relative_pose_loc: Tensor = None,
                    relative_pose_rot: Tensor = None,
                    world_loc: Tensor = None,
@@ -133,7 +133,7 @@ class PedestrianWriter(object):
                 {k: v[self.__videos_slice] for k, v in targets.items()},
                 {k: v[self.__videos_slice] for k, v in meta.items()},
                 projection_2d[self.__videos_slice],
-                projection_2d_normalized[self.__videos_slice] if projection_2d_normalized is not None else None,
+                projection_2d_transformed[self.__videos_slice] if projection_2d_transformed is not None else None,
                 relative_pose_loc[self.__videos_slice] if relative_pose_loc is not None else None,
                 relative_pose_rot[self.__videos_slice] if relative_pose_rot is not None else None,
                 world_loc[self.__videos_slice] if world_loc is not None else None,
@@ -161,7 +161,7 @@ class PedestrianWriter(object):
                 targets: Dict[str, Tensor],
                 meta: Dict[str, List[Any]],
                 projection_2d: Tensor,
-                projection_2d_normalized: Tensor,
+                projection_2d_transformed: Tensor,
                 relative_pose_loc: Tensor,
                 relative_pose_rot: Tensor,
                 world_loc: Tensor,
@@ -197,12 +197,12 @@ class PedestrianWriter(object):
         # TODO: denormalization should be aware of the camera position if possible
         denormalized_frames = self.__denormalize.from_projection(frames, meta)
         denormalized_projection_2d = self.__denormalize.from_projection(
-            projection_2d_normalized, meta) if projection_2d_normalized is not None else None
+            projection_2d_transformed, meta) if projection_2d_transformed is not None else None
 
         output_videos = []
 
         self._prepare_overlay_skeletons(
-            targets, meta, projection_2d, projection_2d_normalized)
+            targets, meta, projection_2d, projection_2d_transformed)
 
         render = {
             PedestrianRenderers.zeros: lambda: self.__renderers[PedestrianRenderers.zeros].render(
@@ -265,7 +265,7 @@ class PedestrianWriter(object):
             })
             yield merged_vid, vid_meta
 
-    def _prepare_overlay_skeletons(self, targets, meta, projection_2d, projection_2d_normalized):
+    def _prepare_overlay_skeletons(self, targets, meta, projection_2d, projection_2d_transformed):
         if PedestrianRenderers.source_videos not in self._used_renderers or not self.__renderers[PedestrianRenderers.source_videos].overlay_skeletons:
             return
 
@@ -281,7 +281,7 @@ class PedestrianWriter(object):
                 }
             ]
 
-            if projection_2d_normalized is not None and 'projection_2d_shift' in targets and 'projection_2d_scale' in targets:
+            if projection_2d_transformed is not None and 'projection_2d_shift' in targets and 'projection_2d_scale' in targets:
                 # TODO: make normalization/denormalization type configurable; should match whatever was used in the dataset
                 output_denormalizer = HipsNeckDeNormalize()
                 skeletons.append({
@@ -289,7 +289,7 @@ class PedestrianWriter(object):
                     # green; TODO: make it configurable
                     'color': (0, 255, 0),
                     'keypoints': output_denormalizer(
-                        projection_2d_normalized[..., :2],
+                        projection_2d_transformed[..., :2],
                         targets['projection_2d_scale'],
                         targets['projection_2d_shift']
                     ).cpu().numpy()

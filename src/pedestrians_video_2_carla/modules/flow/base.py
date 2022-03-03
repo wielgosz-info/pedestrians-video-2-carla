@@ -85,7 +85,7 @@ class LitBaseFlow(pl.LightningModule):
     def _get_crucial_keys(self):
         return [
             'projection_2d',
-            'projection_2d_normalized',
+            'projection_2d_transformed',
         ]
 
     def _get_metrics(self):

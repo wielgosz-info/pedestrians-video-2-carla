@@ -5,6 +5,7 @@ from typing import Dict, Optional
 import pandas
 from pandas.core.frame import DataFrame
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
+from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
 from pedestrians_video_2_carla.data.openpose.constants import DF_USECOLS, DF_ISIN, JAAD_OPENPOSE_DIR
 from pedestrians_video_2_carla.data.openpose.openpose_dataset import \
     OpenPoseDataset
@@ -64,6 +65,7 @@ class JAADOpenPoseDataModule(BaseDataModule):
             type=str,
             default=JAAD_OPENPOSE_DIR
         )
+        Projection2DMixin.add_cli_args(parser)
         return parent_parser
 
     def prepare_data(self) -> None:

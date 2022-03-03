@@ -89,7 +89,7 @@ class LitPoseLiftingFlow(LitBaseFlow):
         eval_slice = (slice(None), self.movements_model.eval_slice)
 
         # unpack projection outputs
-        (projection_2d, projection_2d_normalized,
+        (projection_2d, projection_2d_transformed,
          projection_outputs_dict) = projection_outputs
 
         # get all inputs/outputs properly sliced
@@ -98,7 +98,7 @@ class LitPoseLiftingFlow(LitBaseFlow):
         sliced['pose_inputs'] = tuple([v[eval_slice] for v in pose_inputs]) if isinstance(
             pose_inputs, tuple) else pose_inputs[eval_slice]
         sliced['projection_2d'] = projection_2d[eval_slice]
-        sliced['projection_2d_normalized'] = projection_2d_normalized[eval_slice]
+        sliced['projection_2d_transformed'] = projection_2d_transformed[eval_slice]
         sliced['world_loc_inputs'] = world_loc_inputs[eval_slice]
         sliced['world_rot_inputs'] = world_rot_inputs[eval_slice]
         sliced['inputs'] = frames[eval_slice]

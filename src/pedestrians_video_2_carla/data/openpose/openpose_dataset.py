@@ -5,11 +5,14 @@ import json
 import os
 import torch
 from torch.utils.data import Dataset
+from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
 from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON, COCO_SKELETON
 
 
-class OpenPoseDataset(Dataset):
-    def __init__(self, data_dir, set_filepath, points: Union[BODY_25_SKELETON, COCO_SKELETON] = BODY_25_SKELETON, transform=None) -> None:
+class OpenPoseDataset(Dataset, Projection2DMixin):
+    def __init__(self, data_dir, set_filepath, points: Union[BODY_25_SKELETON, COCO_SKELETON] = BODY_25_SKELETON, **kwargs) -> None:
+        super().__init__(**kwargs)
+
         self.data_dir = data_dir
 
         self.clips = pandas.read_csv(set_filepath)
@@ -18,8 +21,6 @@ class OpenPoseDataset(Dataset):
 
         self.indices = pandas.MultiIndex.from_frame(
             self.clips.index.to_frame(index=False).drop_duplicates())
-
-        self.transform = transform
 
         self.points = points
 
@@ -62,15 +63,10 @@ class OpenPoseDataset(Dataset):
 
         torch_frames = torch.tensor(frames, dtype=torch.float32)
 
-        orig_2d = torch_frames.clone()
+        projection_2d, projection_targets = self.process_projection_2d(torch_frames)
 
-        if self.transform is not None:
-            torch_frames = self.transform(torch_frames)
-
-        return (torch_frames, {
-            'projection_2d': orig_2d,
-            'projection_2d_shift': self.transform.shift if self.transform else None,
-            'projection_2d_scale': self.transform.scale if self.transform else None,
+        return (projection_2d, {
+            **projection_targets
         }, {
             'age': pedestrian_info.iloc[0]['age'],
             'gender': pedestrian_info.iloc[0]['gender'],

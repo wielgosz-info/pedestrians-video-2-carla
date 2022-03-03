@@ -38,6 +38,7 @@ class BaseDataModule(LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.nodes = input_nodes
+        self.kwargs = kwargs
 
         self.train_set = None
         self.val_set = None
@@ -236,17 +237,20 @@ class BaseDataModule(LightningDataModule):
             self.train_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'train.{set_ext}'),
                 points=self.nodes,
-                transform=self.transform
+                transform=self.transform,
+                **self.kwargs
             )
             self.val_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'val.{set_ext}'),
                 points=self.nodes,
-                transform=self.transform
+                transform=self.transform,
+                **self.kwargs
             )
 
         if stage == "test" or stage is None:
             self.test_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'test.{set_ext}'),
                 points=self.nodes,
-                transform=self.transform
+                transform=self.transform,
+                **self.kwargs
             )
