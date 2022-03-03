@@ -140,6 +140,10 @@ def add_program_args(data_modules, flow_modules, movements_models, trajectory_mo
     parser.add_argument(
         "--seed", dest="seed", type=int, default=42,
     )
+    parser.add_argument(
+        "--ckpt_path", dest="ckpt_path", type=str, default=None,
+        help="Path of the checkpoint to load to resume training / testing"
+    )
     return parser
 
 
@@ -238,9 +242,19 @@ def main(args: List[str]):
     # model
     movements_model = movements_model_cls(**dict_args)
     trajectory_model = trajectory_model_cls(**dict_args)
-    model = flow_module_cls(
-        movements_model=movements_model, trajectory_model=trajectory_model, **dict_args
-    )
+
+    if args.ckpt_path is not None:
+        model = flow_module_cls.load_from_checkpoint(
+            checkpoint_path=args.ckpt_path,
+            movements_model=movements_model,
+            trajectory_model=trajectory_model
+        )
+    else:
+        model = flow_module_cls(
+            movements_model=movements_model,
+            trajectory_model=trajectory_model,
+            **dict_args
+        )
 
     # loggers - try to use WandbLogger or fallback to TensorBoardLogger
     # the primary logger log dir is used as default for all loggers & checkpoints

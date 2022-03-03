@@ -60,7 +60,7 @@ class LitBaseFlow(pl.LightningModule):
 
         if loss_modes is None or len(loss_modes) == 0:
             loss_modes = [LossModes.common_loc_2d]
-        self._loss_modes = loss_modes
+        self._loss_modes = [ LossModes[lm] if isinstance(lm, str) else lm for lm in loss_modes ]
 
         modes = []
         for mode in self._loss_modes:
