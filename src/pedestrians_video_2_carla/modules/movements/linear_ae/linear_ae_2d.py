@@ -1,8 +1,9 @@
-from pytorch3d.transforms.rotation_conversions import rotation_6d_to_matrix
 import torch
-from torch import nn
 from pedestrians_video_2_carla.modules.flow.movements import MovementsModel
-from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
+from pedestrians_video_2_carla.modules.flow.output_types import \
+    MovementsModelOutputType
+from torch import nn
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 class LinearAE2D(MovementsModel):
@@ -65,8 +66,15 @@ class LinearAE2D(MovementsModel):
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=1e-4)
 
+        lr_scheduler = {
+            'scheduler': ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=20),
+            'interval': 'epoch',
+            'monitor': 'train_loss/primary'
+        }
+
         config = {
             'optimizer': optimizer,
+            'lr_scheduler': lr_scheduler,
         }
 
         return config

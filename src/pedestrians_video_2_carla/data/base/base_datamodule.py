@@ -1,6 +1,6 @@
-from typing import Callable, Optional, Type
+from enum import Enum
+from typing import Any, Callable, Dict, Optional, Type, Union
 
-from tqdm.std import tqdm
 from pedestrians_video_2_carla.data import OUTPUTS_BASE
 import os
 import hashlib
@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 import yaml
+from pedestrians_video_2_carla.transforms import hips_neck
 
 from pedestrians_video_2_carla.transforms.normalization import Normalizer
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
@@ -21,6 +22,11 @@ except ImportError:
     from yaml import Dumper
 
 
+class Transform(Enum):
+    none = 0
+    hips_neck = 1
+
+
 class BaseDataModule(LightningDataModule):
     def __init__(self,
                  input_nodes: Type[Skeleton],
@@ -28,6 +34,7 @@ class BaseDataModule(LightningDataModule):
                  clip_length: Optional[int] = 30,
                  batch_size: Optional[int] = 64,
                  num_workers: Optional[int] = os.cpu_count(),
+                 transform: Optional[Union[Transform, Callable]] = Transform.hips_neck,
                  **kwargs):
         super().__init__()
 
@@ -45,7 +52,7 @@ class BaseDataModule(LightningDataModule):
         self.val_set = None
         self.test_set = None
 
-        self.transform = self._setup_data_transform()
+        self.transform = self._setup_data_transform(transform)
 
         self._settings_digest = self._calculate_settings_digest()
         self._subsets_dir = os.path.join(
@@ -82,8 +89,14 @@ class BaseDataModule(LightningDataModule):
         with open(os.path.join(self._subsets_dir, 'dparams.yaml'), 'w') as f:
             yaml.dump(self.settings, f, Dumper=Dumper)
 
-    def _setup_data_transform(self):
-        return Normalizer(HipsNeckExtractor(self.nodes))
+    def _setup_data_transform(self, transform: Union[Transform, Callable]):
+        if transform == Transform.none:
+            return None
+
+        if transform == Transform.hips_neck:
+            return Normalizer(HipsNeckExtractor(self.nodes))
+        
+        return transform
 
     @ staticmethod
     def add_data_specific_args(parent_parser):
@@ -114,6 +127,19 @@ class BaseDataModule(LightningDataModule):
             default=os.cpu_count(),
             help="Number of workers for the data loader."
         )
+        parser.add_argument(
+            "--transform",
+            dest="transform",
+            help="""
+                Use one of predefined transforms: {}.
+                Defaults to hips_neck.
+                """.format(
+                set(Transform.__members__.keys())),
+            metavar="TRANSFORM",
+            default=Transform.hips_neck,
+            choices=list(Transform),
+            type=Transform.__getitem__
+        )
         # input nodes are handled in the model hyperparameters
         return parent_parser
 
@@ -123,6 +149,7 @@ class BaseDataModule(LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=True,
+            persistent_workers=True,
             shuffle=shuffle
         )
 
@@ -134,6 +161,14 @@ class BaseDataModule(LightningDataModule):
 
     def test_dataloader(self):
         return self._dataloader(self.test_set)
+
+    def on_epoch_start(self):
+        if hasattr(self.train_set, 'on_epoch_start'):
+            self.train_set.on_epoch_start()
+        if hasattr(self.val_set, 'on_epoch_start'):
+            self.val_set.on_epoch_start()
+        if hasattr(self.test_set, 'on_epoch_start'):
+            self.test_set.on_epoch_start()
 
     def _split_clips(self, clips, primary_index, clips_index, test_split=0.2, val_split=0.2, progress_bar=None, settings=None):
         """
@@ -227,7 +262,14 @@ class BaseDataModule(LightningDataModule):
         # save settings
         self.save_settings()
 
-    def _setup(self, dataset_creator: Callable, stage: Optional[str] = None, set_ext: Optional[str] = 'csv') -> None:
+    def _setup(self,
+               dataset_creator: Callable,
+               stage: Optional[str] = None,
+               set_ext: Optional[str] = 'csv',
+               train_kwargs: Optional[Dict[str, Any]] = None,
+               val_kwargs: Optional[Dict[str, Any]] = None,
+               test_kwargs: Optional[Dict[str, Any]] = None,
+               ) -> None:
         """
         Helper for setup function when using CSV/something train/val/test splits.
 
@@ -239,13 +281,19 @@ class BaseDataModule(LightningDataModule):
                 os.path.join(self._subsets_dir, f'train.{set_ext}'),
                 points=self.nodes,
                 transform=self.transform,
-                **self.kwargs
+                **{
+                    **self.kwargs,
+                    **(train_kwargs or {})
+                }
             )
             self.val_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'val.{set_ext}'),
                 points=self.nodes,
                 transform=self.transform,
-                **self.kwargs
+                **{
+                    **self.kwargs,
+                    **(val_kwargs or {})
+                }
             )
 
         if stage == "test" or stage is None:
@@ -253,5 +301,8 @@ class BaseDataModule(LightningDataModule):
                 os.path.join(self._subsets_dir, f'test.{set_ext}'),
                 points=self.nodes,
                 transform=self.transform,
-                **self.kwargs
+                **{
+                    **self.kwargs,
+                    **(test_kwargs or {})
+                }
             )

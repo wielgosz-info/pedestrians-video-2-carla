@@ -139,7 +139,8 @@ def add_program_args(data_modules, flow_modules, movements_models, trajectory_mo
         default=False,
     )
     parser.add_argument(
-        "--seed", dest="seed", type=int, default=42,
+        "--seed", dest="seed", type=int, default=22742,
+        help="Seed for random number generators. 0 means random seed."
     )
     parser.add_argument(
         "--ckpt_path", dest="ckpt_path", type=str, default=None,
@@ -194,6 +195,12 @@ def main(args: List[str]):
     except ValueError:
         pass
     program_args, _ = parser.parse_known_args(tmp_args)
+
+    # seed everything as soon as we can if needed
+    deterministic = False
+    if program_args.seed:
+        pl.seed_everything(program_args.seed, workers=True)
+        deterministic = True
 
     parser = pl.Trainer.add_argparse_args(parser)
 
@@ -295,7 +302,6 @@ def main(args: List[str]):
         save_dir=os.path.join(log_dir, "videos"),
         name=logger.name,
         version=logger.version,
-        transform=dm.transform,
         **dict_args,
     )
 
@@ -310,12 +316,13 @@ def main(args: List[str]):
     # training
     trainer = pl.Trainer.from_argparse_args(
         args,
+        deterministic=deterministic,
         logger=[logger, pedestrian_logger],
         callbacks=[checkpoint_callback, lr_monitor],
     )
 
     if args.mode == "train":
-        trainer.fit(model=model, datamodule=dm)
+        trainer.fit(model=model, datamodule=dm, ckpt_path=args.ckpt_path)
     elif args.mode == "test":
         trainer.test(model=model, datamodule=dm)
 

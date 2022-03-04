@@ -42,7 +42,8 @@ class MissingJointsRatio(Metric):
 
     def update(self, predictions: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]):
         try:
-            prediction = predictions["projection_2d"][:, :, self.output_indices]
+            prediction = (predictions["projection_2d"] if "projection_2d" in predictions else predictions["projection_2d_transformed"])[
+                :, :, self.output_indices]
             target = (targets["projection_2d_deformed"] if "projection_2d_deformed" in targets else targets["projection_2d"])[
                 :, :, self.input_indices]
 

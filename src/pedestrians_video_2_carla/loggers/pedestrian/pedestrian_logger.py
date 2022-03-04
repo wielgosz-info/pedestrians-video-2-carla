@@ -153,11 +153,11 @@ class PedestrianLogger(LightningLoggerBase):
             help="""
                 How to merge multiple videos into one.
                 Choices: {}.
-                Default: ['square']
+                Default: 'square'
                 """.format(
                 set(MergingMethod.__members__.keys())),
             metavar="METHOD",
-            default=[],
+            default=MergingMethod.square,
             choices=list(MergingMethod),
             type=MergingMethod.__getitem__
         )

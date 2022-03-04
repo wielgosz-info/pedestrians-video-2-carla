@@ -176,20 +176,28 @@ class LitBaseFlow(pl.LightningModule):
         # additionally, store info on train set size for easy access
         hparams.update(additional_config)
 
-        # TODO: figure out how to log tensor/list/iterable metrics
+        # TODO: would it be better to log NaNs instead of zeros?
         self.logger[0].log_hyperparams(
             hparams,
-            self._unwrap_nested_metrics(self.metrics, ['hp'], zeros=True)
+            self._unwrap_nested_metrics(self.metrics, ['hp'], nans=True)
         )
 
-    def _unwrap_nested_metrics(self, items: Union[Dict, float], keys: List[str], zeros: bool = False):
+    def _unwrap_nested_metrics(self, items: Union[Dict, float], keys: List[str], zeros: bool = False, nans: bool = False):
         r = {}
         if hasattr(items, 'items'):
             for k, v in items.items():
-                r.update(self._unwrap_nested_metrics(v, keys + [k], zeros))
+                r.update(self._unwrap_nested_metrics(v, keys + [k], zeros, nans))
         else:
-            r['/'.join(keys)] = 0.0 if zeros else items
+            r['/'.join(keys)] = 0.0 if zeros else (float('nan') if nans else items)
         return r
+
+    def on_epoch_start(self):
+        if hasattr(self.movements_model, 'on_epoch_start'):
+            self.movements_model.on_epoch_start()
+        if hasattr(self.trajectory_model, 'on_epoch_start'):
+            self.trajectory_model.on_epoch_start()
+        if hasattr(self.trainer.datamodule, 'on_epoch_start'):
+            self.trainer.datamodule.on_epoch_start()
 
     def _on_batch_start(self, batch, batch_idx):
         pass

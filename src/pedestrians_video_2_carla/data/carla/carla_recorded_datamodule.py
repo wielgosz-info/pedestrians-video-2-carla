@@ -249,4 +249,10 @@ class CarlaRecordedDataModule(BaseDataModule):
         return clips.reshape((-1, self.clip_length, *continuous_series.shape[1:]))
 
     def setup(self, stage: Optional[str] = None) -> None:
-        return self._setup(CarlaRecordedDataset, stage, 'hdf5')
+        return self._setup(
+            CarlaRecordedDataset,
+            stage,
+            'hdf5',
+            val_kwargs={'deterministic': True},
+            test_kwargs={'deterministic': True},
+        )

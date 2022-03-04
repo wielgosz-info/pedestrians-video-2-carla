@@ -30,7 +30,8 @@ class CarlaRecordedDataset(Dataset, Projection2DMixin):
         orig_projection_2d = self.projection_2d[idx]
         orig_projection_2d = torch.from_numpy(orig_projection_2d)
 
-        projection_2d, projection_targets = self.process_projection_2d(orig_projection_2d)
+        projection_2d, projection_targets = self.process_projection_2d(
+            orig_projection_2d)
 
         relative_pose_loc, relative_pose_rot = self.__extract_transform(
             'carla_recorded/targets/relative_pose', idx)
