@@ -43,6 +43,13 @@ class JAADOpenPoseDataModule(BaseDataModule):
             **self.__settings
         }
 
+    @property
+    def additional_hparams(self):
+        return {
+            **super().additional_hparams,
+            **Projection2DMixin.extract_hparams(self.kwargs)
+        }
+
     @staticmethod
     def add_data_specific_args(parent_parser):
         BaseDataModule.add_data_specific_args(parent_parser)

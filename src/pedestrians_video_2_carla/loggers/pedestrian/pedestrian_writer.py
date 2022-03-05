@@ -219,7 +219,7 @@ class PedestrianWriter(object):
 
         output_videos = []
 
-        self._prepare_overlay_skeletons(targets, meta, projection_2d_transformed)
+        self._prepare_overlay_skeletons(targets, meta, projection_2d, projection_2d_transformed)
 
         render = {
             PedestrianRenderers.zeros: lambda: self.__renderers[PedestrianRenderers.zeros].render(
@@ -285,7 +285,7 @@ class PedestrianWriter(object):
             })
             yield merged_vid, vid_meta
 
-    def _prepare_overlay_skeletons(self, targets, meta, projection_2d_transformed):
+    def _prepare_overlay_skeletons(self, targets, meta, projection_2d, projection_2d_transformed):
         if PedestrianRenderers.source_videos not in self._used_renderers or not self.__renderers[PedestrianRenderers.source_videos].overlay_skeletons:
             return
 
@@ -310,6 +310,13 @@ class PedestrianWriter(object):
                     targets['projection_2d_scale'],
                     targets['projection_2d_shift']
                 ).cpu().numpy()
+            })
+        elif projection_2d is not None:
+            skeletons.append({
+                'type': self._output_nodes,
+                # blue; TODO: make it configurable
+                'color': (0, 0, 255),
+                'keypoints': projection_2d[..., :2].cpu().numpy()
             })
 
         meta['skeletons'] = skeletons

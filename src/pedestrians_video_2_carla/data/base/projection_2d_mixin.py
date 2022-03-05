@@ -82,6 +82,14 @@ class Projection2DMixin(object):
         )
         return parser
 
+    @staticmethod
+    def extract_hparams(kwargs) -> dict:
+        return {
+            'missing_point_probability': kwargs.get('missing_point_probability', 0.0),
+            'noise': kwargs.get('noise', 'zero'),
+            'noise_param': kwargs.get('noise_param', 1.0),
+        }
+
     def apply_deform(self, projection_2d: torch.Tensor) -> torch.Tensor:
         """
         Deforms the data by adding noise and missing points.

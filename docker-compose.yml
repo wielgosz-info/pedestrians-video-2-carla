@@ -23,4 +23,6 @@ services:
     environment:
       COMMIT: ${COMMIT}
       CARLA_SERVER_START_PERIOD: ${CARLA_SERVER_START_PERIOD:-30}
+      WANDB_API_KEY: ${WANDB_API_KEY}
+      WANDB_DISABLE_CODE: ${WANDB_DISABLE_CODE:-true}
     shm_size: ${SHM_SIZE:-2gb}

@@ -25,6 +25,7 @@ except ImportError:
 class Transform(Enum):
     none = 0
     hips_neck = 1
+    bbox = 2
 
 
 class BaseDataModule(LightningDataModule):
@@ -67,10 +68,7 @@ class BaseDataModule(LightningDataModule):
 
         self.save_hyperparameters({
             **self.settings,
-            'batch_size': self.batch_size,
-            'num_workers': self.num_workers,
-            'transform': repr(self.transform),
-            'settings_digest': self._settings_digest
+            **self.additional_hparams
         })
 
     @property
@@ -79,6 +77,15 @@ class BaseDataModule(LightningDataModule):
             'data_module_name': self.__class__.__name__,
             'clip_length': self.clip_length,
             'nodes': self.nodes.__name__,
+        }
+
+    @property
+    def additional_hparams(self):
+        return {
+            'batch_size': self.batch_size,
+            'num_workers': self.num_workers,
+            'transform': repr(self.transform),
+            'settings_digest': self._settings_digest
         }
 
     def _calculate_settings_digest(self):
@@ -95,7 +102,7 @@ class BaseDataModule(LightningDataModule):
 
         if transform == Transform.hips_neck:
             return Normalizer(HipsNeckExtractor(self.nodes))
-        
+
         return transform
 
     @ staticmethod

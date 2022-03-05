@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Union
 import pytorch_lightning as pl
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 import torch
+from pedestrians_video_2_carla.data.base.base_datamodule import Transform
 from pedestrians_video_2_carla.modules.flow.movements import MovementsModel
 from pedestrians_video_2_carla.modules.flow.output_types import (
     MovementsModelOutputType, TrajectoryModelOutputType)
@@ -69,10 +70,12 @@ class LitBaseFlow(pl.LightningModule):
         # TODO: resolve requirements chain and put modes in correct order, not just 'hopefully correct' one
         self._losses_to_calculate = list(dict.fromkeys(modes))
 
+        self._outputs_key = 'projection_2d_transformed' if kwargs.get(
+            'transform', Transform.hips_neck) != Transform.none else 'projection_2d'
+        self._crucial_keys = self._get_crucial_keys()
+
         # default metrics
         self.metrics = MetricCollection(self._get_metrics())
-
-        self._crucial_keys = self._get_crucial_keys()
 
         self.save_hyperparameters({
             'host': platform.node(),
@@ -83,7 +86,9 @@ class LitBaseFlow(pl.LightningModule):
         })
 
     def _get_crucial_keys(self):
-        return []
+        return [
+            self._outputs_key,
+        ]
 
     def _get_metrics(self):
         return []

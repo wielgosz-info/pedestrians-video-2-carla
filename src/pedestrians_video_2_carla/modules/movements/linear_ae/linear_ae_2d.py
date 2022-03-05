@@ -64,10 +64,10 @@ class LinearAE2D(MovementsModel):
         return out
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=1e-4)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=1e-2)
 
         lr_scheduler = {
-            'scheduler': ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=20),
+            'scheduler': ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-6),
             'interval': 'epoch',
             'monitor': 'train_loss/primary'
         }

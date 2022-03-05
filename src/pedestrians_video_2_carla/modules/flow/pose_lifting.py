@@ -43,7 +43,7 @@ class LitPoseLiftingFlow(LitBaseFlow):
 
     def _get_crucial_keys(self):
         return [
-            'projection_2d_transformed',
+            self._outputs_key,
             'relative_pose_loc',
             'relative_pose_rot',
             'absolute_pose_loc',

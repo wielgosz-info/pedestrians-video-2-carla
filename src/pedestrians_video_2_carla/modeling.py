@@ -196,6 +196,9 @@ def main(args: List[str]):
         pass
     program_args, _ = parser.parse_known_args(tmp_args)
 
+    # get random version name before seeding
+    version = randomname.get_name()
+
     # seed everything as soon as we can if needed
     deterministic = False
     if program_args.seed:
@@ -240,9 +243,6 @@ def main(args: List[str]):
             )
 
     dict_args = vars(args)
-
-    # get random version name before seeding
-    version = randomname.get_name()
 
     # data
     dm = data_module_cls(**dict_args)

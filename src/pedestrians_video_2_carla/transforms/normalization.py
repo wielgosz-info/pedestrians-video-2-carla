@@ -6,8 +6,9 @@ from pedestrians_scenarios.karma.pose.skeleton import Skeleton
 
 
 class Extractor(object):
-    def __init__(self, input_nodes: Type[Skeleton]) -> None:
+    def __init__(self, input_nodes: Type[Skeleton], near_zero: float = 1e-5) -> None:
         self.input_nodes = input_nodes
+        self.near_zero = near_zero
 
     def _point_to_tuple(self, point: Union[Skeleton, Iterable[Skeleton]]) -> Tuple[int]:
         if isinstance(point, Skeleton):
