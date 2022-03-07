@@ -70,8 +70,10 @@ class LitBaseFlow(pl.LightningModule):
         # TODO: resolve requirements chain and put modes in correct order, not just 'hopefully correct' one
         self._losses_to_calculate = list(dict.fromkeys(modes))
 
-        self._outputs_key = 'projection_2d_transformed' if kwargs.get(
-            'transform', Transform.hips_neck) != Transform.none else 'projection_2d'
+        kwargs_transform = kwargs.get('transform', Transform.hips_neck)
+        if isinstance(kwargs_transform, str):
+            kwargs_transform = Transform[kwargs_transform.lower()]
+        self._outputs_key = 'projection_2d_transformed' if kwargs_transform != Transform.none else 'projection_2d'
         self._crucial_keys = self._get_crucial_keys()
 
         # default metrics
@@ -196,14 +198,6 @@ class LitBaseFlow(pl.LightningModule):
             r['/'.join(keys)] = 0.0 if zeros else (float('nan') if nans else items)
         return r
 
-    def on_epoch_start(self):
-        if hasattr(self.movements_model, 'on_epoch_start'):
-            self.movements_model.on_epoch_start()
-        if hasattr(self.trajectory_model, 'on_epoch_start'):
-            self.trajectory_model.on_epoch_start()
-        if hasattr(self.trainer.datamodule, 'on_epoch_start'):
-            self.trainer.datamodule.on_epoch_start()
-
     def _on_batch_start(self, batch, batch_idx):
         pass
 
@@ -245,8 +239,7 @@ class LitBaseFlow(pl.LightningModule):
             to_log.update(self.trajectory_model.training_epoch_end(outputs))
 
         if len(to_log) > 0:
-            batch_size = len(outputs[0]['preds']['projection_2d'] if 'projection_2d' in outputs[0]
-                             ['preds'] else outputs[0]['preds']['projection_2d_transformed'])
+            batch_size = len(outputs[0]['preds'][self._outputs_key])
             self.log_dict(to_log, batch_size=batch_size)
 
     def _step(self, batch, batch_idx, stage):
@@ -319,8 +312,7 @@ class LitBaseFlow(pl.LightningModule):
     def _eval_step_end(self, outputs, stage):
         # calculate and log metrics
         m = self.metrics(outputs['preds'], outputs['targets'])
-        batch_size = len(outputs['preds']['projection_2d'] if 'projection_2d' in outputs['preds']
-                         else outputs['preds']['projection_2d_transformed'])
+        batch_size = len(outputs['preds'][self._outputs_key])
 
         unwrapped_m = self._unwrap_nested_metrics(m, ['hp'])
         for k, v in unwrapped_m.items():

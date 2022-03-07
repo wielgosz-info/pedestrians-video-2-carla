@@ -1,14 +1,19 @@
 from typing import Dict
 import torch
 from torchmetrics import MeanSquaredError
-from pedestrians_video_2_carla.data.base.base_datamodule import Transform
 from pedestrians_video_2_carla.metrics.missing_joints_ratio import MissingJointsRatio
 from pedestrians_video_2_carla.metrics.multiinput_wrapper import MultiinputWrapper
+from pedestrians_video_2_carla.metrics.pck import PCK
 from pedestrians_video_2_carla.modules.flow.base import LitBaseFlow
+from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 
 
 class LitAutoencoderFlow(LitBaseFlow):
     def _get_metrics(self):
+        def get_normalization_tensor(x): return HipsNeckExtractor(
+            input_nodes=self.movements_model.input_nodes
+        ).get_shift_scale(x)[1]
+
         return {
             'MSE': MultiinputWrapper(
                 MeanSquaredError(dist_sync_on_step=True),
@@ -18,8 +23,28 @@ class LitAutoencoderFlow(LitBaseFlow):
                 dist_sync_on_step=True,
                 input_nodes=self.movements_model.input_nodes,
                 output_nodes=self.movements_model.output_nodes
-            )
+            ),
+            'PCKhn@01': PCK(
+                dist_sync_on_step=True,
+                input_nodes=self.movements_model.input_nodes,
+                output_nodes=self.movements_model.output_nodes,
+                key=self._outputs_key,
+                threshold=0.1,
+                get_normalization_tensor=get_normalization_tensor
+            ),
+            'PCK@005': PCK(
+                dist_sync_on_step=True,
+                input_nodes=self.movements_model.input_nodes,
+                output_nodes=self.movements_model.output_nodes,
+                key=self._outputs_key,
+                threshold=0.05,
+                get_normalization_tensor=None  # standard bbox normalization
+            ),
         }
+
+    def on_fit_start(self) -> None:
+        print(self.metrics)
+        print(len(self.trainer.datamodule.val_set))
 
     def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor]):
         no_conf_frames = frames[..., 0:2].clone()

@@ -21,11 +21,17 @@ class Extractor(object):
     def _get_scale_point(self, sample: Tensor) -> Tensor:
         raise NotImplementedError()
 
-    def get_shift_scale(self, sample: Tensor) -> Tensor:
+    def get_shift_scale(self, sample: Tensor, return_scale_point: bool = False) -> Tensor:
         shift_points = self._get_shift_point(sample)
         scale_points = self._get_scale_point(sample)
 
-        return shift_points, torch.linalg.norm(scale_points - shift_points, dim=shift_points.ndim - 1, ord=2)
+        scale = torch.linalg.norm(scale_points - shift_points,
+                                  dim=shift_points.ndim - 1, ord=2)
+
+        if return_scale_point:
+            return shift_points, scale, scale_points
+
+        return shift_points, scale
 
 
 class Normalizer(object):

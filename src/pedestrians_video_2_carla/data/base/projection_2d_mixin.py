@@ -9,7 +9,6 @@ class Projection2DMixin(object):
                  missing_point_probability: Optional[float] = 0.0,
                  noise: Optional[Literal['zero', 'gaussian', 'uniform']] = 'zero',
                  noise_param: Optional[float] = 1.0,
-                 deterministic: bool = False,
                  **kwargs):
         """
         Mixing to handle common operations on 2D input data.
@@ -24,15 +23,6 @@ class Projection2DMixin(object):
         self.noise_param = noise_param
 
         self.generator = torch.Generator()
-        self.__state = None
-        if deterministic:
-            self.__state = self.generator.get_state()
-
-    def on_epoch_start(self):
-        # reset generator after each epoch
-        # to ensure reproducibility for val/test data
-        if self.__state is not None:
-            self.generator.set_state(self.__state)
 
     @property
     def needs_missing_points(self) -> bool:

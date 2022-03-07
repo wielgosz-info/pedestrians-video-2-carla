@@ -22,3 +22,4 @@ from .seq2seq_embeddings import Seq2SeqEmbeddings
 from .seq2seq_residual_a import Seq2SeqResidualA
 from .seq2seq_residual_b import Seq2SeqResidualB
 from .seq2seq_residual_c import Seq2SeqResidualC
+from .seq2seq_2d import Seq2Seq2D

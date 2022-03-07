@@ -14,7 +14,7 @@ class LinearAE2D(MovementsModel):
     """
 
     def __init__(self,
-                 m: int = 8,
+                 model_scaling_factor: int = 8,
                  **kwargs
                  ):
         super().__init__(**kwargs)
@@ -29,28 +29,42 @@ class LinearAE2D(MovementsModel):
         self.__output_size = self.__output_nodes_len * self.__output_features
 
         self.__encoder = nn.Sequential(
-            nn.Linear(self.__input_size, 1024 // m),
+            nn.Linear(self.__input_size, 1024 // model_scaling_factor),
             nn.ReLU(True),
-            nn.Linear(1024 // m, 512 // m),
+            nn.Linear(1024 // model_scaling_factor, 512 // model_scaling_factor),
             nn.ReLU(True),
-            nn.Linear(512 // m, 256 // m),
+            nn.Linear(512 // model_scaling_factor, 256 // model_scaling_factor),
             nn.ReLU(True),
-            nn.Linear(256 // m, 128 // m),
+            nn.Linear(256 // model_scaling_factor, 128 // model_scaling_factor),
         )
 
         self.__decoder = nn.Sequential(
-            nn.Linear(128 // m, 256 // m),
+            nn.Linear(128 // model_scaling_factor, 256 // model_scaling_factor),
             nn.ReLU(True),
-            nn.Linear(256 // m, 512 // m),
+            nn.Linear(256 // model_scaling_factor, 512 // model_scaling_factor),
             nn.ReLU(True),
-            nn.Linear(512 // m, 1024 // m),
+            nn.Linear(512 // model_scaling_factor, 1024 // model_scaling_factor),
             nn.ReLU(True),
-            nn.Linear(1024 // m, self.__output_size),
+            nn.Linear(1024 // model_scaling_factor, self.__output_size),
         )
+
+        self._hparams = {
+            'model_scaling_factor': model_scaling_factor,
+        }
 
     @property
     def output_type(self) -> MovementsModelOutputType:
         return MovementsModelOutputType.pose_2d
+
+    @ staticmethod
+    def add_model_specific_args(parent_parser):
+        parser = parent_parser.add_argument_group("LinearAE2D Movements Model")
+        parser.add_argument(
+            '--model_scaling_factor',
+            default=8,
+            type=int,
+        )
+        return parent_parser
 
     def forward(self, x, *args, **kwargs):
         original_shape = x.shape

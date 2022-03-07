@@ -12,6 +12,8 @@ from torch.utils.data import DataLoader
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 import yaml
 from pedestrians_video_2_carla.transforms import hips_neck
+from pedestrians_video_2_carla.transforms.bbox import BBoxExtractor
+from pedestrians_video_2_carla.transforms.hips_neck_bbox_fallback import HipsNeckBBoxFallbackExtractor
 
 from pedestrians_video_2_carla.transforms.normalization import Normalizer
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
@@ -26,6 +28,9 @@ class Transform(Enum):
     none = 0
     hips_neck = 1
     bbox = 2
+    hips_neck_bbox = 3
+
+    user_defined = 100
 
 
 class BaseDataModule(LightningDataModule):
@@ -53,7 +58,7 @@ class BaseDataModule(LightningDataModule):
         self.val_set = None
         self.test_set = None
 
-        self.transform = self._setup_data_transform(transform)
+        self.transform, self.transform_callable = self._setup_data_transform(transform)
 
         self._settings_digest = self._calculate_settings_digest()
         self._subsets_dir = os.path.join(
@@ -84,7 +89,7 @@ class BaseDataModule(LightningDataModule):
         return {
             'batch_size': self.batch_size,
             'num_workers': self.num_workers,
-            'transform': repr(self.transform),
+            'transform': self.transform,
             'settings_digest': self._settings_digest
         }
 
@@ -97,13 +102,13 @@ class BaseDataModule(LightningDataModule):
             yaml.dump(self.settings, f, Dumper=Dumper)
 
     def _setup_data_transform(self, transform: Union[Transform, Callable]):
-        if transform == Transform.none:
-            return None
-
-        if transform == Transform.hips_neck:
-            return Normalizer(HipsNeckExtractor(self.nodes))
-
-        return transform
+        return (transform, {
+            Transform.none: None,
+            Transform.hips_neck: Normalizer(HipsNeckExtractor(self.nodes)),
+            Transform.bbox: Normalizer(BBoxExtractor(self.nodes)),
+            Transform.hips_neck_bbox: Normalizer(HipsNeckBBoxFallbackExtractor(self.nodes)),
+            Transform.user_defined: transform
+        }[transform]) if isinstance(transform, Transform) else (Transform.user_defined, transform)
 
     @ staticmethod
     def add_data_specific_args(parent_parser):
@@ -144,38 +149,30 @@ class BaseDataModule(LightningDataModule):
                 set(Transform.__members__.keys())),
             metavar="TRANSFORM",
             default=Transform.hips_neck,
-            choices=list(Transform),
+            choices=list(set(Transform) - {Transform.user_defined}),
             type=Transform.__getitem__
         )
         # input nodes are handled in the model hyperparameters
         return parent_parser
 
-    def _dataloader(self, dataset, shuffle=False):
+    def _dataloader(self, dataset, shuffle=False, persistent_workers=False):
         return DataLoader(
             dataset=dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=True,
-            persistent_workers=True,
+            persistent_workers=persistent_workers,
             shuffle=shuffle
         )
 
     def train_dataloader(self):
-        return self._dataloader(self.train_set, shuffle=True)
+        return self._dataloader(self.train_set, shuffle=True, persistent_workers=True)
 
     def val_dataloader(self):
         return self._dataloader(self.val_set)
 
     def test_dataloader(self):
         return self._dataloader(self.test_set)
-
-    def on_epoch_start(self):
-        if hasattr(self.train_set, 'on_epoch_start'):
-            self.train_set.on_epoch_start()
-        if hasattr(self.val_set, 'on_epoch_start'):
-            self.val_set.on_epoch_start()
-        if hasattr(self.test_set, 'on_epoch_start'):
-            self.test_set.on_epoch_start()
 
     def _split_clips(self, clips, primary_index, clips_index, test_split=0.2, val_split=0.2, progress_bar=None, settings=None):
         """
@@ -287,7 +284,7 @@ class BaseDataModule(LightningDataModule):
             self.train_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'train.{set_ext}'),
                 points=self.nodes,
-                transform=self.transform,
+                transform=self.transform_callable,
                 **{
                     **self.kwargs,
                     **(train_kwargs or {})
@@ -296,7 +293,7 @@ class BaseDataModule(LightningDataModule):
             self.val_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'val.{set_ext}'),
                 points=self.nodes,
-                transform=self.transform,
+                transform=self.transform_callable,
                 **{
                     **self.kwargs,
                     **(val_kwargs or {})
@@ -307,7 +304,7 @@ class BaseDataModule(LightningDataModule):
             self.test_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'test.{set_ext}'),
                 points=self.nodes,
-                transform=self.transform,
+                transform=self.transform_callable,
                 **{
                     **self.kwargs,
                     **(test_kwargs or {})

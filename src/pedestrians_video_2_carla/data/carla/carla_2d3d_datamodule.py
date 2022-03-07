@@ -158,26 +158,24 @@ class Carla2D3DDataModule(BaseDataModule):
         if stage == "fit" or stage is None:
             self.train_set = Carla2D3DIterableDataset(
                 nodes=self.nodes,
-                transform=self.transform,
-                **self.kwargs,
+                transform=self.transform_callable,
+                **self.kwargs
             )
             self.val_set = Carla2D3DDataset(
                 os.path.join(self._subsets_dir, 'val.hdf5'),
                 nodes=self.nodes,
-                transform=self.transform,
-                **self.kwargs,
-                seed=22752
+                transform=self.transform_callable,
+                **self.kwargs
             )
 
         if stage == "test" or stage is None:
             self.test_set = Carla2D3DDataset(
                 os.path.join(self._subsets_dir, 'test.hdf5'),
                 nodes=self.nodes,
-                transform=self.transform,
-                **self.kwargs,
-                seed=22753
+                transform=self.transform_callable,
+                **self.kwargs
             )
 
     def train_dataloader(self):
         # no need to shuffle, it is randomly generated
-        return self._dataloader(self.train_set)
+        return self._dataloader(self.train_set, shuffle=False, persistent_workers=True)
