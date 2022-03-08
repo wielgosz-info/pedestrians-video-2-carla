@@ -159,13 +159,49 @@ class LitBaseFlow(pl.LightningModule):
         return parent_parser
 
     @rank_zero_only
-    def on_train_start(self):
+    def on_fit_start(self) -> None:
+        initial_metrics = self._calculate_initial_metrics()
+        self._update_hparams(initial_metrics)
+
+    def _calculate_initial_metrics(self) -> Dict[str, float]:
+        dl = self.trainer.datamodule.val_dataloader()
+
+        for (inputs, targets, meta) in dl:
+            if 'projection_2d_deformed' not in targets:
+                return {}
+
+            d_targets = {k: v.to(self.device) for k, v in targets.items()}
+
+            self.metrics.update({
+                'projection_2d': d_targets['projection_2d_deformed'],
+                'projection_2d_transformed': inputs.to(self.device)
+            }, d_targets)
+
+        results = self.metrics.compute()
+        unwrapped = {
+            k: v.item()
+            for k, v in self._unwrap_nested_metrics(results, ['initial']).items()
+        }
+
+        if len(unwrapped) > 0:
+            print('------------------------------------------------------')
+            print('Initial metrics:')
+            print('------------------------------------------------------')
+            for k, v in unwrapped.items():
+                print(f'{k}: {v}')
+            print('------------------------------------------------------')
+
+        self.metrics.reset()
+        return unwrapped
+
+    def _update_hparams(self, initial_metrics: Dict[str, float] = None):
         additional_config = {
             'train_set_size': getattr(
                 self.trainer.datamodule.train_set,
                 '__len__',
                 lambda: self.trainer.limit_train_batches*self.trainer.datamodule.batch_size
-            )()
+            )(),
+            **(initial_metrics or {})
         }
 
         if not isinstance(self.logger[0], TensorBoardLogger):
@@ -183,7 +219,6 @@ class LitBaseFlow(pl.LightningModule):
         # additionally, store info on train set size for easy access
         hparams.update(additional_config)
 
-        # TODO: would it be better to log NaNs instead of zeros?
         self.logger[0].log_hyperparams(
             hparams,
             self._unwrap_nested_metrics(self.metrics, ['hp'], nans=True)

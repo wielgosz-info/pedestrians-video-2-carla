@@ -155,7 +155,7 @@ class BaseDataModule(LightningDataModule):
         # input nodes are handled in the model hyperparameters
         return parent_parser
 
-    def _dataloader(self, dataset, shuffle=False, persistent_workers=False):
+    def get_dataloader(self, dataset, shuffle=False, persistent_workers=False):
         return DataLoader(
             dataset=dataset,
             batch_size=self.batch_size,
@@ -166,13 +166,13 @@ class BaseDataModule(LightningDataModule):
         )
 
     def train_dataloader(self):
-        return self._dataloader(self.train_set, shuffle=True, persistent_workers=True)
+        return self.get_dataloader(self.train_set, shuffle=True, persistent_workers=True)
 
     def val_dataloader(self):
-        return self._dataloader(self.val_set)
+        return self.get_dataloader(self.val_set)
 
     def test_dataloader(self):
-        return self._dataloader(self.test_set)
+        return self.get_dataloader(self.test_set)
 
     def _split_clips(self, clips, primary_index, clips_index, test_split=0.2, val_split=0.2, progress_bar=None, settings=None):
         """

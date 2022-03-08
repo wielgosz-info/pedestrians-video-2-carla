@@ -178,4 +178,4 @@ class Carla2D3DDataModule(BaseDataModule):
 
     def train_dataloader(self):
         # no need to shuffle, it is randomly generated
-        return self._dataloader(self.train_set, shuffle=False, persistent_workers=True)
+        return self.get_dataloader(self.train_set, shuffle=False, persistent_workers=True)

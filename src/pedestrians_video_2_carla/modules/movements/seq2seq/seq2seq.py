@@ -6,6 +6,7 @@ from torch import nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch import Tensor
 from pedestrians_video_2_carla.modules.flow.movements import MovementsModel
+from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
 
 
 class TeacherMode(Enum):
@@ -247,27 +248,30 @@ class Seq2Seq(MovementsModel):
 
     def _teacher_forcing(self, targets):
         needs_forcing = self.training and self.teacher_mode != TeacherMode.no_force and targets is not None and self.teacher_force_ratio > 0
-        target_pose_changes = None
+        target_output = None
         force_indices = None
 
         if needs_forcing:
-            target_pose_changes = matrix_to_rotation_6d(targets['pose_changes'])
+            if self.output_type == MovementsModelOutputType.pose_changes:
+                target_output = matrix_to_rotation_6d(targets['pose_changes'])
+            elif self.output_type == MovementsModelOutputType.pose_2d:
+                target_output = targets['projection_2d']
 
-            (batch_size, clip_length, *_) = target_pose_changes.shape
+            (batch_size, clip_length, *_) = target_output.shape
 
-            target_pose_changes = target_pose_changes.permute(
-                1, 0, *range(2, target_pose_changes.dim())).reshape((clip_length, batch_size, self.decoder.output_size))
+            target_output = target_output.permute(
+                1, 0, *range(2, target_output.dim())).reshape((clip_length, batch_size, self.decoder.output_size))
 
             if self.teacher_mode == TeacherMode.clip_force:
                 # randomly select clips that should be taken from targets
                 force_indices = (torch.rand(
-                    (1, batch_size), device=target_pose_changes.device) < self.teacher_force_ratio).repeat((clip_length, 1))
+                    (1, batch_size), device=target_output.device) < self.teacher_force_ratio).repeat((clip_length, 1))
             elif self.teacher_mode == TeacherMode.frames_force:
                 # randomly select frames that should be taken from targets
                 force_indices = torch.rand(
-                    (clip_length, batch_size), device=target_pose_changes.device) < self.teacher_force_ratio
+                    (clip_length, batch_size), device=target_output.device) < self.teacher_force_ratio
 
-        return needs_forcing, target_pose_changes, force_indices
+        return needs_forcing, target_output, force_indices
 
     def training_epoch_end(self, *args, **kwargs) -> Dict[str, float]:
         if self.teacher_mode != TeacherMode.no_force:

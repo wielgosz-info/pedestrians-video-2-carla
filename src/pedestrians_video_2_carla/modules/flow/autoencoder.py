@@ -42,10 +42,6 @@ class LitAutoencoderFlow(LitBaseFlow):
             ),
         }
 
-    def on_fit_start(self) -> None:
-        print(self.metrics)
-        print(len(self.trainer.datamodule.val_set))
-
     def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor]):
         no_conf_frames = frames[..., 0:2].clone()
 
