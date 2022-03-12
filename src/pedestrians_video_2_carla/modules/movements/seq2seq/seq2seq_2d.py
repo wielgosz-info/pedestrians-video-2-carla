@@ -50,10 +50,10 @@ class Seq2Seq2D(Seq2Seq):
         return outputs.view(*original_shape[:3], self.output_features)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.SGD(self.parameters(), lr=1e-2)
+        optimizer = torch.optim.SGD(self.parameters(), lr=1e-1)
 
         lr_scheduler = {
-            'scheduler': ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=50, min_lr=1e-6),
+            'scheduler': ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=20, min_lr=1e-3),
             'interval': 'epoch',
             'monitor': 'train_loss/primary'
         }

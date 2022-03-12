@@ -35,16 +35,23 @@ class LSTM(MovementsModel):
         elif self.__movements_output_type == MovementsModelOutputType.absolute_loc_rot:
             self.__output_features = 9  # x,y,z + rotation 6D
             self.__transform = lambda x: (x[..., :3], rotation_6d_to_matrix(x[..., 3:]))
+        elif self.__movements_output_type == MovementsModelOutputType.pose_2d:
+            self.__output_features = 2
+            self.__transform = lambda x: x
 
         self.__input_size = self.__input_nodes_len * self.__input_features
         self.__output_size = self.__output_nodes_len * self.__output_features
 
-        self.__embeddings_size = embeddings_size if embeddings_size is not None else self.__input_size
+        if embeddings_size:
+            self.__embeddings_size = embeddings_size
+            self.linear_1 = nn.Linear(
+                self.__input_size,
+                self.__embeddings_size
+            )
+        else:
+            self.__embeddings_size = self.__input_size
+            self.linear_1 = lambda x: x
 
-        self.linear_1 = nn.Linear(
-            self.__input_size,
-            self.__embeddings_size
-        )
         self.lstm_1 = nn.LSTM(
             input_size=self.__embeddings_size,
             hidden_size=hidden_size,
@@ -82,6 +89,16 @@ class LSTM(MovementsModel):
             default=None,
             type=int,
         )
+        parser.add_argument(
+            '--num_layers',
+            default=2,
+            type=int,
+        )
+        parser.add_argument(
+            '--hidden_size',
+            default=64,
+            type=int,
+        )
         return parent_parser
 
     def forward(self, x, *args, **kwargs):
@@ -89,13 +106,13 @@ class LSTM(MovementsModel):
         x = x.view(*original_shape[0:2], self.__input_size)
         x = self.linear_1(x)
         x, _ = self.lstm_1(x)
-        pose_change = self.linear_2(x)
-        pose_change = pose_change.view(*original_shape[0:2],
-                                       self.__output_nodes_len, self.__output_features)
-        return self.__transform(pose_change)
+        out = self.linear_2(x)
+        out = out.view(*original_shape[0:2],
+                       self.__output_nodes_len, self.__output_features)
+        return self.__transform(out)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.SGD(self.parameters(), lr=1e-4)
+        optimizer = torch.optim.SGD(self.parameters(), lr=1e-2)
 
         config = {
             'optimizer': optimizer,

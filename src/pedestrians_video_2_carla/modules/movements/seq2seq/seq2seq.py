@@ -255,7 +255,8 @@ class Seq2Seq(MovementsModel):
             if self.output_type == MovementsModelOutputType.pose_changes:
                 target_output = matrix_to_rotation_6d(targets['pose_changes'])
             elif self.output_type == MovementsModelOutputType.pose_2d:
-                target_output = targets['projection_2d']
+                # TODO: get correct output key
+                target_output = targets['projection_2d_transformed']
 
             (batch_size, clip_length, *_) = target_output.shape
 
