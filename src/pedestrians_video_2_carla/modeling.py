@@ -203,7 +203,7 @@ def main(args: List[str]):
     deterministic = False
     if program_args.seed:
         pl.seed_everything(program_args.seed, workers=True)
-        deterministic = True
+        # deterministic = True
 
     parser = pl.Trainer.add_argparse_args(parser)
 

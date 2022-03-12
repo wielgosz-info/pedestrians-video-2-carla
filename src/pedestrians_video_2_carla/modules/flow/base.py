@@ -1,6 +1,6 @@
 
 import platform
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
@@ -199,7 +199,7 @@ class LitBaseFlow(pl.LightningModule):
             'train_set_size': getattr(
                 self.trainer.datamodule.train_set,
                 '__len__',
-                lambda: self.trainer.limit_train_batches*self.trainer.datamodule.batch_size
+                lambda: self.trainer.limit_train_batches*self.trainer.dataloader.batch_size
             )(),
             **(initial_metrics or {})
         }

@@ -22,7 +22,10 @@ class Projection2DMixin(object):
         self.noise = noise
         self.noise_param = noise_param
 
-        self.generator = torch.Generator()
+        if kwargs.get('overfit_batches', 0):
+            self.generator = None
+        else:
+            self.generator = torch.Generator()
 
     @property
     def needs_missing_points(self) -> bool:

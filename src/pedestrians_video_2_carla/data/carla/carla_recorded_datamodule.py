@@ -80,6 +80,12 @@ class CarlaRecordedDataModule(BaseDataModule):
             type=str,
             default=CARLA_RECORDED_DIR
         )
+        parser.add_argument(
+            '--skip_metadata',
+            help="If True, metadata will not be loaded from the dataset.",
+            default=False,
+            action='store_true'
+        )
         Projection2DMixin.add_cli_args(parser)
 
         return parent_parser
@@ -259,7 +265,5 @@ class CarlaRecordedDataModule(BaseDataModule):
         return self._setup(
             CarlaRecordedDataset,
             stage,
-            'hdf5',
-            val_kwargs={'deterministic': True},
-            test_kwargs={'deterministic': True},
+            'hdf5'
         )

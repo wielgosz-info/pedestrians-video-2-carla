@@ -1,3 +1,4 @@
+import logging
 import math
 from typing import Callable, Optional, Type
 
@@ -18,12 +19,26 @@ class Carla2D3DDataset(Dataset, Projection2DMixin):
         super().__init__(**kwargs)
 
         self.set_file = h5py.File(set_filepath, 'r')
-        self.meta = self.set_file['carla_2d_3d/meta']
+        self.meta = self.__decode_meta(self.set_file['carla_2d_3d/meta'])
 
         self.nodes = nodes
 
+    def __decode_meta(self, meta):
+        logging.getLogger(__name__).debug('Decoding meta for {}...'.format(self.set_file.filename))
+        out = [{
+            k: meta[k].attrs['labels'][v[idx]].decode("latin-1")
+            for k, v in meta.items()
+        } for idx in range(len(self))]
+
+        for item in out:
+            for k in ['start_frame', 'end_frame', 'clip_id']:
+                item[k] = int(item[k])
+        logging.getLogger(__name__).debug('Meta decoding done.')
+
+        return out
+
     def __len__(self) -> int:
-        return len(self.projection_2d)
+        return len(self.set_file['carla_2d_3d/projection_2d'])
 
     def __getitem__(self, idx: int) -> torch.Tensor:
         orig_projection_2d = self.__extract_from_set('carla_2d_3d/projection_2d', idx)
@@ -46,8 +61,7 @@ class Carla2D3DDataset(Dataset, Projection2DMixin):
         absolute_pose_rot = self.__extract_from_set(
             'carla_2d_3d/targets/absolute_pose_rot', idx)
 
-        meta = {k: self.meta[k].attrs['labels'][v[idx]].decode(
-            "latin-1") for k, v in self.meta.items()}
+        meta = self.meta[idx]
 
         return (
             projection_2d,

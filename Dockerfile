@@ -114,6 +114,13 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     PyOpenGL==3.1.5 \
     PyOpenGL-accelerate==3.1.5
 
+RUN /venv/bin/python -m pip install  --no-cache-dir \ 
+    torch-scatter==2.0.9 \
+    torch-sparse==0.6.12 \
+    torch-cluster==1.5.9 \
+    torch-spline-conv==1.2.1 \
+    torch-geometric==2.0.3 -f https://data.pyg.org/whl/torch-1.9.0+cu111.html
+
 # reuse pedestrians-scenarios code
 COPY --from=scenarios --chown=${USERNAME}:${USERNAME} /app/third_party/scenario_runner/srunner /venv/lib/python3.8/site-packages/srunner
 COPY --from=scenarios --chown=${USERNAME}:${USERNAME} /app/dist/pedestrians_scenarios-0.0.1-py3-none-any.whl ${HOME}

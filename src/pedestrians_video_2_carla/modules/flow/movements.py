@@ -41,6 +41,10 @@ class MovementsModel(nn.Module):
     @property
     def needs_confidence(self) -> bool:
         return False
+    
+    @property
+    def needs_edge_index(self) -> bool:
+        return False
 
     @property
     def eval_slice(self):
