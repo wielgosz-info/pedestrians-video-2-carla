@@ -25,6 +25,8 @@ class JAADOpenPoseDataModule(BaseDataModule):
         self.clip_offset = clip_offset
         self.openpose_dir = openpose_dir
 
+        assert self.clip_offset > 0, 'clip_offset must be greater than 0'
+
         self.__settings = {
             'clip_offset': self.clip_offset,
             'annotations_usecols': self.annotations_usecols,

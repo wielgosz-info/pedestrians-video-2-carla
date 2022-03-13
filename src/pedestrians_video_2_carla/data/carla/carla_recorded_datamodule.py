@@ -38,6 +38,8 @@ class CarlaRecordedDataModule(BaseDataModule):
         self.test_set_frac = test_set_frac
         self.clip_offset = clip_offset
 
+        assert self.clip_offset > 0, 'clip_offset must be greater than 0'
+
         self.__settings = {
             'clip_offset': self.clip_offset,
         }

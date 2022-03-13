@@ -3,7 +3,7 @@ from typing import Callable, Literal, Optional
 import torch
 
 
-class Projection2DMixin(object):
+class Projection2DMixin:
     def __init__(self,
                  transform: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
                  missing_point_probability: Optional[float] = 0.0,
@@ -17,6 +17,8 @@ class Projection2DMixin(object):
         important DataModule parameters like batch_size and num_workers
         need to also be consistent across calls.
         """
+        super().__init__(**kwargs)
+
         self.transform = transform
         self.missing_point_probability = missing_point_probability
         self.noise = noise

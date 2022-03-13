@@ -55,17 +55,17 @@ class LitPoseLiftingFlow(LitBaseFlow):
     def _on_batch_start(self, batch, batch_idx):
         self.projection.on_batch_start(batch, batch_idx)
 
-    def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor]):
-        no_conf_frames = frames[..., 0:2].clone()
-
+    def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor = None):
         pose_inputs = self.movements_model(
-            frames if self.movements_model.needs_confidence else no_conf_frames,
-            targets if self.training else None
+            frames,
+            targets if self.training and self.movements_model.needs_targets else None,
+            edge_index=edge_index.to(
+                self.device) if self.movements_model.needs_graph else None
         )
 
         world_loc_inputs, world_rot_inputs = self.trajectory_model(
-            no_conf_frames,
-            targets if self.training else None
+            frames,
+            targets if self.training and self.trajectory_model.needs_targets else None
         )
 
         projection_outputs = self.projection(

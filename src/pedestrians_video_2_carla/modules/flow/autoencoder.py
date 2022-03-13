@@ -42,14 +42,14 @@ class LitAutoencoderFlow(LitBaseFlow):
             ),
         }
 
-    def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor]):
-        no_conf_frames = frames[..., 0:2].clone()
+    def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor):
         edge_index = self.movements_model.input_nodes.get_edge_index()
 
         pose_inputs = self.movements_model(
-            frames if self.movements_model.needs_confidence else no_conf_frames,
-            targets=targets if self.training else None,
-            edge_index=edge_index.to(self.device) if self.movements_model.needs_edge_index else None
+            frames,
+            targets=targets if self.training and self.movements_model.needs_targets else None,
+            edge_index=edge_index.to(
+                self.device) if self.movements_model.needs_graph else None
         )
 
         return self._get_sliced_data(frames, targets, pose_inputs)
@@ -66,9 +66,11 @@ class LitAutoencoderFlow(LitBaseFlow):
 
         # assumption: model output is in 'normalized' space if transform is not None
         # else it is in pixel space
-        sliced[self._outputs_key] = pose_inputs[eval_slice]
+        sliced[self._outputs_key] = self._fix_dimensions(
+            pose_inputs)[eval_slice]
 
-        sliced['inputs'] = frames[eval_slice]
-        sliced['targets'] = {k: v[eval_slice] for k, v in targets.items()}
+        sliced['inputs'] = self._fix_dimensions(frames)[eval_slice]
+        sliced['targets'] = {k: self._fix_dimensions(
+            v)[eval_slice] for k, v in targets.items()}
 
         return sliced

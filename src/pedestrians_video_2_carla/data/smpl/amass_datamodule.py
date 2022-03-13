@@ -24,6 +24,8 @@ class AMASSDataModule(BaseDataModule):
         self.mirror = mirror
         self.amass_dir = amass_dir
 
+        assert self.clip_offset > 0, 'clip_offset must be greater than 0'
+
         self.__settings = {
             'clip_offset': self.clip_offset,
             'mirror': self.mirror,

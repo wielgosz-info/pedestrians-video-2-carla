@@ -26,6 +26,10 @@ class TrajectoryModel(nn.Module):
     def output_type(self):
         return TrajectoryModelOutputType.changes
 
+    @property
+    def needs_targets(self) -> bool:
+        return False
+
     @staticmethod
     def add_model_specific_args(parent_parser):
         """

@@ -1,22 +1,23 @@
 from lib2to3.pgen2 import driver
 import logging
-from typing import Literal, Optional
+from typing import Literal, Optional, Type
 import numpy as np
 import torch
-from torch.utils.data import Dataset
-from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
+from pedestrians_video_2_carla.data.base.base_dataset import BaseDataset
+
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pytorch3d.transforms import euler_angles_to_matrix
 import h5pickle as h5py
 
-class CarlaRecordedDataset(Dataset, Projection2DMixin):
+
+class CarlaRecordedDataset(BaseDataset):
     def __init__(self,
                  set_filepath: str,
-                 nodes: CARLA_SKELETON = CARLA_SKELETON,
+                 points: Type[CARLA_SKELETON] = CARLA_SKELETON,
                  skip_metadata: bool = False,
                  **kwargs
                  ) -> None:
-        super().__init__(**kwargs)
+        super().__init__(nodes=points, **kwargs)
 
         self.set_file = h5py.File(set_filepath, 'r', driver='core')
 
@@ -27,15 +28,16 @@ class CarlaRecordedDataset(Dataset, Projection2DMixin):
         else:
             self.meta = self.__decode_meta(self.set_file['carla_recorded/meta'])
 
-        self.nodes = nodes
+        self.nodes = points
 
     def __decode_meta(self, meta):
-        logging.getLogger(__name__).debug('Decoding meta for {}...'.format(self.set_file.filename))
+        logging.getLogger(__name__).debug(
+            'Decoding meta for {}...'.format(self.set_file.filename))
         out = [{
             k: meta[k].attrs['labels'][v[idx]].decode("latin-1")
             for k, v in meta.items()
         } for idx in range(len(self))]
-        
+
         for item in out:
             for k in ['start_frame', 'end_frame', 'clip_id', 'pedestrian_id']:
                 item[k] = int(item[k])
@@ -52,6 +54,7 @@ class CarlaRecordedDataset(Dataset, Projection2DMixin):
 
         projection_2d, projection_targets = self.process_projection_2d(
             orig_projection_2d)
+        projection_2d = self.process_confidence(projection_2d)
 
         # relative_pose_loc, relative_pose_rot = self.__extract_transform(
         #     'carla_recorded/targets/relative_pose', idx)
@@ -64,7 +67,7 @@ class CarlaRecordedDataset(Dataset, Projection2DMixin):
 
         meta = self.meta[idx]
 
-        return (
+        out = (
             projection_2d,
             {
                 **projection_targets,
@@ -81,6 +84,8 @@ class CarlaRecordedDataset(Dataset, Projection2DMixin):
             },
             meta
         )
+
+        return self.process_graph(out)
 
     def __extract_transform(self, set_name, idx):
         carla_transforms = self.set_file[set_name][idx]

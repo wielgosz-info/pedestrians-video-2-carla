@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Any, Callable, Dict, Optional, Type, Union
 
 from pedestrians_video_2_carla.data import OUTPUTS_BASE
@@ -8,29 +7,23 @@ import pandas
 import math
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
+from torch_geometric.loader import DataLoader as GraphDataLoader
 
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 import yaml
-from pedestrians_video_2_carla.transforms import hips_neck
+
 from pedestrians_video_2_carla.transforms.bbox import BBoxExtractor
 from pedestrians_video_2_carla.transforms.hips_neck_bbox_fallback import HipsNeckBBoxFallbackExtractor
 
 from pedestrians_video_2_carla.transforms.normalization import Normalizer
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 
+from .base_transforms import BaseTransforms
+
 try:
     from yaml import CDumper as Dumper
 except ImportError:
     from yaml import Dumper
-
-
-class Transform(Enum):
-    none = 0
-    hips_neck = 1
-    bbox = 2
-    hips_neck_bbox = 3
-
-    user_defined = 100
 
 
 class BaseDataModule(LightningDataModule):
@@ -40,7 +33,9 @@ class BaseDataModule(LightningDataModule):
                  clip_length: Optional[int] = 30,
                  batch_size: Optional[int] = 64,
                  num_workers: Optional[int] = os.cpu_count(),
-                 transform: Optional[Union[Transform, Callable]] = Transform.hips_neck,
+                 transform: Optional[Union[BaseTransforms, Callable]
+                                     ] = BaseTransforms.hips_neck,
+                 return_graph: bool = False,
                  **kwargs):
         super().__init__()
 
@@ -52,7 +47,11 @@ class BaseDataModule(LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.nodes = input_nodes
+        self.return_graph = return_graph
         self.kwargs = kwargs
+
+        if self.return_graph:
+            assert self.clip_length == 1 or self.batch_size == 1, 'Either clip_length or batch_size must be 1 for GNNs.'
 
         self.train_set = None
         self.val_set = None
@@ -101,14 +100,14 @@ class BaseDataModule(LightningDataModule):
         with open(os.path.join(self._subsets_dir, 'dparams.yaml'), 'w') as f:
             yaml.dump(self.settings, f, Dumper=Dumper)
 
-    def _setup_data_transform(self, transform: Union[Transform, Callable]):
+    def _setup_data_transform(self, transform: Union[BaseTransforms, Callable]):
         return (transform, {
-            Transform.none: None,
-            Transform.hips_neck: Normalizer(HipsNeckExtractor(self.nodes)),
-            Transform.bbox: Normalizer(BBoxExtractor(self.nodes)),
-            Transform.hips_neck_bbox: Normalizer(HipsNeckBBoxFallbackExtractor(self.nodes)),
-            Transform.user_defined: transform
-        }[transform]) if isinstance(transform, Transform) else (Transform.user_defined, transform)
+            BaseTransforms.none: None,
+            BaseTransforms.hips_neck: Normalizer(HipsNeckExtractor(self.nodes)),
+            BaseTransforms.bbox: Normalizer(BBoxExtractor(self.nodes)),
+            BaseTransforms.hips_neck_bbox: Normalizer(HipsNeckBBoxFallbackExtractor(self.nodes)),
+            BaseTransforms.user_defined: transform
+        }[transform]) if isinstance(transform, BaseTransforms) else (BaseTransforms.user_defined, transform)
 
     @ staticmethod
     def add_data_specific_args(parent_parser):
@@ -146,16 +145,26 @@ class BaseDataModule(LightningDataModule):
                 Use one of predefined transforms: {}.
                 Defaults to hips_neck.
                 """.format(
-                set(Transform.__members__.keys())),
+                set(BaseTransforms.__members__.keys())),
             metavar="TRANSFORM",
-            default=Transform.hips_neck,
-            choices=list(set(Transform) - {Transform.user_defined}),
-            type=Transform.__getitem__
+            default=BaseTransforms.hips_neck,
+            choices=list(set(BaseTransforms) - {BaseTransforms.user_defined}),
+            type=BaseTransforms.__getitem__
         )
         # input nodes are handled in the model hyperparameters
         return parent_parser
 
     def get_dataloader(self, dataset, shuffle=False, persistent_workers=False):
+        if self.return_graph and self.clip_length == 1:
+            # for spatial GNNs we need to use the torch_geometric DataLoader
+            return GraphDataLoader(
+                dataset=dataset,
+                batch_size=self.batch_size,
+                num_workers=self.num_workers,
+                pin_memory=True,
+                persistent_workers=persistent_workers,
+                shuffle=shuffle
+            )
         return DataLoader(
             dataset=dataset,
             batch_size=self.batch_size,
@@ -285,6 +294,8 @@ class BaseDataModule(LightningDataModule):
                 os.path.join(self._subsets_dir, f'train.{set_ext}'),
                 points=self.nodes,
                 transform=self.transform_callable,
+                return_graph=self.return_graph,
+                clip_length=self.clip_length,
                 **{
                     **self.kwargs,
                     **(train_kwargs or {})
@@ -294,6 +305,8 @@ class BaseDataModule(LightningDataModule):
                 os.path.join(self._subsets_dir, f'val.{set_ext}'),
                 points=self.nodes,
                 transform=self.transform_callable,
+                return_graph=self.return_graph,
+                clip_length=self.clip_length,
                 **{
                     **self.kwargs,
                     **(val_kwargs or {})
@@ -305,6 +318,8 @@ class BaseDataModule(LightningDataModule):
                 os.path.join(self._subsets_dir, f'test.{set_ext}'),
                 points=self.nodes,
                 transform=self.transform_callable,
+                return_graph=self.return_graph,
+                clip_length=self.clip_length,
                 **{
                     **self.kwargs,
                     **(test_kwargs or {})

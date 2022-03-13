@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch import Tensor
-from pedestrians_video_2_carla.modules.flow.movements import MovementsModel
+from pedestrians_video_2_carla.modules.movements.movements import MovementsModel
 from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
 
 
@@ -123,6 +123,10 @@ class Seq2Seq(MovementsModel):
             'teacher_force_drop': self.teacher_force_drop,
         }
 
+    @property
+    def needs_targets(self) -> bool:
+        return self.teacher_mode != TeacherMode.no_force
+
     @staticmethod
     def add_model_specific_args(parent_parser):
         parser = parent_parser.add_argument_group("Seq2Seq Movements Module")
@@ -219,7 +223,7 @@ class Seq2Seq(MovementsModel):
 
     def _format_output(self, original_shape, outputs):
         """
-        At the very least this should convert from sequence-first back to batch-first format
+        At the very last this should convert from sequence-first back to batch-first format
         and ensure rotation matrices are returned.
 
         :param x: Outputs from the decoder.

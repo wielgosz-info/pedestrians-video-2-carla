@@ -121,6 +121,9 @@ RUN /venv/bin/python -m pip install  --no-cache-dir \
     torch-spline-conv==1.2.1 \
     torch-geometric==2.0.3 -f https://data.pyg.org/whl/torch-1.9.0+cu111.html
 
+RUN /venv/bin/python -m pip install  --no-cache-dir \
+    torch-geometric-temporal==0.51.0
+
 # reuse pedestrians-scenarios code
 COPY --from=scenarios --chown=${USERNAME}:${USERNAME} /app/third_party/scenario_runner/srunner /venv/lib/python3.8/site-packages/srunner
 COPY --from=scenarios --chown=${USERNAME}:${USERNAME} /app/dist/pedestrians_scenarios-0.0.1-py3-none-any.whl ${HOME}

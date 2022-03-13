@@ -1,23 +1,27 @@
 
 import platform
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import pytorch_lightning as pl
-from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 import torch
-from pedestrians_video_2_carla.data.base.base_datamodule import Transform
-from pedestrians_video_2_carla.modules.flow.movements import MovementsModel
+from pedestrians_video_2_carla.data.base.base_transforms import BaseTransforms
+from pedestrians_video_2_carla.data.base.skeleton import \
+    get_skeleton_type_by_name
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.modules.flow.output_types import (
     MovementsModelOutputType, TrajectoryModelOutputType)
-from pedestrians_video_2_carla.modules.flow.trajectory import TrajectoryModel
 from pedestrians_video_2_carla.modules.loss import LossModes
+from pedestrians_video_2_carla.modules.movements.movements import \
+    MovementsModel
 from pedestrians_video_2_carla.modules.movements.zero import ZeroMovements
+from pedestrians_video_2_carla.modules.trajectory.trajectory import \
+    TrajectoryModel
 from pedestrians_video_2_carla.modules.trajectory.zero import ZeroTrajectory
-from pedestrians_video_2_carla.data.base.skeleton import get_skeleton_type_by_name
-from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.utils.argparse import DictAction
+from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from pytorch_lightning.utilities import rank_zero_only
 from torch import Tensor
+from torch_geometric.data import Batch
 from torchmetrics import MetricCollection
 
 
@@ -70,10 +74,10 @@ class LitBaseFlow(pl.LightningModule):
         # TODO: resolve requirements chain and put modes in correct order, not just 'hopefully correct' one
         self._losses_to_calculate = list(dict.fromkeys(modes))
 
-        kwargs_transform = kwargs.get('transform', Transform.hips_neck)
+        kwargs_transform = kwargs.get('transform', BaseTransforms.hips_neck)
         if isinstance(kwargs_transform, str):
-            kwargs_transform = Transform[kwargs_transform.lower()]
-        self._outputs_key = 'projection_2d_transformed' if kwargs_transform != Transform.none else 'projection_2d'
+            kwargs_transform = BaseTransforms[kwargs_transform.lower()]
+        self._outputs_key = 'projection_2d_transformed' if kwargs_transform != BaseTransforms.none else 'projection_2d'
         self._crucial_keys = self._get_crucial_keys()
 
         # default metrics
@@ -163,10 +167,38 @@ class LitBaseFlow(pl.LightningModule):
         initial_metrics = self._calculate_initial_metrics()
         self._update_hparams(initial_metrics)
 
+    def _unwrap_batch(self, batch):
+        if isinstance(batch, Tuple):
+            return (*batch, None)
+
+        if isinstance(batch, Batch):
+            return (
+                batch.x,
+                {
+                    k.replace('targets_', ''): batch.get(k)
+                    for k in batch.keys
+                    if k.startswith('targets_')
+                },
+                batch.meta,
+                batch.edge_index,
+            )
+
+        # TODO: deal with TemporalSignal
+
+    def _fix_dimensions(self, data: torch.Tensor):
+        if self.movements_model.needs_graph:
+            s = data.shape
+            cl = self.trainer.datamodule.clip_length
+            if len(s) < 2 or s[1] != cl:
+                bs = int(s[0] / cl)  # batch size can be smaller than specified in datamodule in the last batch
+                return data.view((bs, cl, *s[1:]))
+        return data
+
     def _calculate_initial_metrics(self) -> Dict[str, float]:
         dl = self.trainer.datamodule.val_dataloader()
 
-        for (inputs, targets, meta) in dl:
+        for batch in dl:
+            (inputs, targets, *_) = self._unwrap_batch(batch)
             if 'projection_2d_deformed' not in targets:
                 return {}
 
@@ -278,9 +310,9 @@ class LitBaseFlow(pl.LightningModule):
             self.log_dict(to_log, batch_size=batch_size)
 
     def _step(self, batch, batch_idx, stage):
-        (frames, targets, meta) = batch
+        (frames, targets, meta, edge_index) = self._unwrap_batch(batch)
 
-        sliced = self._inner_step(frames, targets)
+        sliced = self._inner_step(frames, targets, edge_index)
 
         loss_dict = self._calculate_lossess(stage, len(frames), sliced, meta)
 
@@ -288,7 +320,7 @@ class LitBaseFlow(pl.LightningModule):
 
         return self._get_outputs(stage, len(frames), sliced, loss_dict)
 
-    def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor]):
+    def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor):
         raise NotImplementedError()
 
     def _get_outputs(self, stage, batch_size, sliced, loss_dict):

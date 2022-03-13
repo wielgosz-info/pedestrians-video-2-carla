@@ -4,7 +4,6 @@ import math
 import os
 import sys
 from typing import Dict, List, Type
-from cv2 import transform
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
@@ -31,8 +30,8 @@ from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
 from pedestrians_video_2_carla.data.carla.carla_2d3d_datamodule import \
     Carla2D3DDataModule
 from pedestrians_video_2_carla.loggers.pedestrian import PedestrianLogger
-from pedestrians_video_2_carla.modules.flow.movements import MovementsModel
-from pedestrians_video_2_carla.modules.flow.trajectory import TrajectoryModel
+from pedestrians_video_2_carla.modules.movements.movements import MovementsModel
+from pedestrians_video_2_carla.modules.trajectory.trajectory import TrajectoryModel
 from pedestrians_video_2_carla.modules.movements import MOVEMENTS_MODELS
 from pedestrians_video_2_carla.modules.trajectory import TRAJECTORY_MODELS
 
@@ -244,12 +243,12 @@ def main(args: List[str]):
 
     dict_args = vars(args)
 
-    # data
-    dm = data_module_cls(**dict_args)
-
     # model
     movements_model = movements_model_cls(**dict_args)
     trajectory_model = trajectory_model_cls(**dict_args)
+
+    # data
+    dm = data_module_cls(**dict_args, return_graph=movements_model.needs_graph)
 
     if args.ckpt_path is not None:
         model = flow_module_cls.load_from_checkpoint(

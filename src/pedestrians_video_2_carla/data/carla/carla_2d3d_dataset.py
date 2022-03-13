@@ -15,16 +15,17 @@ from torch.utils.data import Dataset, IterableDataset
 
 
 class Carla2D3DDataset(Dataset, Projection2DMixin):
-    def __init__(self, set_filepath: str, nodes: CARLA_SKELETON = CARLA_SKELETON, **kwargs) -> None:
+    def __init__(self, set_filepath: str, points: CARLA_SKELETON = CARLA_SKELETON, **kwargs) -> None:
         super().__init__(**kwargs)
 
         self.set_file = h5py.File(set_filepath, 'r')
         self.meta = self.__decode_meta(self.set_file['carla_2d_3d/meta'])
 
-        self.nodes = nodes
+        self.nodes = points
 
     def __decode_meta(self, meta):
-        logging.getLogger(__name__).debug('Decoding meta for {}...'.format(self.set_file.filename))
+        logging.getLogger(__name__).debug(
+            'Decoding meta for {}...'.format(self.set_file.filename))
         out = [{
             k: meta[k].attrs['labels'][v[idx]].decode("latin-1")
             for k, v in meta.items()
@@ -96,11 +97,11 @@ class Carla2D3DIterableDataset(IterableDataset, Projection2DMixin):
                  max_change_in_deg: Optional[int] = 5,
                  max_world_rot_change_in_deg: Optional[int] = 0,
                  max_initial_world_rot_change_in_deg: Optional[int] = 0,
-                 nodes: Optional[Type[CARLA_SKELETON]] = CARLA_SKELETON,
+                 points: Optional[Type[CARLA_SKELETON]] = CARLA_SKELETON,
                  **kwargs) -> None:
         super().__init__(**kwargs)
 
-        self.nodes = nodes
+        self.nodes = points
         self.clip_length = clip_length
         self.random_changes_each_frame = random_changes_each_frame
         self.max_change_in_rad = np.deg2rad(max_change_in_deg)
@@ -203,4 +204,3 @@ class Carla2D3DIterableDataset(IterableDataset, Projection2DMixin):
             },
             {'age': age, 'gender': gender}
         )
-

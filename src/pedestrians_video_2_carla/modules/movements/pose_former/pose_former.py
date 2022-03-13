@@ -1,5 +1,5 @@
 import torch
-from pedestrians_video_2_carla.modules.flow.movements import MovementsModel
+from pedestrians_video_2_carla.modules.movements.movements import MovementsModel
 from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
 from torch import nn
 from pedestrians_video_2_carla.third_party.pose_former.model_poseformer import PoseTransformer as PoseFormerModel
