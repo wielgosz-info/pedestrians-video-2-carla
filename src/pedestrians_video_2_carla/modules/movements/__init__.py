@@ -3,7 +3,7 @@ from .linear import Linear
 from .lstm import LSTM
 from .linear_ae import LinearAE, LinearAEResidual, LinearAEResidualLeaky, LinearAE2D
 from .baseline_3d_pose import Baseline3DPose, Baseline3DPoseRot
-from .seq2seq import Seq2Seq, Seq2SeqEmbeddings, Seq2SeqResidualA, Seq2SeqResidualB, Seq2SeqResidualC, Seq2Seq2D
+from .seq2seq import Seq2Seq, Seq2SeqEmbeddings, Seq2SeqResidualA, Seq2SeqResidualB, Seq2SeqResidualC, Seq2Seq2D, Seq2SeqEmbeddings2D
 from .pose_former import PoseFormer, PoseFormerRot
 from .spatial_gnn import GNNLinearAutoencoder
 
@@ -30,7 +30,7 @@ MOVEMENTS_MODELS = {
         # For 2D pose autoencoding
         LinearAE2D,
         Seq2Seq2D,
-        GNNLinearAutoencoder
-      
+        GNNLinearAutoencoder,
+        Seq2SeqEmbeddings2D
     ]
 }

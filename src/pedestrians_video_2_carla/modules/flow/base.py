@@ -168,7 +168,7 @@ class LitBaseFlow(pl.LightningModule):
         self._update_hparams(initial_metrics)
 
     def _unwrap_batch(self, batch):
-        if isinstance(batch, Tuple):
+        if isinstance(batch, (Tuple, List)):
             return (*batch, None)
 
         if isinstance(batch, Batch):
@@ -190,7 +190,8 @@ class LitBaseFlow(pl.LightningModule):
             s = data.shape
             cl = self.trainer.datamodule.clip_length
             if len(s) < 2 or s[1] != cl:
-                bs = int(s[0] / cl)  # batch size can be smaller than specified in datamodule in the last batch
+                # batch size can be smaller than specified in datamodule in the last batch
+                bs = int(s[0] / cl)
                 return data.view((bs, cl, *s[1:]))
         return data
 

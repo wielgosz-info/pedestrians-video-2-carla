@@ -36,10 +36,11 @@ class SpatialGnn(MovementsModel):
 class GCNEncoder(SpatialGnn):
     def __init__(self, in_channels, out_channels, **kwargs):
         super().__init__()
-        self.conv1 = GCNConv(in_channels, 2 * out_channels)
-        self.conv2 = GCNConv(2 * out_channels, out_channels)
+        self.mult_factor = 128
+        self.conv1 = GCNConv(in_channels, self.mult_factor * out_channels)
+        self.conv2 = GCNConv(self.mult_factor * out_channels, out_channels)
 
-    def forward(self, x, edge_index):
+    def forward(self, x, edge_index, **kwargs):
         x = self.conv1(x, edge_index).relu()
         return self.conv2(x, edge_index)
 

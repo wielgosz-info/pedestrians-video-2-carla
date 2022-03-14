@@ -1,10 +1,10 @@
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from pedestrians_video_2_carla.modules.movements.seq2seq.seq2seq import Seq2Seq
+from pedestrians_video_2_carla.modules.movements.seq2seq.seq2seq_embeddings import Seq2SeqEmbeddings
 from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
 
 
-class Seq2Seq2D(Seq2Seq):
+class Seq2SeqEmbeddings2D(Seq2SeqEmbeddings):
     """
     Sequence to sequence model.
 
