@@ -109,6 +109,8 @@ class Carla2D3DDataModule(BaseDataModule):
         # generate and save validation & test sets so they are reproducible
         iterable_dataset = Carla2D3DIterableDataset(
             points=self.nodes,
+            return_graph=self.return_graph,
+            clip_length=self.clip_length,
             **{
                 **self.kwargs,
                 # we want raw data in dataset, not deformed/transformed
@@ -159,13 +161,17 @@ class Carla2D3DDataModule(BaseDataModule):
             self.train_set = Carla2D3DIterableDataset(
                 points=self.nodes,
                 transform=self.transform_callable,
-                **self.kwargs
+                return_graph=self.return_graph,
+                clip_length=self.clip_length,
+                **self.kwargs,
             )
             self.val_set = Carla2D3DDataset(
                 os.path.join(self._subsets_dir, 'val.hdf5'),
                 points=self.nodes,
                 transform=self.transform_callable,
-                **self.kwargs
+                return_graph=self.return_graph,
+                clip_length=self.clip_length,
+                **self.kwargs,
             )
 
         if stage == "test" or stage is None:
@@ -173,7 +179,9 @@ class Carla2D3DDataModule(BaseDataModule):
                 os.path.join(self._subsets_dir, 'test.hdf5'),
                 points=self.nodes,
                 transform=self.transform_callable,
-                **self.kwargs
+                return_graph=self.return_graph,
+                clip_length=self.clip_length,
+                **self.kwargs,
             )
 
     def train_dataloader(self):
