@@ -2,8 +2,8 @@ from typing import Dict, Tuple, Union
 from importlib_metadata import re
 
 from scipy.fftpack import shift
-from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType, TrajectoryModelOutputType
-
+from pedestrians_video_2_carla.modules.movements.movements import MovementsModelOutputType
+from pedestrians_video_2_carla.modules.flow.output_types import TrajectoryModelOutputType
 
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor

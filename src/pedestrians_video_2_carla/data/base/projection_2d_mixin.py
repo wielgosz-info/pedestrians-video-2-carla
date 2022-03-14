@@ -90,9 +90,7 @@ class Projection2DMixin:
         Deforms the data by adding noise and missing points.
         Returns a clone of the original data.
         """
-        assert projection_2d.shape[-1] == 2, 'projection_2d must be 2D'
-
-        deformed_projection_2d = projection_2d.clone()
+        deformed_projection_2d = projection_2d[..., :2].clone()
 
         if self.needs_noise:
             if self.noise == 'gaussian':
@@ -115,6 +113,9 @@ class Projection2DMixin:
                 deformed_projection_2d.shape[:-1], generator=self.generator) < self.missing_point_probability
             deformed_projection_2d[missing_indices] = torch.zeros(
                 deformed_projection_2d.shape[-1:], device=deformed_projection_2d.device)
+
+        if projection_2d.shape[-1] > 2:
+            return torch.cat((deformed_projection_2d, projection_2d[..., 2:]), dim=-1)
 
         return deformed_projection_2d
 

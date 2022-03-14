@@ -2,7 +2,7 @@ import os
 import pytest
 
 from pedestrians_video_2_carla.modules.loss import LossModes
-from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
+from pedestrians_video_2_carla.modules.movements.movements import MovementsModelOutputType
 from pedestrians_video_2_carla.modules.movements import MOVEMENTS_MODELS
 from pedestrians_video_2_carla.modules.trajectory import TRAJECTORY_MODELS
 
@@ -52,13 +52,14 @@ def renderer(request):
     return request.param
 
 
-@pytest.fixture(params=list(MovementsModelOutputType.__members__.keys()))
+@pytest.fixture(params=list(set(MovementsModelOutputType.__members__.keys()) - {'pose_2d'}))
 def movements_output_type(request):
     return request.param
 
 
 # all models should be able to run with default settings
-@pytest.fixture(params=MOVEMENTS_MODELS.keys())
+# TODO: searate autoencoder-only flow models from pose-lifting-only models
+@pytest.fixture(params=list(set(MOVEMENTS_MODELS.keys()) - {'LinearAE2D', 'GNNLinearAutoencoder'}))
 def movements_model_name(request):
     return request.param
 

@@ -100,8 +100,8 @@ class LitPoseLiftingFlow(LitBaseFlow):
         sliced['projection_2d'] = projection_2d[eval_slice]
 
         dm = self.trainer.datamodule
-        if dm.transform is not None:
-            sliced['projection_2d_transformed'] = dm.transform(
+        if dm.transform_callable is not None:
+            sliced['projection_2d_transformed'] = dm.transform_callable(
                 projection_2d[eval_slice])
 
         sliced['world_loc_inputs'] = world_loc_inputs[eval_slice]
@@ -112,7 +112,8 @@ class LitPoseLiftingFlow(LitBaseFlow):
         keys_of_intrest = list(
             set(list(projection_outputs_dict.keys()) + self._crucial_keys))
         for k in keys_of_intrest:
-            sliced[k] = projection_outputs_dict[k][eval_slice] if k in projection_outputs_dict and projection_outputs_dict[k] is not None else None
+            if k not in sliced:
+                sliced[k] = projection_outputs_dict[k][eval_slice] if k in projection_outputs_dict and projection_outputs_dict[k] is not None else None
 
         # sometimes we need absolute target world loc/rot, which is not saved in data
         # so we need to compute it here and then slice appropriately

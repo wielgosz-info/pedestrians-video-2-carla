@@ -3,7 +3,7 @@ import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch_geometric.nn import GAE, VGAE, GCNConv
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModel
-from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
+from pedestrians_video_2_carla.modules.movements.movements import MovementsModelOutputType
 
 
 class SpatialGnn(MovementsModel):
@@ -38,11 +38,14 @@ class GCNEncoder(SpatialGnn):
         super().__init__()
         self.mult_factor = 128
         self.conv1 = GCNConv(in_channels, self.mult_factor * out_channels)
-        self.conv2 = GCNConv(self.mult_factor * out_channels, out_channels)
+        self.conv2 = GCNConv(self.mult_factor * out_channels,
+                             self.mult_factor * out_channels)
+        self.conv3 = GCNConv(self.mult_factor * out_channels, out_channels)
 
     def forward(self, x, edge_index, **kwargs):
         x = self.conv1(x, edge_index).relu()
-        return self.conv2(x, edge_index)
+        x = self.conv2(x, edge_index).relu()
+        return self.conv3(x, edge_index)
 
 
 class VariationalGCNEncoder(SpatialGnn):

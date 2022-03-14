@@ -3,11 +3,12 @@ import torch
 
 class ConfidenceMixin:
     def __init__(self,
-                 return_confidence: bool = False,
+                 needs_confidence: bool = False,
                  **kwargs
                  ):
         super().__init__(**kwargs)
-        self.return_confidence = return_confidence
+        # TODO: handle setting needs_confidence param better, for now it assumes the model has such a CLI arg
+        self.return_confidence = needs_confidence
 
     def process_confidence(self, projection_2d: torch.Tensor) -> torch.Tensor:
         if self.return_confidence:

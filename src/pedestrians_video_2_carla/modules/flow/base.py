@@ -8,11 +8,10 @@ from pedestrians_video_2_carla.data.base.base_transforms import BaseTransforms
 from pedestrians_video_2_carla.data.base.skeleton import \
     get_skeleton_type_by_name
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
-from pedestrians_video_2_carla.modules.flow.output_types import (
-    MovementsModelOutputType, TrajectoryModelOutputType)
+from pedestrians_video_2_carla.modules.flow.output_types import TrajectoryModelOutputType
 from pedestrians_video_2_carla.modules.loss import LossModes
 from pedestrians_video_2_carla.modules.movements.movements import \
-    MovementsModel
+    MovementsModel, MovementsModelOutputType
 from pedestrians_video_2_carla.modules.movements.zero import ZeroMovements
 from pedestrians_video_2_carla.modules.trajectory.trajectory import \
     TrajectoryModel
@@ -232,7 +231,7 @@ class LitBaseFlow(pl.LightningModule):
             'train_set_size': getattr(
                 self.trainer.datamodule.train_set,
                 '__len__',
-                lambda: self.trainer.limit_train_batches*self.trainer.dataloader.batch_size
+                lambda: self.trainer.limit_train_batches*self.trainer.datamodule.batch_size
             )(),
             **(initial_metrics or {})
         }

@@ -4,12 +4,11 @@ import numpy as np
 import json
 import os
 import torch
-from torch.utils.data import Dataset
-from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
+from pedestrians_video_2_carla.data.base.base_dataset import Projection2DMixin, TorchDataset, ConfidenceMixin
 from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON, COCO_SKELETON
 
 
-class OpenPoseDataset(Dataset, Projection2DMixin):
+class OpenPoseDataset(Projection2DMixin, ConfidenceMixin, TorchDataset):
     def __init__(self, data_dir, set_filepath, points: Union[BODY_25_SKELETON, COCO_SKELETON] = BODY_25_SKELETON, **kwargs) -> None:
         super().__init__(**kwargs)
 
@@ -64,6 +63,7 @@ class OpenPoseDataset(Dataset, Projection2DMixin):
         torch_frames = torch.tensor(frames, dtype=torch.float32)
 
         projection_2d, projection_targets = self.process_projection_2d(torch_frames)
+        projection_2d = self.process_confidence(projection_2d)
 
         return (projection_2d, {
             **projection_targets

@@ -1,4 +1,4 @@
-from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
+from pedestrians_video_2_carla.modules.movements.movements import MovementsModelOutputType
 from torch import nn
 from .pose_former import PoseFormer
 from pytorch3d.transforms.rotation_conversions import rotation_6d_to_matrix

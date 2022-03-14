@@ -5,8 +5,7 @@ import torch
 from torch import nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch import Tensor
-from pedestrians_video_2_carla.modules.movements.movements import MovementsModel
-from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
+from pedestrians_video_2_carla.modules.movements.movements import MovementsModel, MovementsModelOutputTypeMixin
 
 
 class TeacherMode(Enum):
@@ -63,7 +62,7 @@ class Decoder(nn.Module):
         return prediction, hidden, cell
 
 
-class Seq2Seq(MovementsModel):
+class Seq2Seq(MovementsModelOutputTypeMixin, MovementsModel):
     """
     Sequence to sequence model.
 
@@ -91,14 +90,12 @@ class Seq2Seq(MovementsModel):
                  teacher_force_ratio: float = 0.2,
                  teacher_force_drop: float = 0.02,
                  input_features: int = 2,
-                 output_features: int = 6,
                  **kwargs):
         super().__init__(**kwargs)
 
         self.teacher_mode = teacher_mode
         self.teacher_force_ratio = teacher_force_ratio if teacher_mode != TeacherMode.no_force else 0.0
         self.teacher_force_drop = teacher_force_drop if teacher_mode != TeacherMode.no_force else 0.0
-        self.output_features = output_features
 
         self.encoder = Encoder(
             hid_dim=hidden_size, n_layers=num_layers, dropout=p_dropout,
@@ -106,7 +103,7 @@ class Seq2Seq(MovementsModel):
         )
         self.decoder = Decoder(
             hid_dim=hidden_size, n_layers=num_layers, dropout=p_dropout,
-            output_nodes_len=len(self.output_nodes), output_features=output_features
+            output_nodes_len=len(self.output_nodes), output_features=self.output_features
         )
 
         assert self.encoder.hid_dim == self.decoder.hid_dim, \
@@ -120,7 +117,7 @@ class Seq2Seq(MovementsModel):
             'p_dropout': p_dropout,
             'teacher_mode': self.teacher_mode.name,
             'teacher_force_ratio': self.teacher_force_ratio,
-            'teacher_force_drop': self.teacher_force_drop,
+            'teacher_force_drop': self.teacher_force_drop
         }
 
     @property
@@ -130,6 +127,7 @@ class Seq2Seq(MovementsModel):
     @staticmethod
     def add_model_specific_args(parent_parser):
         parser = parent_parser.add_argument_group("Seq2Seq Movements Module")
+        parser = MovementsModelOutputTypeMixin.add_cli_args(parser)
         parser.add_argument(
             '--num_layers',
             default=2,
@@ -228,13 +226,14 @@ class Seq2Seq(MovementsModel):
 
         :param x: Outputs from the decoder.
         :type x: torch.Tensor
-        :return: (B, L, P, 3, 3) tensor, where B is batch size, L is clip length, P is number of output nodes.
+        :return: (B, L, P, x) tensor, where B is batch size, L is clip length, P is number of output nodes. x depends on the movements output type.
         :rtype: torch.Tensor
         """
         # convert to batch-first format
         outputs = outputs.permute(1, 0, 2)
+        outputs = outputs.view(*original_shape[:3], self.output_features)
 
-        return rotation_6d_to_matrix(outputs.view(*original_shape[:3], self.output_features))
+        return super()._format_output(outputs)
 
     def _format_input(self, x: Tensor) -> Tensor:
         """
@@ -291,19 +290,3 @@ class Seq2Seq(MovementsModel):
             }
         else:
             return {}
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.SGD(self.parameters(), lr=1e-2)
-
-        lr_scheduler = {
-            'scheduler': ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=5, cooldown=10),
-            'interval': 'epoch',
-            'monitor': 'train_loss/primary'
-        }
-
-        config = {
-            'optimizer': optimizer,
-            # 'lr_scheduler': lr_scheduler,
-        }
-
-        return config

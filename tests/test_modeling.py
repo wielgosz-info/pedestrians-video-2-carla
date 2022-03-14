@@ -141,12 +141,13 @@ def test_source_videos_jaad(test_logs_dir, test_outputs_dir, test_data_dir):
     assert len(videos) == 4, 'Video files were not created'
 
 
-def test_models(test_logs_dir, test_outputs_dir, movements_model_name, trajectory_model_name):
+def test_pose_lifting(test_logs_dir, test_outputs_dir, movements_model_name, trajectory_model_name):
     """
     Test the overall flow using specified models.
     """
     main([
         "--data_module_name=Carla2D3D",
+        "--flow=pose_lifting",
         "--movements_model_name={}".format(movements_model_name),
         "--trajectory_model_name={}".format(trajectory_model_name),
         "--batch_size=2",

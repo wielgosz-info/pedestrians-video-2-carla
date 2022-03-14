@@ -5,16 +5,14 @@ from typing import Callable, Optional, Type
 import h5pickle as h5py
 import numpy as np
 import torch
-from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
+from pedestrians_video_2_carla.data.base.base_dataset import TorchDataset, TorchIterableDataset, Projection2DMixin, ConfidenceMixin
 from pedestrians_video_2_carla.modules.layers.projection import \
     ProjectionModule
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pytorch3d.transforms import euler_angles_to_matrix
-from torch import Tensor
-from torch.utils.data import Dataset, IterableDataset
 
 
-class Carla2D3DDataset(Dataset, Projection2DMixin):
+class Carla2D3DDataset(Projection2DMixin, ConfidenceMixin, TorchDataset):
     def __init__(self, set_filepath: str, points: CARLA_SKELETON = CARLA_SKELETON, **kwargs) -> None:
         super().__init__(**kwargs)
 
@@ -30,10 +28,6 @@ class Carla2D3DDataset(Dataset, Projection2DMixin):
             k: meta[k].attrs['labels'][v[idx]].decode("latin-1")
             for k, v in meta.items()
         } for idx in range(len(self))]
-
-        for item in out:
-            for k in ['start_frame', 'end_frame', 'clip_id']:
-                item[k] = int(item[k])
         logging.getLogger(__name__).debug('Meta decoding done.')
 
         return out
@@ -46,6 +40,7 @@ class Carla2D3DDataset(Dataset, Projection2DMixin):
 
         projection_2d, projection_targets = self.process_projection_2d(
             orig_projection_2d)
+        projection_2d = self.process_confidence(projection_2d)
 
         pose_changes_matrix = self.__extract_from_set(
             'carla_2d_3d/targets/pose_changes', idx)
@@ -89,7 +84,7 @@ class Carla2D3DDataset(Dataset, Projection2DMixin):
         return torch.from_numpy(data)
 
 
-class Carla2D3DIterableDataset(IterableDataset, Projection2DMixin):
+class Carla2D3DIterableDataset(Projection2DMixin, ConfidenceMixin, TorchIterableDataset):
     def __init__(self,
                  batch_size: Optional[int] = 64,
                  clip_length: Optional[int] = 30,
@@ -182,14 +177,9 @@ class Carla2D3DIterableDataset(IterableDataset, Projection2DMixin):
             world_loc_change_batch=world_loc_change_batch,
         )
 
-        # use the third dimension as 'confidence' of the projection
-        # so we're compatible with OpenPose
-        # this will also prevent the models from accidentally using
-        # the depth data that pytorch3d leaves in the projections
-        orig_projection_2d[..., 2] = 1.0
-
         projection_2d, projection_targets = self.process_projection_2d(
             orig_projection_2d)
+        projection_2d = self.process_confidence(projection_2d)
 
         return (
             projection_2d,

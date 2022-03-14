@@ -170,7 +170,7 @@ class BaseDataModule(LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=True,
-            persistent_workers=persistent_workers,
+            persistent_workers=persistent_workers if self.num_workers > 1 else False,
             shuffle=shuffle
         )
 

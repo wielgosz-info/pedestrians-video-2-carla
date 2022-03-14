@@ -5,7 +5,6 @@ from typing import Tuple, Type, Union
 import numpy as np
 import pandas
 import torch
-from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
 from pedestrians_video_2_carla.data.base.skeleton import get_common_indices
 from pedestrians_video_2_carla.data.carla import reference as carla_reference
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
@@ -22,10 +21,10 @@ from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose
 from pedestrians_video_2_carla.walker_control.p3d_pose_projection import \
     P3dPoseProjection
 from pytorch3d.transforms.rotation_conversions import euler_angles_to_matrix
-from torch.utils.data import Dataset
+from pedestrians_video_2_carla.data.base.base_dataset import Projection2DMixin, TorchDataset, ConfidenceMixin
 
 
-class SMPLDataset(Dataset, Projection2DMixin):
+class SMPLDataset(Projection2DMixin, ConfidenceMixin, TorchDataset):
     def __init__(self,
                  data_dir,
                  set_filepath,
@@ -106,10 +105,11 @@ class SMPLDataset(Dataset, Projection2DMixin):
         )
 
         projection_2d, projection_targets = self.process_projection_2d(projections)
+        projection_2d = self.process_confidence(projection_2d)
 
         return (projection_2d, {
             **projection_targets,
-            
+
             'relative_pose_loc': relative_loc.detach(),
             'relative_pose_rot': relative_rot.detach(),
             'absolute_pose_loc': absolute_loc.detach(),

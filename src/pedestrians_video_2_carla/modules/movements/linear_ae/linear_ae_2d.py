@@ -1,9 +1,7 @@
-import torch
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModel
 from pedestrians_video_2_carla.modules.flow.output_types import \
     MovementsModelOutputType
 from torch import nn
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 class LinearAE2D(MovementsModel):
@@ -76,19 +74,3 @@ class LinearAE2D(MovementsModel):
         out = out.view(*original_shape[0:2],
                        self.__output_nodes_len, self.__output_features)
         return out
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=1e-2)
-
-        lr_scheduler = {
-            'scheduler': ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-6),
-            'interval': 'epoch',
-            'monitor': 'train_loss/primary'
-        }
-
-        config = {
-            'optimizer': optimizer,
-            'lr_scheduler': lr_scheduler,
-        }
-
-        return config
