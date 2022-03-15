@@ -274,7 +274,7 @@ def main(args: List[str]):
             save_dir=args.logs_dir,
             name=version,
             version=version,
-            project="pose-lifting",
+            project=args.flow,
             entity="carla-pedestrians",
         )
         log_dir = os.path.realpath(os.path.join(str(logger.experiment.dir), ".."))
@@ -324,6 +324,9 @@ def main(args: List[str]):
         trainer.fit(model=model, datamodule=dm, ckpt_path=args.ckpt_path)
     elif args.mode == "test":
         trainer.test(model=model, datamodule=dm)
+
+    if isinstance(logger, WandbLogger):
+        wandb.finish()
 
     return log_dir
 

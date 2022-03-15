@@ -1,4 +1,5 @@
 import torch
+from torch_geometric.nn import GAE, VGAE 
 
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch_geometric.nn import GAE, VGAE, GCNConv
@@ -22,12 +23,12 @@ class SpatialGnn(MovementsModel):
         lr_scheduler = {
             'scheduler': ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=50, min_lr=1e-6),
             'interval': 'epoch',
-            'monitor': 'train_loss/primary'
+            'monitor': 'val_loss/primary'
         }
 
         config = {
             'optimizer': optimizer,
-            # 'lr_scheduler': lr_scheduler,
+            'lr_scheduler': lr_scheduler,
         }
 
         return config
@@ -48,14 +49,15 @@ class GCNEncoder(SpatialGnn):
         return self.conv3(x, edge_index)
 
 
-class VariationalGCNEncoder(SpatialGnn):
+class VariationalGCNEncoder(torch.nn.Module):
     def __init__(self, in_channels, out_channels, **kwargs):
         super().__init__()
-        self.conv1 = GCNConv(in_channels, 2 * out_channels)
-        self.conv_mu = GCNConv(2 * out_channels, out_channels)
-        self.conv_logstd = GCNConv(2 * out_channels, out_channels)
+        self.mult_factor = 128
+        self.conv1 = GCNConv(in_channels, self.mult_factor  * out_channels)
+        self.conv_mu = GCNConv(self.mult_factor  * out_channels, out_channels)
+        self.conv_logstd = GCNConv(self.mult_factor  * out_channels, out_channels)
 
-    def forward(self, x, edge_index):
+    def forward(self, x, edge_index, **kwargs):
         x = self.conv1(x, edge_index).relu()
         return self.conv_mu(x, edge_index), self.conv_logstd(x, edge_index)
 
@@ -76,6 +78,18 @@ class LinearDecoder(torch.nn.Module):
 
     def forward(self, x, edge_index):
         return self.conv(x, edge_index)
+
+class VariationalGcn(SpatialGnn):
+    def __init__(self, in_channels=2, out_channels=2, **kwargs):
+        super().__init__()
+        self.model = VGAE(VariationalGCNEncoder(
+            in_channels=in_channels, 
+            out_channels=out_channels)
+            )
+    
+    def forward(self, x, edge_index, **kwargs):
+        return self.model.encode(x, edge_index)
+
 
 
 class GNNLinearAutoencoder(SpatialGnn):

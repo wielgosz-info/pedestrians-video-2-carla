@@ -1,11 +1,10 @@
 from enum import Enum
 from typing import Dict, Tuple
-from pytorch3d.transforms.rotation_conversions import matrix_to_rotation_6d, rotation_6d_to_matrix
+from pytorch3d.transforms.rotation_conversions import matrix_to_rotation_6d
 import torch
 from torch import nn
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch import Tensor
-from pedestrians_video_2_carla.modules.movements.movements import MovementsModel, MovementsModelOutputTypeMixin
+from pedestrians_video_2_carla.modules.movements.movements import MovementsModel, MovementsModelOutputType, MovementsModelOutputTypeMixin
 
 
 class TeacherMode(Enum):
@@ -258,7 +257,7 @@ class Seq2Seq(MovementsModelOutputTypeMixin, MovementsModel):
             if self.output_type == MovementsModelOutputType.pose_changes:
                 target_output = matrix_to_rotation_6d(targets['pose_changes'])
             elif self.output_type == MovementsModelOutputType.pose_2d:
-                # TODO: get correct output key
+                # TODO: get correct output key, support all output types
                 target_output = targets['projection_2d_transformed']
 
             (batch_size, clip_length, *_) = target_output.shape
