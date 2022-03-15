@@ -1,8 +1,17 @@
 import torch
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModel
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModelOutputType
-from torch import nn
-from pedestrians_video_2_carla.third_party.pose_former.model_poseformer import PoseTransformer as PoseFormerModel
+
+try:
+    from pedestrians_video_2_carla.third_party.pose_former.model_poseformer import PoseTransformer as PoseFormerModel
+except ModuleNotFoundError:
+    from pedestrians_video_2_carla.utils.exceptions import NotAvailableException
+
+    # dummy class to ensure model list works
+    # TODO: models listed as available should be actually available ;)
+    class PoseFormerModel:
+        def __init__(self, *args, **kwargs):
+            raise NotAvailableException("PoseTransformer", "pose_former")
 
 
 class PoseFormer(MovementsModel):

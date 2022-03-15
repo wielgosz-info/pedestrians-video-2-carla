@@ -1,13 +1,21 @@
 from typing import List, Any, Dict
-from human_body_prior.body_model.body_model import BodyModel
-from body_visualizer.mesh.mesh_viewer import MeshViewer
 import numpy as np
-import trimesh
-from OpenGL.error import GLError
 from torch import Tensor
-
 from pedestrians_scenarios.karma.renderers.renderer import Renderer
-from pedestrians_video_2_carla.data.smpl.utils import get_body_model
+
+try:   
+    from human_body_prior.body_model.body_model import BodyModel
+    from body_visualizer.mesh.mesh_viewer import MeshViewer
+    from pedestrians_video_2_carla.data.smpl.utils import get_body_model
+    import trimesh
+    from OpenGL.error import GLError
+except ModuleNotFoundError:
+    from pedestrians_video_2_carla.utils.exceptions import NotAvailableException
+
+    class MeshViewer:
+        def __init__(self, *args, **kwargs):
+            raise NotAvailableException("MeshViewer", "smpl_renderer")
+
 
 
 class SMPLRenderer(Renderer):
@@ -35,7 +43,7 @@ class SMPLRenderer(Renderer):
             )
             yield video
 
-    def render_clip(self, body_model: BodyModel, body_pose_clip: Tensor) -> np.ndarray:
+    def render_clip(self, body_model: 'BodyModel', body_pose_clip: Tensor) -> np.ndarray:
         video = []
 
         faces = body_model.f.cpu()

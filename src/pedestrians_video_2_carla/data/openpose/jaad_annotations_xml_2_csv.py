@@ -323,7 +323,7 @@ class AnnotationsXml2Csv(object):
 
         return self.df_full
 
-    def generate_df(self, file_path="/outputs/JAAD/annotations.csv"):
+    def generate_df(self, file_path="/outputs/JAADOpenPoseDataModule/annotations.csv"):
         dirname = os.path.dirname(file_path)
 
         if not os.path.exists(dirname):

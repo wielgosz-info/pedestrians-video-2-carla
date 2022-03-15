@@ -1,7 +1,4 @@
-import os
-from pedestrians_video_2_carla.data import OUTPUTS_BASE
-
-JAAD_OPENPOSE_DIR = os.path.join(OUTPUTS_BASE, 'JAAD')
+OPENPOSE_DIR = 'openpose'
 DF_ISIN = {
     'action': ['walking'],
     'speed': ['stopped'],

@@ -19,7 +19,7 @@ If needed (you want to use `JAADOpenPoseDataModule`), inside the container run t
 ```sh
 python src/pedestrians_video_2_carla/data/utils/jaad_annotations_xml_2_csv.py
 ```
-script to convert the JAAD annotations from XML to CSV. The output will be in `/outputs/JAAD/annotations.csv` and this is where `JAADOpenPoseDataModule` will look for it by default. Please note that the data module expects to find the keypoints files in `/outputs/JAAD`, you need to process the dataset with OpenPose to get them.
+script to convert the JAAD annotations from XML to CSV. The output will be in `/outputs/JAADOpenPoseDataModule` and this is where `JAADOpenPoseDataModule` will look for it by default. Please note that the data module expects to find the keypoints files in `/outputs/JAADOpenPoseDataModule/openpose`, you need to process the dataset with OpenPose to get them.
 
 (For now) the `annotations.csv` file needs to have `video`, `frame`, `x1`,`y1`, `x2`, `y2`, `id`, `action`, `gender`, `age`, `group_size` and `speed` columns, where `x1`,`y1`, `x2`, `y2` define pedestrian bounding box, `id` is the pedestrian id, `action` is what the pedestrian is doing (since right now only the `walking` ones will be used) and `speed` is the car speed category (for now only `stopped` cars will be used). For now we are also only using fragments where `group_size=1`.
 

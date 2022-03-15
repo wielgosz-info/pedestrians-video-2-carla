@@ -1,13 +1,18 @@
-from lib2to3.pgen2 import driver
 import logging
-from typing import Literal, Optional, Type
+from typing import Type
 import numpy as np
 import torch
 from pedestrians_video_2_carla.data.base.base_dataset import BaseDataset
 
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pytorch3d.transforms import euler_angles_to_matrix
-import h5pickle as h5py
+
+try:
+    import h5pickle as h5py
+except ModuleNotFoundError:
+    import h5py
+    import warnings
+    warnings.warn("h5pickle not found, using h5py instead")
 
 
 class CarlaRecordedDataset(BaseDataset):

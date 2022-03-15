@@ -1,7 +1,5 @@
-from random import choices
 from typing import Optional
 import os
-from nbformat import write
 import numpy as np
 import pandas as pd
 import h5py
@@ -9,14 +7,10 @@ import sklearn
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
 from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
 from pedestrians_video_2_carla.data.carla.carla_recorded_dataset import CarlaRecordedDataset
-from .constants import CARLA_RECORDED_DIR
 import pandas as pd
 import ast
 from sklearn.model_selection import train_test_split
-
-from pedestrians_scenarios.karma.utils.conversions import convert_list_to_vector3d, convert_list_to_transform
-from pedestrians_scenarios.karma.pose.pose_dict import convert_list_to_pose_dict, convert_list_to_pose_2d_dict
-
+from .constants import CARLA_RECORDED_DIR
 
 def convert_to_list(x):
     try:
@@ -28,23 +22,22 @@ def convert_to_list(x):
 
 class CarlaRecordedDataModule(BaseDataModule):
     def __init__(self,
-                 data_dir: Optional[str] = CARLA_RECORDED_DIR,
                  val_set_frac: Optional[float] = 0.2,
                  test_set_frac: Optional[float] = 0.2,
                  clip_offset: Optional[int] = 30,
                  **kwargs):
-        self.data_dir = data_dir
-        self.val_set_frac = val_set_frac
-        self.test_set_frac = test_set_frac
+        assert clip_offset > 0, 'clip_offset must be greater than 0'
+
         self.clip_offset = clip_offset
-
-        assert self.clip_offset > 0, 'clip_offset must be greater than 0'
-
         self.__settings = {
             'clip_offset': self.clip_offset,
         }
 
         super().__init__(**kwargs)
+
+        self.data_dir = os.path.join(self.datasets_dir, CARLA_RECORDED_DIR)
+        self.val_set_frac = val_set_frac
+        self.test_set_frac = test_set_frac
 
     @property
     def settings(self):
@@ -75,12 +68,6 @@ class CarlaRecordedDataModule(BaseDataModule):
                 ''',
             type=int,
             default=30
-        )
-        parser.add_argument(
-            '--data_dir',
-            help="Directory where data.csv and videos rendered from CARLA are stored.",
-            type=str,
-            default=CARLA_RECORDED_DIR
         )
         parser.add_argument(
             '--skip_metadata',

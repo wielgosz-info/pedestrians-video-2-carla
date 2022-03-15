@@ -46,7 +46,7 @@ def main(args: List[str]):
         '-c',
         '--config',
         type=str,
-        default='configs/carla-recorded_autoencoder_tests.yaml',
+        default='/usersdata/plgwielgosz/carla-pedestrians/pedestrians-video-2-carla/configs/carla-recorded_autoencoder_tests.yaml',
         help='path to the configuration file'
     )
     args = parser.parse_args(args)

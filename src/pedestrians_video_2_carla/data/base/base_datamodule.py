@@ -1,6 +1,6 @@
 from typing import Any, Callable, Dict, Optional, Type, Union
 
-from pedestrians_video_2_carla.data import OUTPUTS_BASE
+from pedestrians_video_2_carla.data import OUTPUTS_BASE, DATASETS_BASE, SUBSETS_BASE, DEFAULT_ROOT
 import os
 import hashlib
 import pandas
@@ -29,7 +29,7 @@ except ImportError:
 class BaseDataModule(LightningDataModule):
     def __init__(self,
                  input_nodes: Type[Skeleton],
-                 outputs_dir: Optional[str] = None,
+                 root_dir: Optional[str] = DEFAULT_ROOT,
                  clip_length: Optional[int] = 30,
                  batch_size: Optional[int] = 64,
                  num_workers: Optional[int] = os.cpu_count(),
@@ -39,9 +39,8 @@ class BaseDataModule(LightningDataModule):
                  **kwargs):
         super().__init__()
 
-        if outputs_dir is None:
-            outputs_dir = os.path.join(OUTPUTS_BASE, self.__class__.__name__)
-        self.outputs_dir = outputs_dir
+        self.outputs_dir = os.path.join(root_dir, OUTPUTS_BASE, self.__class__.__name__)
+        self.datasets_dir = os.path.join(root_dir, DATASETS_BASE)
 
         self.clip_length = clip_length
         self.batch_size = batch_size
@@ -61,7 +60,7 @@ class BaseDataModule(LightningDataModule):
 
         self._settings_digest = self._calculate_settings_digest()
         self._subsets_dir = os.path.join(
-            self.outputs_dir, 'subsets', self._settings_digest)
+            self.outputs_dir, SUBSETS_BASE, self._settings_digest)
 
         print('Subsets dir: {}'.format(self._subsets_dir))
 
@@ -112,13 +111,6 @@ class BaseDataModule(LightningDataModule):
     @ staticmethod
     def add_data_specific_args(parent_parser):
         parser = parent_parser.add_argument_group('Base DataModule')
-        parser.add_argument(
-            "--outputs_dir",
-            type=str,
-            default=None,
-            help="Output directory for the dataset. Defaults to {}/NameOfTheDataModuleClass".format(
-                OUTPUTS_BASE)
-        )
         parser.add_argument(
             "--clip_length",
             metavar='NUM_FRAMES',

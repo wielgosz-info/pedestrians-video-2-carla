@@ -7,28 +7,16 @@ from pedestrians_video_2_carla.modules.movements import MOVEMENTS_MODELS
 from pedestrians_video_2_carla.modules.trajectory import TRAJECTORY_MODELS
 
 
-@pytest.fixture()
-def test_logs_dir():
-    """
-    Create a directory for the test logs.
-    """
-    import tempfile
-    logs_dir = tempfile.mkdtemp()
-    yield logs_dir
-    import shutil
-    shutil.rmtree(logs_dir)
-
-
 @pytest.fixture(scope="session")
-def test_outputs_dir():
+def test_root_dir():
     """
     Create a directory for the test logs.
     """
     import tempfile
-    outputs_dir = tempfile.mkdtemp()
-    yield outputs_dir
+    root_dir = tempfile.mkdtemp()
+    yield root_dir
     import shutil
-    shutil.rmtree(outputs_dir)
+    shutil.rmtree(root_dir)
 
 
 @pytest.fixture(scope="session")
@@ -59,7 +47,7 @@ def movements_output_type(request):
 
 # all models should be able to run with default settings
 # TODO: searate autoencoder-only flow models from pose-lifting-only models
-@pytest.fixture(params=list(set(MOVEMENTS_MODELS.keys()) - {'LinearAE2D', 'GNNLinearAutoencoder'}))
+@pytest.fixture(params=list(set(MOVEMENTS_MODELS.keys()) - {'LinearAE2D', 'GNNLinearAutoencoder', 'VariationalGcn'}))
 def movements_model_name(request):
     return request.param
 

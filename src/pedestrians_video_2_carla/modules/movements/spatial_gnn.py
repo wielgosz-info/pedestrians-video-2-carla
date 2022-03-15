@@ -1,10 +1,24 @@
 import torch
-from torch_geometric.nn import GAE, VGAE 
 
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch_geometric.nn import GAE, VGAE, GCNConv
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModel
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModelOutputType
+
+
+try:
+    from torch_geometric.nn import GAE, VGAE, GCNConv
+except ModuleNotFoundError:
+    from pedestrians_video_2_carla.utils.exceptions import NotAvailableException
+
+    # dummy class to ensure model list works
+    # TODO: models listed as available should be actually available ;)
+    class GNNLinearAutoencoder:
+        def __init__(self, *args, **kwargs):
+            raise NotAvailableException("GNNLinearAutoencoder", "gnn")
+
+    class VariationalGcn:
+        def __init__(self, *args, **kwargs):
+            raise NotAvailableException("VariationalGCN", "gnn")
 
 
 class SpatialGnn(MovementsModel):

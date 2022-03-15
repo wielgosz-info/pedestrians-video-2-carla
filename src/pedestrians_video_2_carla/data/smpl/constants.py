@@ -1,6 +1,4 @@
-from enum import Enum
 import os
-from pedestrians_video_2_carla.data import DATASETS_BASE
 
 SMPL_BODY_MODEL_DIR = os.path.realpath(os.path.join(
     os.path.dirname(__file__),
@@ -11,4 +9,4 @@ SMPL_MODELS = {
     'female': os.path.join('female', 'model.npz'),
     'neutral': os.path.join('neutral', 'model.npz')
 }
-AMASS_DIR = os.path.join(DATASETS_BASE, 'AMASS')
+AMASS_DIR = 'AMASS'

@@ -1,13 +1,14 @@
 """
 Sanity checks to see if the overall flow is working.
 """
+from pedestrians_video_2_carla.data import DATASETS_BASE, DEFAULT_ROOT, OUTPUTS_BASE
 from pedestrians_video_2_carla.modeling import main
 import os
 import shutil
 import glob
 
 
-def test_flow(test_logs_dir, test_outputs_dir, loss_mode, movements_output_type):
+def test_flow(test_root_dir, loss_mode, movements_output_type):
     """
     Test the overall flow using Linear model.
     """
@@ -29,12 +30,11 @@ def test_flow(test_logs_dir, test_outputs_dir, loss_mode, movements_output_type)
         "--renderers",
         "none",
         "--movements_output_type={}".format(movements_output_type),
-        "--outputs_dir={}".format(test_outputs_dir),
-        "--logs_dir={}".format(test_logs_dir)
+        "--root_dir={}".format(test_root_dir),
     ])
 
 
-def test_flow_needs_confidence(test_logs_dir, test_outputs_dir, movements_output_type):
+def test_flow_needs_confidence(test_root_dir):
     """
     Test the basic flow using Linear model with needs_confidence flag enabled.
     """
@@ -55,14 +55,13 @@ def test_flow_needs_confidence(test_logs_dir, test_outputs_dir, movements_output
         "common_loc_2d",
         "--renderers",
         "none",
-        "--movements_output_type={}".format(movements_output_type),
+        "--movements_output_type=pose_changes",
         "--needs_confidence",
-        "--outputs_dir={}".format(test_outputs_dir),
-        "--logs_dir={}".format(test_logs_dir)
+        "--root_dir={}".format(test_root_dir),
     ])
 
 
-def test_renderer(test_logs_dir, test_outputs_dir, renderer):
+def test_renderer(test_root_dir, renderer):
     """
     Test the renderers using Linear model.
     """
@@ -83,8 +82,8 @@ def test_renderer(test_logs_dir, test_outputs_dir, renderer):
         "common_loc_2d",
         "--renderers",
         renderer,
-        "--outputs_dir={}".format(test_outputs_dir),
-        "--logs_dir={}".format(test_logs_dir)
+        "--root_dir={}".format(test_root_dir),
+        "--seed=0",
     ])
 
     # assert the experiments log dir exists
@@ -96,7 +95,7 @@ def test_renderer(test_logs_dir, test_outputs_dir, renderer):
             experiment_dir, "videos")), 'Videos dir was created'
 
 
-def test_source_videos_jaad(test_logs_dir, test_outputs_dir, test_data_dir):
+def test_source_videos_jaad(test_root_dir, test_data_dir):
     """
     Test the source videos rendering using JAADOpenPoseDataModule.
     """
@@ -104,12 +103,13 @@ def test_source_videos_jaad(test_logs_dir, test_outputs_dir, test_data_dir):
     # and fail if it can't find the required files.
     shutil.copytree(
         os.path.join(test_data_dir, 'JAADOpenPoseDataModule'),
-        test_outputs_dir,
+        os.path.join(test_root_dir, OUTPUTS_BASE, 'JAADOpenPoseDataModule'),
         dirs_exist_ok=True
     )
 
     # We're not going to include the videos in the repo, so optionally provide the path
-    source_videos_dir = os.getenv('JAAD_SOURCE_VIDEOS_DIR', '/datasets/JAAD/videos')
+    source_videos_dir = os.getenv('JAAD_SOURCE_VIDEOS_DIR', os.path.join(
+        DEFAULT_ROOT, DATASETS_BASE, 'JAAD', 'videos'))
 
     experiment_dir = main([
         "--data_module_name=JAADOpenPose",
@@ -127,9 +127,7 @@ def test_source_videos_jaad(test_logs_dir, test_outputs_dir, test_data_dir):
         "--renderers",
         "source_videos",
         "--source_videos_dir={}".format(source_videos_dir),
-        "--outputs_dir={}".format(test_outputs_dir),
-        "--openpose_dir={}".format(test_outputs_dir),
-        "--logs_dir={}".format(test_logs_dir)
+        "--root_dir={}".format(test_root_dir),
     ])
 
     video_dir = os.path.join(experiment_dir, "videos", "val")
@@ -141,7 +139,7 @@ def test_source_videos_jaad(test_logs_dir, test_outputs_dir, test_data_dir):
     assert len(videos) == 4, 'Video files were not created'
 
 
-def test_pose_lifting(test_logs_dir, test_outputs_dir, movements_model_name, trajectory_model_name):
+def test_pose_lifting(test_root_dir, movements_model_name, trajectory_model_name):
     """
     Test the overall flow using specified models.
     """
@@ -164,12 +162,11 @@ def test_pose_lifting(test_logs_dir, test_outputs_dir, movements_model_name, tra
         "common_loc_2d",
         "--renderers",
         "none",
-        "--outputs_dir={}".format(test_outputs_dir),
-        "--logs_dir={}".format(test_logs_dir)
+        "--root_dir={}".format(test_root_dir),
     ])
 
 
-def test_weighted_loss(test_logs_dir, test_outputs_dir):
+def test_weighted_loss(test_root_dir):
     """
     Test the overall flow using Linear model.
     """
@@ -195,6 +192,5 @@ def test_weighted_loss(test_logs_dir, test_outputs_dir):
         "--renderers",
         "none",
         "--movements_output_type=absolute_loc_rot",
-        "--outputs_dir={}".format(test_outputs_dir),
-        "--logs_dir={}".format(test_logs_dir)
+        "--root_dir={}".format(test_root_dir),
     ])

@@ -1,5 +1,8 @@
-DATASETS_BASE = '/datasets'
-OUTPUTS_BASE = '/outputs'  # for intermediate outputs, sine DATASETS should be read-only
+DEFAULT_ROOT = '/'  # this will work well in docker
+DATASETS_BASE = 'datasets'
+OUTPUTS_BASE = 'outputs'  # for intermediate outputs, sine DATASETS should be read-only
+SUBSETS_BASE = 'subsets'
+
 DATA_MODULES = {}
 
 

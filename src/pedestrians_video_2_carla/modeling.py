@@ -126,9 +126,17 @@ def add_program_args(data_modules, flow_modules, movements_models, trajectory_mo
         type=str,
     )
     parser.add_argument(
+        "--root_dir",
+        dest="root_dir",
+        help="Root directory for the outputs/datasets/logs resolving.",
+        default='/',
+        type=str,
+    )
+    parser.add_argument(
         "--logs_dir",
         dest="logs_dir",
-        default=os.path.join(os.getcwd(), "lightning_logs"),
+        help="Directory for the logs. Must be abs path or relative to the root_dir.",
+        default="runs",
         type=str,
     )
     parser.add_argument(
@@ -265,13 +273,17 @@ def main(args: List[str]):
 
     # loggers - try to use WandbLogger or fallback to TensorBoardLogger
     # the primary logger log dir is used as default for all loggers & checkpoints
+    if os.path.isabs(args.logs_dir):
+        abs_logs_dir = args.logs_dir
+    else:
+        abs_logs_dir = os.path.join(args.root_dir, args.logs_dir)
     if (
         WandbLogger is not None
         and "PYTEST_CURRENT_TEST" not in os.environ
         and not args.prefer_tensorboard
     ):
         logger = WandbLogger(
-            save_dir=args.logs_dir,
+            save_dir=abs_logs_dir,
             name=version,
             version=version,
             project=args.flow,
@@ -280,7 +292,7 @@ def main(args: List[str]):
         log_dir = os.path.realpath(os.path.join(str(logger.experiment.dir), ".."))
     else:
         logger = TensorBoardLogger(
-            save_dir=args.logs_dir,
+            save_dir=abs_logs_dir,
             name=os.path.join(
                 dm.__class__.__name__,
                 trajectory_model.__class__.__name__,

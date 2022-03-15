@@ -1,8 +1,7 @@
 import logging
 import math
-from typing import Callable, Optional, Type
+from typing import Optional, Type
 
-import h5pickle as h5py
 import numpy as np
 import torch
 from pedestrians_video_2_carla.data.base.base_dataset import TorchDataset, TorchIterableDataset, Projection2DMixin, ConfidenceMixin
@@ -10,6 +9,13 @@ from pedestrians_video_2_carla.modules.layers.projection import \
     ProjectionModule
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pytorch3d.transforms import euler_angles_to_matrix
+
+try:
+    import h5pickle as h5py
+except ModuleNotFoundError:
+    import h5py
+    import warnings
+    warnings.warn("h5pickle not found, using h5py instead")
 
 
 class Carla2D3DDataset(Projection2DMixin, ConfidenceMixin, TorchDataset):

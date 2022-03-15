@@ -16,7 +16,7 @@ from pedestrians_scenarios.karma.utils.rotations import mul_carla_rotations
 from pedestrians_scenarios.karma.utils.deepcopy import deepcopy_transform
 from pedestrians_video_2_carla.data.carla.utils import load
 
-from pedestrians_scenarios.karma.pose.pose_dict import PoseDict
+from pedestrians_scenarios.karma.pose.types import PoseDict
 
 
 class Pose(object):
