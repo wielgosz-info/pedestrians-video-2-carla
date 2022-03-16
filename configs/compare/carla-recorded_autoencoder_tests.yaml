@@ -3,21 +3,19 @@ common_params:
   flow: autoencoder
   data_module_name: CarlaRecorded
   trajectory_model_name: ZeroTrajectory
-  logs_dir: /runs/carla-recorded_autoencoder_tests
   seed: 22742
   log_every_n_steps: 10
-  batch_size: 2048
+  batch_size: 256
   renderers: none
   skip_metadata: null
   num_sanity_val_steps: 1
   clip_offset: 15
   clip_length: 15
-  gpus: 1
-  auto_select_gpus: True
-  max_epochs: 5000
-  transform: bbox
+  max_epochs: 1500
   noise_param: 1.0
-  enable_progress_bar: True
+  enable_progress_bar: False
+  disable_lr_scheduler: null
+  lr: 0.01
 compare_params:
   movements_model_name:
     - LinearAE2D
@@ -26,10 +24,11 @@ compare_params:
     - Seq2SeqEmbeddings
   noise:
     - zero
-    - gaussian
   missing_point_probability:
-    - 0.0
     - 0.1
+  transform:
+    - bbox
+    - hips_neck_bbox
 common_model:
   Seq2Seq:
     teacher_mode: frames_force

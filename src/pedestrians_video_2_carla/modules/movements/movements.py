@@ -35,6 +35,8 @@ class MovementsModel(nn.Module):
     def __init__(self,
                  input_nodes: Type[Skeleton] = CARLA_SKELETON,
                  output_nodes: Type[Skeleton] = CARLA_SKELETON,
+                 disable_lr_scheduler: bool = False,
+                 lr: float = None,
                  *args,
                  **kwargs
                  ):
@@ -42,6 +44,12 @@ class MovementsModel(nn.Module):
 
         self.input_nodes = input_nodes
         self.output_nodes = output_nodes
+        self.disable_lr_scheduler = disable_lr_scheduler
+
+        if lr is None:
+            self.learning_rate = 1e-2 if self.disable_lr_scheduler else 5e-2
+        else:
+            self.learning_rate = lr
 
         self._hparams = {}
 
@@ -52,6 +60,8 @@ class MovementsModel(nn.Module):
             'movements_output_type': self.output_type.name,
             'input_nodes': get_skeleton_name_by_type(self.input_nodes),
             'output_nodes': get_skeleton_name_by_type(self.output_nodes),
+            'disable_lr_scheduler': self.disable_lr_scheduler,
+            'initial_lr': self.learning_rate,
             **self._hparams
         }
 
@@ -80,10 +90,21 @@ class MovementsModel(nn.Module):
         """
         Add model-specific arguments to the CLI args parser.
         """
+        parser = parent_parser.add_argument_group("Movements Model")
+        parser.add_argument(
+            '--lr',
+            default=None,
+            type=float,
+        )
+        parser.add_argument(
+            '--disable_lr_scheduler',
+            default=False,
+            action='store_true',
+        )
         return parent_parser
 
     def configure_optimizers(self) -> Tuple[List[torch.optim.Optimizer], List[Dict[str, '_LRScheduler']]]:
-        optimizer = torch.optim.AdamW(self.parameters(), lr=1e-1)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
 
         lr_scheduler = {
             'scheduler': ReduceLROnPlateau(optimizer, mode='min', min_lr=1e-4, factor=0.2, patience=50, cooldown=20),
@@ -93,8 +114,10 @@ class MovementsModel(nn.Module):
 
         config = {
             'optimizer': optimizer,
-            'lr_scheduler': lr_scheduler,
         }
+
+        if not self.disable_lr_scheduler:
+            config['lr_scheduler'] = lr_scheduler
 
         return config
 
@@ -126,7 +149,7 @@ class MovementsModelOutputTypeMixin(object):
         return self.movements_output_type
 
     @staticmethod
-    def add_cli_args(parser):
+    def add_model_specific_args(parser):
         parser.add_argument(
             '--movements_output_type',
             help="""

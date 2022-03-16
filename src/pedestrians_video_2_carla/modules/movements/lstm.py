@@ -49,10 +49,12 @@ class LSTM(MovementsModelOutputTypeMixin, MovementsModel):
             'embeddings_size': self.__embeddings_size
         }
 
-    @ staticmethod
+    @staticmethod
     def add_model_specific_args(parent_parser):
-        parser = parent_parser.add_argument_group("LSTM Lightning Module")
-        parser = MovementsModelOutputTypeMixin.add_cli_args(parser)
+        parent_parser = MovementsModel.add_model_specific_args(parent_parser)
+
+        parser = parent_parser.add_argument_group("LSTM Movements Model")
+        parser = MovementsModelOutputTypeMixin.add_model_specific_args(parser)
         parser.add_argument(
             '--embeddings_size',
             default=None,

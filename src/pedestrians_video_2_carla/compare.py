@@ -41,13 +41,35 @@ def main(args: List[str]):
     :type args: List[str]
     """
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="""
+        Helper script to run multiple tests in parallel.
+        This is NOT intended to be used for hyperparameter tuning,
+        but to compare the performance of different, predefined models/variants,
+        how the models/variants behave with various data scenarios (noise, missing points)
+        or simply queue some experiments.
+        """)
     parser.add_argument(
         '-c',
         '--config',
         type=str,
-        default='/usersdata/plgwielgosz/carla-pedestrians/pedestrians-video-2-carla/configs/carla-recorded_autoencoder_tests.yaml',
+        default=None,
         help='path to the configuration file'
+    )
+    parser.add_argument(
+        "-r",
+        "--root_dir",
+        dest="root_dir",
+        help="Root directory for the outputs/datasets/logs resolving.",
+        default='/',
+        type=str,
+    )
+    parser.add_argument(
+        "-n",
+        "--num_workers",
+        dest="num_workers",
+        type=int,
+        default=4,
+        help="Number of workers to use for tests parallelization."
     )
     args = parser.parse_args(args)
 
@@ -56,6 +78,8 @@ def main(args: List[str]):
 
     # ensure log dir exists
     logs_dir = config['common_params'].get('logs_dir', 'compare_logs')
+    if not os.path.isabs(logs_dir):
+        logs_dir = os.path.join(args.root_dir, logs_dir)
     if logs_dir is not None:
         os.makedirs(logs_dir, exist_ok=True)
         os.makedirs(os.path.join(logs_dir, 'stdout'), exist_ok=True)
@@ -67,6 +91,11 @@ def main(args: List[str]):
     else:
         models = [config['common_params']['movements_model_name']]
         del config['common_params']['movements_model_name']
+
+    if 'compare_model' not in config:
+        config['compare_model'] = {}
+    if 'common_model' not in config:
+        config['common_model'] = {}
 
     # how many 'common' tests will be performed?
     compare_params_count = sum([len(config['compare_params'][param])
@@ -81,7 +110,7 @@ def main(args: List[str]):
     tests_count = compare_params_count * model_variants_count
 
     pbar = tqdm(total=tests_count, desc='Tests')
-    tp = ThreadPool(processes=4)
+    tp = ThreadPool(processes=args.num_workers)
 
     for model in models:
         model_variants = config['compare_model'].get(model, {})
@@ -99,7 +128,8 @@ def main(args: List[str]):
             variant_config = {
                 'movements_model_name': model,
                 **common_config,
-                **dict(zip(keys, combination))
+                **dict(zip(keys, combination)),
+                'root_dir': args.root_dir,
             }
 
             tp.apply_async(work, (variant_config, logs_dir, pbar))

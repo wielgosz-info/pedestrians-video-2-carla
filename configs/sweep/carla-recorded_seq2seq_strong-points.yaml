@@ -1,0 +1,67 @@
+program: -m pedestrians-video-2-carla
+method: bayes
+metric:
+  goal: maximize
+  name: hp/PCKhn@001
+parameters:
+  mode:
+    value: train
+  flow:
+    value: autoencoder
+  data_module_name:
+    value: CarlaRecorded
+  log_every_n_steps:
+    value: 10
+  num_sanity_val_steps:
+    value: 1
+  max_epochs:
+    value: 1500
+  enable_progress_bar:
+    value: False
+  disable_lr_scheduler:
+    value: null
+  lr:
+    value: 0.01
+  movements_model_name:
+    value: Seq2Seq
+  renderers:
+    value: none
+  skip_metadata:
+    value: null
+  movements_output_type:
+    value: pose_2d
+  clip_offset:
+    value: 15
+  clip_length:
+    value: 15
+  batch_size:
+    value: 256
+  hidden_size:
+    max: 256
+    min: 64
+    distribution: int_uniform
+  num_layers:
+    max: 4
+    min: 1
+    distribution: int_uniform
+  teacher_mode:
+    value: frames_force
+  teacher_force_ratio:
+    min: 0.0
+    max: 0.5
+    distribution: uniform
+  teacher_force_drop:
+    min: 0.0001
+    max: 0.02
+    distribution: uniform
+  transform:
+    values:
+      - BaseTransforms.bbox
+      - BaseTransforms.hips_neck_bbox
+    distribution: categorical
+  missing_point_probability:
+    value: 0.0
+  noise_param:
+    value: 1.0
+  noise:
+    value: zero

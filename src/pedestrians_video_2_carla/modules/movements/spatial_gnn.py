@@ -68,11 +68,13 @@ class VariationalGCNEncoder(torch.nn.Module):
         super().__init__()
         self.mult_factor = 128
         self.conv1 = GCNConv(in_channels, self.mult_factor  * out_channels)
+        self.conv2 = GCNConv(self.mult_factor  * out_channels, self.mult_factor  * out_channels)
         self.conv_mu = GCNConv(self.mult_factor  * out_channels, out_channels)
         self.conv_logstd = GCNConv(self.mult_factor  * out_channels, out_channels)
 
     def forward(self, x, edge_index, **kwargs):
         x = self.conv1(x, edge_index).relu()
+        x = self.conv2(x, edge_index).relu()
         return self.conv_mu(x, edge_index), self.conv_logstd(x, edge_index)
 
 

@@ -2,6 +2,7 @@ from pedestrians_video_2_carla.modules.movements.movements import MovementsModel
 from pedestrians_video_2_carla.modules.flow.output_types import \
     MovementsModelOutputType
 from torch import nn
+import torch
 
 
 class LinearAE2D(MovementsModel):
@@ -54,8 +55,10 @@ class LinearAE2D(MovementsModel):
     def output_type(self) -> MovementsModelOutputType:
         return MovementsModelOutputType.pose_2d
 
-    @ staticmethod
+    @staticmethod
     def add_model_specific_args(parent_parser):
+        parent_parser = MovementsModel.add_model_specific_args(parent_parser)
+        
         parser = parent_parser.add_argument_group("LinearAE2D Movements Model")
         parser.add_argument(
             '--model_scaling_factor',
