@@ -46,7 +46,7 @@ class LSTM(MovementsModelOutputTypeMixin, MovementsModel):
         self._hparams = {
             'hidden_size': hidden_size,
             'num_layers': num_layers,
-            'embeddings_size': self.__embeddings_size
+            'embeddings_size': embeddings_size
         }
 
     @staticmethod
