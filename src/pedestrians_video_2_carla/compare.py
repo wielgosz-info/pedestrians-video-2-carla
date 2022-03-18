@@ -60,7 +60,7 @@ def main(args: List[str]):
         "--root_dir",
         dest="root_dir",
         help="Root directory for the outputs/datasets/logs resolving.",
-        default='/',
+        default=os.environ.get("VIDEO2CARLA_ROOT_DIR", "/"),
         type=str,
     )
     parser.add_argument(

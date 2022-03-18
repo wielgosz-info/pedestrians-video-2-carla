@@ -129,7 +129,7 @@ def add_program_args(data_modules, flow_modules, movements_models, trajectory_mo
         "--root_dir",
         dest="root_dir",
         help="Root directory for the outputs/datasets/logs resolving.",
-        default='/',
+        default=os.environ.get("VIDEO2CARLA_ROOT_DIR", "/"),
         type=str,
     )
     parser.add_argument(

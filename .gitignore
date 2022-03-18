@@ -57,3 +57,4 @@ MANIFEST
 
 # Logs
 lightning_logs/
+wandb/
