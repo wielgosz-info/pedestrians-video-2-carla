@@ -147,13 +147,14 @@ class BaseDataModule(LightningDataModule):
         return parent_parser
 
     def get_dataloader(self, dataset, shuffle=False, persistent_workers=False):
+        pin_memory = self.kwargs.get('gpus', None) is not None
         if self.return_graph and self.clip_length == 1:
             # for spatial GNNs we need to use the torch_geometric DataLoader
             return GraphDataLoader(
                 dataset=dataset,
                 batch_size=self.batch_size,
                 num_workers=self.num_workers,
-                pin_memory=True,
+                pin_memory=pin_memory,
                 persistent_workers=persistent_workers,
                 shuffle=shuffle
             )
@@ -161,7 +162,7 @@ class BaseDataModule(LightningDataModule):
             dataset=dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
-            pin_memory=True,
+            pin_memory=pin_memory,
             persistent_workers=persistent_workers if self.num_workers > 1 else False,
             shuffle=shuffle
         )
@@ -284,7 +285,7 @@ class BaseDataModule(LightningDataModule):
         if stage == "fit" or stage is None:
             self.train_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'train.{set_ext}'),
-                points=self.nodes,
+                nodes=self.nodes,
                 transform=self.transform_callable,
                 return_graph=self.return_graph,
                 clip_length=self.clip_length,
@@ -295,7 +296,7 @@ class BaseDataModule(LightningDataModule):
             )
             self.val_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'val.{set_ext}'),
-                points=self.nodes,
+                nodes=self.nodes,
                 transform=self.transform_callable,
                 return_graph=self.return_graph,
                 clip_length=self.clip_length,
@@ -308,7 +309,7 @@ class BaseDataModule(LightningDataModule):
         if stage == "test" or stage is None:
             self.test_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'test.{set_ext}'),
-                points=self.nodes,
+                nodes=self.nodes,
                 transform=self.transform_callable,
                 return_graph=self.return_graph,
                 clip_length=self.clip_length,

@@ -70,6 +70,37 @@ class BODY_25_SKELETON(Skeleton):
     def get_hips_point(cls) -> 'BODY_25_SKELETON':
         return BODY_25_SKELETON.MidHip
 
+    @classmethod
+    def get_edges(cls) -> List[Tuple['BODY_25_SKELETON', 'BODY_25_SKELETON']]:
+        return [
+            (BODY_25_SKELETON.Nose, BODY_25_SKELETON.Neck),
+            (BODY_25_SKELETON.Neck, BODY_25_SKELETON.RShoulder),
+            (BODY_25_SKELETON.Neck, BODY_25_SKELETON.LShoulder),
+            (BODY_25_SKELETON.RShoulder, BODY_25_SKELETON.RElbow),
+            (BODY_25_SKELETON.RElbow, BODY_25_SKELETON.RWrist),
+            (BODY_25_SKELETON.LShoulder, BODY_25_SKELETON.LElbow),
+            (BODY_25_SKELETON.LElbow, BODY_25_SKELETON.LWrist),
+            (BODY_25_SKELETON.Neck, BODY_25_SKELETON.MidHip),
+            (BODY_25_SKELETON.MidHip, BODY_25_SKELETON.RHip),
+            (BODY_25_SKELETON.RHip, BODY_25_SKELETON.RKnee),
+            (BODY_25_SKELETON.RKnee, BODY_25_SKELETON.RAnkle),
+            (BODY_25_SKELETON.MidHip, BODY_25_SKELETON.LHip),
+            (BODY_25_SKELETON.LHip, BODY_25_SKELETON.LKnee),
+            (BODY_25_SKELETON.LKnee, BODY_25_SKELETON.LAnkle),
+            (BODY_25_SKELETON.Nose, BODY_25_SKELETON.REye),
+            (BODY_25_SKELETON.REye, BODY_25_SKELETON.REar),
+            (BODY_25_SKELETON.Nose, BODY_25_SKELETON.LEye),
+            (BODY_25_SKELETON.LEye, BODY_25_SKELETON.LEar),
+            (BODY_25_SKELETON.LAnkle, BODY_25_SKELETON.LHeel),
+            (BODY_25_SKELETON.RAnkle, BODY_25_SKELETON.RHeel),
+            (BODY_25_SKELETON.LHeel, BODY_25_SKELETON.LBigToe),
+            (BODY_25_SKELETON.LBigToe, BODY_25_SKELETON.LSmallToe),
+            (BODY_25_SKELETON.LHeel, BODY_25_SKELETON.LSmallToe),
+            (BODY_25_SKELETON.RHeel, BODY_25_SKELETON.RBigToe),
+            (BODY_25_SKELETON.RBigToe, BODY_25_SKELETON.RSmallToe),
+            (BODY_25_SKELETON.RHeel, BODY_25_SKELETON.RSmallToe),
+        ]
+
 
 class COCO_SKELETON(Skeleton):
     Nose = 0
@@ -122,6 +153,28 @@ class COCO_SKELETON(Skeleton):
     @classmethod
     def get_hips_point(cls) -> List['COCO_SKELETON']:
         return [COCO_SKELETON.LHip, COCO_SKELETON.RHip]
+
+    @classmethod
+    def get_edges(cls) -> List[Tuple['COCO_SKELETON', 'COCO_SKELETON']]:
+        return [
+            (COCO_SKELETON.Neck, COCO_SKELETON.Nose),
+            (COCO_SKELETON.Neck, COCO_SKELETON.RShoulder),
+            (COCO_SKELETON.Neck, COCO_SKELETON.LShoulder),
+            (COCO_SKELETON.RShoulder, COCO_SKELETON.RElbow),
+            (COCO_SKELETON.RElbow, COCO_SKELETON.RWrist),
+            (COCO_SKELETON.LShoulder, COCO_SKELETON.LElbow),
+            (COCO_SKELETON.LElbow, COCO_SKELETON.LWrist),
+            (COCO_SKELETON.Neck, COCO_SKELETON.RHip),
+            (COCO_SKELETON.RHip, COCO_SKELETON.RKnee),
+            (COCO_SKELETON.RKnee, COCO_SKELETON.RAnkle),
+            (COCO_SKELETON.Neck, COCO_SKELETON.LHip),
+            (COCO_SKELETON.LHip, COCO_SKELETON.LKnee),
+            (COCO_SKELETON.LKnee, COCO_SKELETON.LAnkle),
+            (COCO_SKELETON.Nose, COCO_SKELETON.REye),
+            (COCO_SKELETON.REye, COCO_SKELETON.REar),
+            (COCO_SKELETON.Nose, COCO_SKELETON.LEye),
+            (COCO_SKELETON.LEye, COCO_SKELETON.LEar),
+        ]
 
 
 register_skeleton('BODY_25_SKELETON', BODY_25_SKELETON, [

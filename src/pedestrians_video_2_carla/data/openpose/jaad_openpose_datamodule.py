@@ -1,15 +1,20 @@
-import math
+import ast
+import json
 import os
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
+import numpy as np
 import pandas
 from pandas.core.frame import DataFrame
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
-from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
-from pedestrians_video_2_carla.data.openpose.constants import DF_USECOLS, DF_ISIN, OPENPOSE_DIR
+from pedestrians_video_2_carla.data.base.projection_2d_mixin import \
+    Projection2DMixin
+from pedestrians_video_2_carla.data.openpose.constants import (DF_ISIN,
+                                                               DF_USECOLS,
+                                                               OPENPOSE_DIR)
 from pedestrians_video_2_carla.data.openpose.openpose_dataset import \
     OpenPoseDataset
-from tqdm.std import tqdm
+from tqdm.auto import tqdm
 
 
 class JAADOpenPoseDataModule(BaseDataModule):
@@ -17,18 +22,21 @@ class JAADOpenPoseDataModule(BaseDataModule):
                  df_usecols=DF_USECOLS,
                  df_isin: Optional[Dict] = DF_ISIN,
                  clip_offset: Optional[int] = 10,
+                 strong_points: Optional[bool] = False,
                  **kwargs
                  ):
         self.annotations_usecols = df_usecols
         self.annotations_filters = df_isin
         self.clip_offset = clip_offset
+        self.strong_points = strong_points
 
         assert self.clip_offset > 0, 'clip_offset must be greater than 0'
 
         self.__settings = {
             'clip_offset': self.clip_offset,
             'annotations_usecols': self.annotations_usecols,
-            'annotations_filters': self.annotations_filters
+            'annotations_filters': self.annotations_filters,
+            'strong_points': self.strong_points,
         }
 
         super().__init__(**kwargs)
@@ -67,6 +75,14 @@ class JAADOpenPoseDataModule(BaseDataModule):
             type=int,
             default=10
         )
+        parser.add_argument(
+            '--strong_points',
+            help='''
+                Whether to use strong points (True) or not (False).
+                Setting this to True will remove all clips that contain any missing data.
+                ''',
+            action='store_true'
+        )
         Projection2DMixin.add_cli_args(parser)
         return parent_parser
 
@@ -77,7 +93,7 @@ class JAADOpenPoseDataModule(BaseDataModule):
             # we already have datasset prepared for this combination of settings
             return
 
-        progress_bar = tqdm(total=8, desc='Generating subsets')
+        progress_bar = tqdm(total=9, desc='Generating subsets')
 
         # TODO: one day use JAAD annotations directly
         annotations_df: DataFrame = pandas.read_csv(
@@ -97,6 +113,9 @@ class JAADOpenPoseDataModule(BaseDataModule):
         # There is no 'senior' in CARLA, so replace with 'adult'
         annotations_df['age'] = annotations_df['age'].replace('senior', 'adult')
 
+        # Add 'keypoints' column
+        annotations_df['keypoints'] = [""] * len(annotations_df)
+
         progress_bar.update()
 
         frame_counts = annotations_df.groupby(['video', 'id']).agg(
@@ -113,20 +132,21 @@ class JAADOpenPoseDataModule(BaseDataModule):
         progress_bar.update()
 
         clips = []
+        view_cols = self.annotations_usecols + ['keypoints']
 
         # handle continuous clips first
-        for idx in frame_counts[frame_counts.frame_count_eq_diff == True].index:
+        for idx in tqdm(frame_counts[frame_counts.frame_count_eq_diff == True].index, desc='Extracting from continuous data', leave=False):
             video = annotations_df.loc[idx]
             ci = 0
             while (ci*self.clip_offset + self.clip_length) <= frame_counts.loc[idx].frame_count:
                 clips.append(video.iloc[ci * self.clip_offset:ci *
-                                        self.clip_offset + self.clip_length].reset_index()[self.annotations_usecols].assign(clip=ci))
+                                        self.clip_offset + self.clip_length].reset_index().loc[:, view_cols].assign(clip=ci))
                 ci += 1
 
         progress_bar.update()
 
         # then try to extract from non-continuos
-        for idx in frame_counts[frame_counts.frame_count_eq_diff == False].index:
+        for idx in tqdm(frame_counts[frame_counts.frame_count_eq_diff == False].index, desc='Extracting from non-continuous data', leave=False):
             video = annotations_df.loc[idx]
             frame_diffs_min = video[1:][['frame']].assign(
                 frame_diff=video[1:].frame - video[0:-1].frame)
@@ -139,17 +159,112 @@ class JAADOpenPoseDataModule(BaseDataModule):
             ci = 0  # continuous for all clips
             for (fmin, fmax) in zip(frame_min, frame_max):
                 while (ci*self.clip_offset + self.clip_length + fmin) <= fmax:
-                    clips.append(video.loc[video.frame >= ci*self.clip_offset + fmin][:self.clip_length].reset_index()[
-                        self.annotations_usecols].assign(clip=ci))
+                    clips.append(video.loc[video.frame >= ci*self.clip_offset + fmin]
+                                 [:self.clip_length].reset_index().loc[:, view_cols].assign(clip=ci))
                     ci += 1
 
         progress_bar.update()
+
+        # extract skeleton data from keypoint files
+        self._extract_keypoints_from_files(clips)
+        progress_bar.update()
+
+        if self.strong_points:
+            # remove clips that contain missing data
+            clips = [
+                c
+                for c in clips
+                if self._is_strong_points(c)
+            ]
 
         self._split_clips(clips, ['video', 'id'], [
                           'clip', 'frame'], progress_bar=progress_bar, settings=self.__settings)
 
     def setup(self, stage: Optional[str] = None) -> None:
-        return self._setup(dataset_creator=lambda *args, **kwargs: OpenPoseDataset(
-            self.openpose_dir,
-            *args, **kwargs
-        ), stage=stage)
+        return self._setup(dataset_creator=OpenPoseDataset, stage=stage)
+
+    def _is_strong_points(self, clip: DataFrame) -> None:
+        # TODO: avoid back-and-forth conversion
+        # TODO: use threshold instead of all or nothing?
+        keypoints_list = clip.loc[:, 'keypoints'].apply(ast.literal_eval)
+        keypoints = np.stack(keypoints_list)
+
+        return np.all(np.any(keypoints[..., :2], axis=-1))
+
+    def _extract_keypoints_from_files(self, clips: List[DataFrame]):
+        """Extract skeleton data from keypoint files. This modifies data in place!
+
+        :param clips: List of DataFrames with columns 'video', 'id', 'frame', 'clip'
+        :type clips: List[DataFrame]
+        """
+        for clip in tqdm(clips, desc='Extracting skeleton data', leave=False):
+            pedestrian_info = clip.reset_index().sort_values('frame')
+
+            video_id = pedestrian_info.iloc[0]['video']
+            start_frame = pedestrian_info.iloc[0]['frame']
+            stop_frame = pedestrian_info.iloc[-1]['frame'] + 1
+
+            for i, f in enumerate(range(start_frame, stop_frame, 1)):
+                gt_bbox = pedestrian_info.iloc[i][[
+                    'x1', 'y1', 'x2', 'y2']].to_numpy().reshape((2, 2)).astype(np.float32)
+                with open(os.path.join(self.openpose_dir, video_id, '{:s}_{:0>12d}_keypoints.json'.format(
+                    video_id,
+                    f
+                ))) as jp:
+                    people = json.load(jp)['people']
+                    if not len(people):
+                        # OpenPose didn't detect anything in this frame - append empty array
+                        clip.loc[pedestrian_info.index[i], 'keypoints'] = str(np.zeros(
+                            (len(self.nodes), 3)).tolist())
+                    else:
+                        # select the pose with biggest IOU with base bounding box
+                        candidates = [np.array(p['pose_keypoints_2d']).reshape(
+                            (-1, 3)) for p in people]
+                        clip.loc[pedestrian_info.index[i], 'keypoints'] = str(self._select_best_candidate(
+                            candidates, gt_bbox).tolist())
+
+    def _select_best_candidate(self, candidates: List[np.ndarray], gt_bbox: np.ndarray, near_zero: float = 1e-5) -> np.ndarray:
+        """
+        Selects the pose with the biggest overlap with ground truth bounding box.
+        If the IOU is smaller than `near_zero` value, it returns empty array.
+
+        :param candidates: [description]
+        :type candidates: List[np.ndarray]
+        :param gt_bbox: [description]
+        :type gt_bbox: np.ndarray
+        :param near_zero: [description], defaults to 1e-5
+        :type near_zero: float, optional
+        :return: Best pose candidate for specified bounding box.
+        :rtype: np.ndarray
+        """
+        candidates_bbox = np.array([
+            np.array([
+                c[:, 0:2].min(axis=0),
+                c[:, 0:2].max(axis=0)
+            ])
+            for c in candidates
+        ])
+
+        gt_min = gt_bbox.min(axis=0)
+        candidates_min = candidates_bbox.min(axis=1)
+
+        gt_max = gt_bbox.max(axis=0)
+        candidates_max = candidates_bbox.max(axis=1)
+
+        intersection_min = np.maximum(gt_min, candidates_min)
+        intersection_max = np.minimum(gt_max, candidates_max)
+
+        intersection_area = (intersection_max -
+                             intersection_min + 1).prod(axis=1)
+        gt_area = (gt_max - gt_min + 1).prod(axis=0)
+        candidates_area = (candidates_max - candidates_min + 1).prod(axis=1)
+
+        iou = intersection_area / \
+            (gt_area + candidates_area - intersection_area)
+
+        best_iou_idx = np.argmax(iou)
+
+        if iou[best_iou_idx] < near_zero:
+            return np.zeros((len(self.nodes), 3))
+
+        return candidates[best_iou_idx]

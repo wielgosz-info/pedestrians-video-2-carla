@@ -8,8 +8,9 @@ from pedestrians_video_2_carla.data.base.base_transforms import BaseTransforms
 from pedestrians_video_2_carla.data.base.skeleton import \
     get_skeleton_type_by_name
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
+from pedestrians_video_2_carla.loss.base_pose_loss import BasePoseLoss
 from pedestrians_video_2_carla.modules.flow.output_types import TrajectoryModelOutputType
-from pedestrians_video_2_carla.modules.loss import LossModes
+from pedestrians_video_2_carla.loss import LossModes
 from pedestrians_video_2_carla.modules.movements.movements import \
     MovementsModel, MovementsModelOutputType
 from pedestrians_video_2_carla.modules.movements.zero import ZeroMovements
@@ -60,7 +61,7 @@ class LitBaseFlow(pl.LightningModule):
         self.loss_weights = loss_weights
 
         if loss_modes is None or len(loss_modes) == 0:
-            loss_modes = [LossModes.common_loc_2d]
+            loss_modes = [LossModes.loc_2d]
         self._loss_modes = [LossModes[lm] if isinstance(
             lm, str) else lm for lm in loss_modes]
 
@@ -71,7 +72,14 @@ class LitBaseFlow(pl.LightningModule):
                     modes.append(LossModes[k])
             modes.append(mode)
         # TODO: resolve requirements chain and put modes in correct order, not just 'hopefully correct' one
-        self._losses_to_calculate = list(dict.fromkeys(modes))
+        self._losses_to_calculate = [
+            (mode.name, mode.value[0](
+                criterion=mode.value[1],
+                input_nodes=self.movements_model.input_nodes,
+                output_nodes=self.movements_model.output_nodes,
+            ), None, mode.value[2] if len(mode.value) > 2 else tuple()) if issubclass(mode.value[0], BasePoseLoss) else (mode.name, *mode.value)
+            for mode in list(dict.fromkeys(modes))
+        ]
 
         kwargs_transform = kwargs.get('transform', BaseTransforms.hips_neck)
         if isinstance(kwargs_transform, str):
@@ -135,7 +143,7 @@ class LitBaseFlow(pl.LightningModule):
             help="""
                 Set loss modes to use in the preferred order.
                 Choices: {}.
-                Default: ['common_loc_2d']
+                Default: ['loc_2d']
                 """.format(
                 set(LossModes.__members__.keys())),
             metavar="MODE",
@@ -329,11 +337,11 @@ class LitBaseFlow(pl.LightningModule):
         # TODO: monitoring should be done based on the metric, not the loss
         # so 'primary' loss should be removed in the future
         for mode in self._loss_modes:
-            if mode in loss_dict:
+            if mode.name in loss_dict:
                 self.log('{}_loss/primary'.format(stage),
-                         loss_dict[mode], batch_size=batch_size)
+                         loss_dict[mode.name], batch_size=batch_size)
                 return {
-                    'loss': loss_dict[mode],
+                    'loss': loss_dict[mode.name],
                     'preds': {
                         'pose_changes': sliced['pose_inputs'].detach() if self.movements_model.output_type == MovementsModelOutputType.pose_changes else None,
                         'world_rot_changes': sliced['world_rot_inputs'].detach() if self.trajectory_model.output_type == TrajectoryModelOutputType.changes and 'world_rot_inputs' in sliced else None,
@@ -356,24 +364,24 @@ class LitBaseFlow(pl.LightningModule):
         loss_dict = {}
 
         for mode in self._losses_to_calculate:
-            (loss_fn, criterion, *_) = mode.value
+            (name, loss_fn, criterion, *_) = mode
             loss = loss_fn(
                 criterion=criterion,
                 input_nodes=self.movements_model.input_nodes,
-                meta=meta,
+                output_nodes=self.movements_model.output_nodes,
                 requirements={
                     k.name: v
                     for k, v in loss_dict.items()
-                    if k.name in mode.value[2]
-                } if len(mode.value) > 2 else None,
+                    if k.name in mode[2]
+                } if len(mode) > 2 else None,
                 loss_weights=self.loss_weights,
                 **sliced
             )
             if loss is not None and not torch.isnan(loss):
-                loss_dict[mode] = loss
+                loss_dict[name] = loss
 
         for k, v in loss_dict.items():
-            self.log('{}_loss/{}'.format(stage, k.name), v, batch_size=batch_size)
+            self.log('{}_loss/{}'.format(stage, k), v, batch_size=batch_size)
         return loss_dict
 
     def _eval_step_end(self, outputs, stage):

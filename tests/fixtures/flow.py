@@ -1,7 +1,7 @@
 import os
 import pytest
 
-from pedestrians_video_2_carla.modules.loss import LossModes
+from pedestrians_video_2_carla.loss import LossModes
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModelOutputType
 from pedestrians_video_2_carla.modules.movements import MOVEMENTS_MODELS
 from pedestrians_video_2_carla.modules.trajectory import TRAJECTORY_MODELS
@@ -26,8 +26,33 @@ def test_data_dir():
 
 @pytest.fixture(params=list(LossModes.__members__.keys()))
 def loss_mode(request, movements_output_type):
-    supported = LossModes.get_supported_loss_modes(
-        MovementsModelOutputType[movements_output_type])
+    supported = {
+        MovementsModelOutputType.pose_changes: list(LossModes),
+        MovementsModelOutputType.absolute_loc_rot: [
+            LossModes.common_loc_2d,
+            LossModes.loc_3d,
+            LossModes.rot_3d,
+            LossModes.loc_2d_3d,
+            LossModes.loc_2d_loc_rot_3d,
+            LossModes.weighted_loc_2d_loc_rot_3d
+        ],
+        MovementsModelOutputType.absolute_loc: [
+            LossModes.common_loc_2d,
+            LossModes.loc_3d,
+            LossModes.loc_2d_3d,
+        ],
+        MovementsModelOutputType.relative_rot: [
+            LossModes.common_loc_2d,
+            LossModes.loc_3d,
+            LossModes.rot_3d,
+            LossModes.loc_2d_3d,
+            LossModes.loc_2d_loc_rot_3d,
+            LossModes.weighted_loc_2d_loc_rot_3d
+        ],
+        MovementsModelOutputType.pose_2d: [
+            LossModes.common_loc_2d
+        ]
+    }[MovementsModelOutputType[movements_output_type]]
     if LossModes[request.param] not in supported:
         pytest.skip("Loss mode {} not supported for projection type {}".format(
             request.param, movements_output_type))

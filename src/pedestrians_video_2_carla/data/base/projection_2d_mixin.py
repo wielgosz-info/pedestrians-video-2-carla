@@ -140,7 +140,7 @@ class Projection2DMixin:
         """
         Deforms the data by adding noise and missing points and then applies a transformation.
         Returns a clone of the original data suitable for training and a dict of the relevant targets.
-
+        Targets never have confidence values, only (x,y) coordinates.
         """
         deformed_projection_2d = self.apply_deform(projection_2d)
         transformed_deformed_projection_2d = self.apply_transform(
@@ -148,14 +148,14 @@ class Projection2DMixin:
         transformed_projection_2d = self.apply_transform(projection_2d)
 
         targets = {
-            'projection_2d': projection_2d
+            'projection_2d': projection_2d[..., :2],
         }
 
         if self.needs_deform:
-            targets['projection_2d_deformed'] = deformed_projection_2d
+            targets['projection_2d_deformed'] = deformed_projection_2d[..., :2]
 
         if self.needs_transform:
-            targets['projection_2d_transformed'] = transformed_projection_2d
+            targets['projection_2d_transformed'] = transformed_projection_2d[..., :2]
             targets['projection_2d_shift'] = self.transform.shift
             targets['projection_2d_scale'] = self.transform.scale
 

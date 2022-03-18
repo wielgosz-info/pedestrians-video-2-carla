@@ -1,3 +1,4 @@
+import ast
 from typing import List, Union
 import pandas
 import numpy as np
@@ -9,10 +10,8 @@ from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON, C
 
 
 class OpenPoseDataset(Projection2DMixin, ConfidenceMixin, TorchDataset):
-    def __init__(self, data_dir, set_filepath, points: Union[BODY_25_SKELETON, COCO_SKELETON] = BODY_25_SKELETON, **kwargs) -> None:
+    def __init__(self, set_filepath, nodes: Union[BODY_25_SKELETON, COCO_SKELETON] = BODY_25_SKELETON, **kwargs) -> None:
         super().__init__(**kwargs)
-
-        self.data_dir = data_dir
 
         self.clips = pandas.read_csv(set_filepath)
         self.clips.set_index(['video', 'id', 'clip'], inplace=True)
@@ -21,7 +20,7 @@ class OpenPoseDataset(Projection2DMixin, ConfidenceMixin, TorchDataset):
         self.indices = pandas.MultiIndex.from_frame(
             self.clips.index.to_frame(index=False).drop_duplicates())
 
-        self.points = points
+        self.nodes = nodes
 
     def __len__(self):
         return len(self.indices)
@@ -34,7 +33,7 @@ class OpenPoseDataset(Projection2DMixin, ConfidenceMixin, TorchDataset):
         :type idx: int
         """
         clips_idx = self.indices[idx]
-        pedestrian_info = self.clips.loc[clips_idx].reset_index().sort_values('frame')
+        pedestrian_info = self.clips.loc[[clips_idx]].reset_index().sort_values('frame')
 
         (video_id, pedestrian_id, clip_id) = clips_idx
         start_frame = pedestrian_info.iloc[0]['frame']
@@ -46,19 +45,7 @@ class OpenPoseDataset(Projection2DMixin, ConfidenceMixin, TorchDataset):
             gt_bbox = pedestrian_info.iloc[i][[
                 'x1', 'y1', 'x2', 'y2']].to_numpy().reshape((2, 2)).astype(np.float32)
             bboxes.append(torch.tensor(gt_bbox))
-            with open(os.path.join(self.data_dir, video_id, '{:s}_{:0>12d}_keypoints.json'.format(
-                video_id,
-                f
-            ))) as jp:
-                people = json.load(jp)['people']
-                if not len(people):
-                    # OpenPose didn't detect anything in this frame - append empty array
-                    frames.append(np.zeros((len(self.points), 3)))
-                else:
-                    # select the pose with biggest IOU with base bounding box
-                    candidates = [np.array(p['pose_keypoints_2d']).reshape(
-                        (-1, 3)) for p in people]
-                    frames.append(self.__select_best_candidate(candidates, gt_bbox))
+            frames.append(ast.literal_eval(pedestrian_info.iloc[i]['keypoints']))
 
         torch_frames = torch.tensor(frames, dtype=torch.float32)
 
@@ -77,49 +64,3 @@ class OpenPoseDataset(Projection2DMixin, ConfidenceMixin, TorchDataset):
             'end_frame': stop_frame,
             'bboxes': torch.stack(bboxes, dim=0)  # TODO: move bboxes to targets
         })
-
-    def __select_best_candidate(self, candidates: List[np.ndarray], gt_bbox: np.ndarray, near_zero: float = 1e-5) -> np.ndarray:
-        """
-        Selects the pose with the biggest overlap with ground truth bounding box.
-        If the IOU is smaller than `near_zero` value, it returns empty array.
-
-        :param candidates: [description]
-        :type candidates: List[np.ndarray]
-        :param gt_bbox: [description]
-        :type gt_bbox: np.ndarray
-        :param near_zero: [description], defaults to 1e-5
-        :type near_zero: float, optional
-        :return: Best pose candidate for specified bounding box.
-        :rtype: np.ndarray
-        """
-        candidates_bbox = np.array([
-            np.array([
-                c[:, 0:2].min(axis=0),
-                c[:, 0:2].max(axis=0)
-            ])
-            for c in candidates
-        ])
-
-        gt_min = gt_bbox.min(axis=0)
-        candidates_min = candidates_bbox.min(axis=1)
-
-        gt_max = gt_bbox.max(axis=0)
-        candidates_max = candidates_bbox.max(axis=1)
-
-        intersection_min = np.maximum(gt_min, candidates_min)
-        intersection_max = np.minimum(gt_max, candidates_max)
-
-        intersection_area = (intersection_max -
-                             intersection_min + 1).prod(axis=1)
-        gt_area = (gt_max - gt_min + 1).prod(axis=0)
-        candidates_area = (candidates_max - candidates_min + 1).prod(axis=1)
-
-        iou = intersection_area / \
-            (gt_area + candidates_area - intersection_area)
-
-        best_iou_idx = np.argmax(iou)
-
-        if iou[best_iou_idx] < near_zero:
-            return np.zeros((len(self.points), 3))
-
-        return candidates[best_iou_idx]

@@ -18,11 +18,11 @@ except ModuleNotFoundError:
 class CarlaRecordedDataset(BaseDataset):
     def __init__(self,
                  set_filepath: str,
-                 points: Type[CARLA_SKELETON] = CARLA_SKELETON,
+                 nodes: Type[CARLA_SKELETON] = CARLA_SKELETON,
                  skip_metadata: bool = False,
                  **kwargs
                  ) -> None:
-        super().__init__(nodes=points, **kwargs)
+        super().__init__(nodes=nodes, **kwargs)
 
         self.set_file = h5py.File(set_filepath, 'r', driver='core')
 
@@ -33,7 +33,7 @@ class CarlaRecordedDataset(BaseDataset):
         else:
             self.meta = self.__decode_meta(self.set_file['carla_recorded/meta'])
 
-        self.nodes = points
+        self.nodes = nodes
 
     def __decode_meta(self, meta):
         logging.getLogger(__name__).debug(
