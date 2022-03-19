@@ -1,14 +1,16 @@
 import logging
 import math
-from typing import Optional, Type
+from typing import Any, Dict, Optional, Type
 
 import numpy as np
 import torch
-from pedestrians_video_2_carla.data.base.base_dataset import TorchDataset, TorchIterableDataset, Projection2DMixin, ConfidenceMixin
+from pedestrians_video_2_carla.data.base.base_dataset import BaseDataset, TorchIterableDataset, Projection2DMixin, ConfidenceMixin, GraphMixin
 from pedestrians_video_2_carla.modules.layers.projection import \
     ProjectionModule
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pytorch3d.transforms import euler_angles_to_matrix
+
+from pedestrians_video_2_carla.utils.tensors import get_bboxes
 
 try:
     import h5pickle as h5py
@@ -18,14 +20,24 @@ except ModuleNotFoundError:
     warnings.warn("h5pickle not found, using h5py instead")
 
 
-class Carla2D3DDataset(Projection2DMixin, ConfidenceMixin, TorchDataset):
-    def __init__(self, set_filepath: str, points: CARLA_SKELETON = CARLA_SKELETON, **kwargs) -> None:
-        super().__init__(**kwargs)
+class Carla2D3DDataset(BaseDataset):
+    def __init__(
+        self,
+        set_filepath: str,
+        nodes: Type[CARLA_SKELETON] = CARLA_SKELETON,
+        skip_metadata: bool = False,
+        **kwargs
+    ) -> None:
+        super().__init__(nodes=nodes, **kwargs)
 
-        self.set_file = h5py.File(set_filepath, 'r')
-        self.meta = self.__decode_meta(self.set_file['carla_2d_3d/meta'])
+        self.set_file = h5py.File(set_filepath, 'r', driver='core')
 
-        self.nodes = points
+        self.projection_2d = self.set_file['carla_2d_3d/projection_2d']
+
+        if skip_metadata:
+            self.meta = [{}] * len(self)
+        else:
+            self.meta = self.__decode_meta(self.set_file['carla_2d_3d/meta'])
 
     def __decode_meta(self, meta):
         logging.getLogger(__name__).debug(
@@ -39,58 +51,53 @@ class Carla2D3DDataset(Projection2DMixin, ConfidenceMixin, TorchDataset):
         return out
 
     def __len__(self) -> int:
-        return len(self.set_file['carla_2d_3d/projection_2d'])
+        return len(self.projection_2d)
 
-    def __getitem__(self, idx: int) -> torch.Tensor:
-        orig_projection_2d = self.__extract_from_set('carla_2d_3d/projection_2d', idx)
+    def _get_raw_projection_2d(self, idx: int) -> torch.Tensor:
+        return self.__extract_from_set('carla_2d_3d/projection_2d', idx), {}
 
-        projection_2d, projection_targets = self.process_projection_2d(
-            orig_projection_2d)
-        projection_2d = self.process_confidence(projection_2d)
+    def _get_targets(self, idx: int, raw_projection_2d: torch.Tensor, intermediate_outputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        bboxes = get_bboxes(raw_projection_2d)
 
-        pose_changes_matrix = self.__extract_from_set(
-            'carla_2d_3d/targets/pose_changes', idx)
-        world_rot_change_batch = self.__extract_from_set(
-            'carla_2d_3d/targets/world_rot_changes', idx)
-        world_loc_change_batch = self.__extract_from_set(
-            'carla_2d_3d/targets/world_loc_changes', idx)
-        relative_pose_loc = self.__extract_from_set(
-            'carla_2d_3d/targets/relative_pose_loc', idx)
-        relative_pose_rot = self.__extract_from_set(
-            'carla_2d_3d/targets/relative_pose_rot', idx)
-        absolute_pose_loc = self.__extract_from_set(
-            'carla_2d_3d/targets/absolute_pose_loc', idx)
-        absolute_pose_rot = self.__extract_from_set(
-            'carla_2d_3d/targets/absolute_pose_rot', idx)
+        # pose_changes_matrix = self.__extract_from_set(
+        #     'carla_2d_3d/targets/pose_changes', idx)
+        # world_rot_change_batch = self.__extract_from_set(
+        #     'carla_2d_3d/targets/world_rot_changes', idx)
+        # world_loc_change_batch = self.__extract_from_set(
+        #     'carla_2d_3d/targets/world_loc_changes', idx)
+        # relative_pose_loc = self.__extract_from_set(
+        #     'carla_2d_3d/targets/relative_pose_loc', idx)
+        # relative_pose_rot = self.__extract_from_set(
+        #     'carla_2d_3d/targets/relative_pose_rot', idx)
+        # absolute_pose_loc = self.__extract_from_set(
+        #     'carla_2d_3d/targets/absolute_pose_loc', idx)
+        # absolute_pose_rot = self.__extract_from_set(
+        #     'carla_2d_3d/targets/absolute_pose_rot', idx)
 
-        meta = self.meta[idx]
+        return {
+            'bboxes': bboxes,
+            # 'pose_changes': pose_changes_matrix,
+            # 'world_loc_changes': world_loc_change_batch,
+            # 'world_rot_changes': world_rot_change_batch,
 
-        return (
-            projection_2d,
-            {
-                **projection_targets,
+            # # TODO: do we really need to keep those? maybe they should be calculated?
+            # # speed vs memory issue? how to check what's the most efficient way?
+            # # also, if we keep them, why not world_loc and world_rot?
+            # 'relative_pose_loc': relative_pose_loc,
+            # 'relative_pose_rot': relative_pose_rot,
+            # 'absolute_pose_loc': absolute_pose_loc,
+            # 'absolute_pose_rot': absolute_pose_rot,
+        }
 
-                'pose_changes': pose_changes_matrix,
-                'world_loc_changes': world_loc_change_batch,
-                'world_rot_changes': world_rot_change_batch,
-
-                # TODO: do we really need to keep those? maybe they should be calculated?
-                # speed vs memory issue? how to check what's the most efficient way?
-                # also, if we keep them, why not world_loc and world_rot?
-                'relative_pose_loc': relative_pose_loc,
-                'relative_pose_rot': relative_pose_rot,
-                'absolute_pose_loc': absolute_pose_loc,
-                'absolute_pose_rot': absolute_pose_rot,
-            },
-            meta
-        )
+    def _get_meta(self, idx: int) -> Dict[str, Any]:
+        return self.meta[idx]
 
     def __extract_from_set(self, set_name, idx):
         data = self.set_file[set_name][idx]
         return torch.from_numpy(data)
 
 
-class Carla2D3DIterableDataset(Projection2DMixin, ConfidenceMixin, TorchIterableDataset):
+class Carla2D3DIterableDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchIterableDataset):
     def __init__(self,
                  batch_size: Optional[int] = 64,
                  clip_length: Optional[int] = 30,
@@ -128,11 +135,12 @@ class Carla2D3DIterableDataset(Projection2DMixin, ConfidenceMixin, TorchIterable
         while True:
             inputs, targets, meta = self.generate_batch(bs)
             for idx in range(bs):
-                yield (
+                out = (
                     inputs[idx],
                     {k: v[idx] for k, v in targets.items()},
                     {k: v[idx] for k, v in meta.items()}
                 )
+                yield self.process_graph(out)
 
     def generate_batch(self, batch_size=None):
         if batch_size is None:

@@ -1,6 +1,6 @@
 import os
 from functools import lru_cache
-from typing import Tuple, Type, Union
+from typing import Any, Dict, Tuple, Type, Union
 
 import numpy as np
 import pandas
@@ -12,7 +12,7 @@ from pedestrians_video_2_carla.data.smpl import reference as smpl_reference
 from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON
 from pedestrians_video_2_carla.data.smpl.utils import (
     convert_smpl_pose_to_absolute_loc_rot, get_conventions_rot, load)
-from pedestrians_video_2_carla.utils.tensors import eye_batch
+from pedestrians_video_2_carla.utils.tensors import eye_batch, get_bboxes
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import \
     ControlledPedestrian
 from pedestrians_video_2_carla.walker_control.pose_projection import \
@@ -21,19 +21,19 @@ from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose
 from pedestrians_video_2_carla.walker_control.p3d_pose_projection import \
     P3dPoseProjection
 from pytorch3d.transforms.rotation_conversions import euler_angles_to_matrix
-from pedestrians_video_2_carla.data.base.base_dataset import Projection2DMixin, TorchDataset, ConfidenceMixin
+from pedestrians_video_2_carla.data.base.base_dataset import BaseDataset
 
 
-class SMPLDataset(Projection2DMixin, ConfidenceMixin, TorchDataset):
+class SMPLDataset(BaseDataset):
     def __init__(self,
                  data_dir,
                  set_filepath,
-                 points: Union[Type[SMPL_SKELETON],
+                 nodes: Union[Type[SMPL_SKELETON],
                                Type[CARLA_SKELETON]] = SMPL_SKELETON,
                  device=torch.device('cpu'),
                  **kwargs
                  ) -> None:
-        super().__init__(**kwargs)
+        super().__init__(nodes=nodes, **kwargs)
 
         self.data_dir = data_dir
 
@@ -43,7 +43,6 @@ class SMPLDataset(Projection2DMixin, ConfidenceMixin, TorchDataset):
         self.indices = pandas.MultiIndex.from_frame(
             self.clips.index.to_frame(index=False).drop_duplicates())
 
-        self.nodes = points
         self.nodes_len = len(self.nodes)
 
         self.structure = load('structure')['structure']
@@ -63,13 +62,7 @@ class SMPLDataset(Projection2DMixin, ConfidenceMixin, TorchDataset):
     def __len__(self):
         return len(self.indices)
 
-    def __getitem__(self, idx: int):
-        """
-        Returns a single clip.
-
-        :param idx: Clip index
-        :type idx: int
-        """
+    def _get_raw_projection_2d(self, idx: int) -> torch.Tensor:
         clips_idx = self.indices[idx]
         clip_info = self.clips.loc[clips_idx].to_dict()
         clip_info.update(dict(zip(self.indices.names, clips_idx)))
@@ -104,28 +97,39 @@ class SMPLDataset(Projection2DMixin, ConfidenceMixin, TorchDataset):
             world_loc=world_loc
         )
 
-        projection_2d, projection_targets = self.process_projection_2d(projections)
-        projection_2d = self.process_confidence(projection_2d)
+        return projections, {
+            'relative_loc': relative_loc.detach(),
+            'relative_rot': relative_rot.detach(),
+            'absolute_loc': absolute_loc.detach(),
+            'absolute_rot': absolute_rot.detach(),
 
-        return (projection_2d, {
-            **projection_targets,
-
-            'relative_pose_loc': relative_loc.detach(),
-            'relative_pose_rot': relative_rot.detach(),
-            'absolute_pose_loc': absolute_loc.detach(),
-            'absolute_pose_rot': absolute_rot.detach(),
             'world_loc': world_loc.detach(),
             'world_rot': world_rot.detach(),
 
-            # additional per-frame info
             'amass_body_pose': amass_relative_pose_rot_rad.detach(),
-        }, {
+        }
+
+    def _get_targets(self, idx: int, raw_projection_2d: torch.Tensor, intermediate_outputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        bboxes = get_bboxes(raw_projection_2d)
+
+        return {
+            'bboxes': bboxes,
+
+            **intermediate_outputs
+        }
+
+    def _get_meta(self, idx: int) -> Dict[str, Any]:
+        clips_idx = self.indices[idx]
+        clip_info = self.clips.loc[clips_idx].to_dict()
+        clip_info.update(dict(zip(self.indices.names, clips_idx)))
+
+        return {
             'age': clip_info['age'],
             'gender': clip_info['gender'],
             'pedestrian_id': os.path.splitext(os.path.basename(clip_info['id']))[0],
             'clip_id': clip_info['clip'],
             'video_id': os.path.dirname(clip_info['id']),
-        })
+        }
 
     def __get_root_orient_and_world_rot(self, body_pose):
         """

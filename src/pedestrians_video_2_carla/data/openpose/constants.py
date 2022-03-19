@@ -1,7 +1,7 @@
 OPENPOSE_DIR = 'openpose'
 DF_ISIN = {
-    'action': ['walking'],
-    'speed': ['stopped'],
+    # 'action': ['walking'],
+    # 'speed': ['stopped'],
     'group_size': [1]
 }
 DF_USECOLS = [
