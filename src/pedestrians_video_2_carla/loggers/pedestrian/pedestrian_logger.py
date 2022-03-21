@@ -168,8 +168,8 @@ class PedestrianLogger(LightningLoggerBase):
             default=None,
         )
         parser.add_argument(
-            "--source_videos_overlay",
-            dest="source_videos_overlay",
+            "--source_videos_overlay_skeletons",
+            dest="source_videos_overlay_skeletons",
             help="Draw 2D input skeleton on top of source video. Default: False",
             default=False,
             action='store_true'

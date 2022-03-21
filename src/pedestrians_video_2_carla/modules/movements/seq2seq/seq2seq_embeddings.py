@@ -25,7 +25,6 @@ class Seq2SeqEmbeddings(Seq2Seq):
 
     def __init__(self,
                  single_joint_embeddings_size=64,
-                 invert_sequence=False,
                  **kwargs):
         super().__init__(**{
             **kwargs,
@@ -33,14 +32,12 @@ class Seq2SeqEmbeddings(Seq2Seq):
         })
 
         self.single_joint_embeddings_size = single_joint_embeddings_size
-        self.invert_sequence = invert_sequence
         self.embeddings = nn.ModuleList([nn.Linear(2, self.single_joint_embeddings_size)
                                          for _ in range(len(self.input_nodes))])
 
         self._hparams = {
             **self._hparams,
             'single_joint_embeddings_size': self.single_joint_embeddings_size,
-            'invert_sequence': self.invert_sequence
         }
 
     @staticmethod
@@ -52,11 +49,6 @@ class Seq2SeqEmbeddings(Seq2Seq):
             '--single_joint_embeddings_size',
             default=64,
             type=int,
-        )
-        parser.add_argument(
-            '--invert_sequence',
-            default=False,
-            action='store_true',
         )
 
         return parent_parser
@@ -70,7 +62,7 @@ class Seq2SeqEmbeddings(Seq2Seq):
         assert joints == len(self.input_nodes)
         assert joints == len(self.embeddings)
 
-        # tensore to store the embeddings
+        # tensor to store the embeddings
         embeddings = torch.zeros(
             (clip_length, batch_size, joints, self.single_joint_embeddings_size),
             dtype=torch.float32,
@@ -82,6 +74,6 @@ class Seq2SeqEmbeddings(Seq2Seq):
             embeddings[:, :, i, :] = embedding(x[:, :, i, :])
 
         if self.invert_sequence:
-            embeddings = embeddings.flip(0)
+            embeddings = embeddings[::-1]
 
         return embeddings

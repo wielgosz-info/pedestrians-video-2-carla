@@ -34,7 +34,7 @@ class PedestrianWriter(object):
                  merging_method: MergingMethod = MergingMethod.square,
                  source_videos_dir: str = None,
                  body_model_dir: str = None,
-                 source_videos_overlay: bool = False,
+                 source_videos_overlay_skeletons: bool = False,
                  **kwargs) -> None:
         self._log_dir = log_dir
 
@@ -85,7 +85,7 @@ class PedestrianWriter(object):
             PedestrianRenderers.zeros: zeros_renderer,
             PedestrianRenderers.source_videos: SourceVideosRenderer(
                 data_dir=source_videos_dir,
-                overlay_skeletons=source_videos_overlay
+                overlay_skeletons=source_videos_overlay_skeletons
             ) if PedestrianRenderers.source_videos in self._used_renderers else zeros_renderer,
             PedestrianRenderers.source_carla: CarlaRenderer(
                 fps=self._fps
@@ -219,7 +219,8 @@ class PedestrianWriter(object):
 
         output_videos = []
 
-        self._prepare_overlay_skeletons(targets, meta, projection_2d, projection_2d_transformed)
+        self._prepare_overlay_skeletons(
+            targets, meta, projection_2d, projection_2d_transformed)
 
         render = {
             PedestrianRenderers.zeros: lambda: self.__renderers[PedestrianRenderers.zeros].render(

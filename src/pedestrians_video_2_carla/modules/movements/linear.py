@@ -1,5 +1,4 @@
-from pytorch3d.transforms.rotation_conversions import rotation_6d_to_matrix
-import torch
+import distutils
 from torch import nn
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModel, MovementsModelOutputTypeMixin
 
@@ -42,7 +41,7 @@ class Linear(MovementsModelOutputTypeMixin, MovementsModel):
         parser.add_argument(
             '--needs_confidence',
             dest='needs_confidence',
-            action='store_true',
+            type=lambda x: bool(distutils.util.strtobool(x)),
             default=False,
         )
         return parent_parser

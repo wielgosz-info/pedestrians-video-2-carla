@@ -51,7 +51,7 @@ class SpatialGnn(MovementsModel):
 class GCNEncoder(SpatialGnn):
     def __init__(self, in_channels, out_channels, **kwargs):
         super().__init__()
-        self.mult_factor = 128
+        self.mult_factor = 256
         self.conv1 = GCNConv(in_channels, self.mult_factor * out_channels)
         self.conv2 = GCNConv(self.mult_factor * out_channels,
                              self.mult_factor * out_channels)
@@ -66,7 +66,7 @@ class GCNEncoder(SpatialGnn):
 class VariationalGCNEncoder(torch.nn.Module):
     def __init__(self, in_channels, out_channels, **kwargs):
         super().__init__()
-        self.mult_factor = 128
+        self.mult_factor = 256
         self.conv1 = GCNConv(in_channels, self.mult_factor  * out_channels)
         self.conv2 = GCNConv(self.mult_factor  * out_channels, self.mult_factor  * out_channels)
         self.conv_mu = GCNConv(self.mult_factor  * out_channels, out_channels)

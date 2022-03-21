@@ -61,7 +61,7 @@ class MovementsModel(nn.Module):
             'input_nodes': get_skeleton_name_by_type(self.input_nodes),
             'output_nodes': get_skeleton_name_by_type(self.output_nodes),
             'disable_lr_scheduler': self.disable_lr_scheduler,
-            'initial_lr': self.learning_rate,
+            'lr': self.learning_rate,
             **self._hparams
         }
 

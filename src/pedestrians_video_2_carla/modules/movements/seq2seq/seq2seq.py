@@ -1,11 +1,12 @@
 from enum import Enum
-from typing import Dict, Tuple
+from typing import Dict, Iterable, List, Tuple, Union
+import warnings
 from pytorch3d.transforms.rotation_conversions import matrix_to_rotation_6d
 import torch
 from torch import nn
 from torch import Tensor
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModel, MovementsModelOutputType, MovementsModelOutputTypeMixin
-
+import distutils
 
 class TeacherMode(Enum):
     """
@@ -17,39 +18,66 @@ class TeacherMode(Enum):
 
 
 class Encoder(nn.Module):
-    def __init__(self, hid_dim=64, n_layers=2, dropout=0.2, input_nodes_len=26, input_features=2):
+    def __init__(
+        self,
+        hid_dim=64,
+        n_layers=2,
+        dropout=0.2,
+        input_size=26*2,
+        bidirectional=True
+    ):
         super().__init__()
 
         self.hid_dim = hid_dim
         self.n_layers = n_layers
+        self.input_size = input_size
 
-        self.__input_nodes_len = input_nodes_len
-        self.__input_features = input_features  # (x, y) points
-        self.__input_size = self.__input_nodes_len * self.__input_features
-
-        self.rnn = nn.LSTM(self.__input_size, hid_dim, n_layers, dropout=dropout)
+        if isinstance(hid_dim, int):
+            self.rnn = nn.LSTM(self.input_size, hid_dim, num_layers=n_layers,
+                               dropout=dropout, bidirectional=bidirectional)
+        else:
+            sizes = [self.input_size] + list(hid_dim)
+            self.rnn = nn.Sequential(*[
+                nn.LSTM(sizes[i], sizes[i+1], num_layers=1,
+                        dropout=dropout, bidirectional=bidirectional)
+                for i in range(len(sizes) - 1)
+            ])
 
     def forward(self, x):
 
         original_shape = x.shape
-        x = x.view(*original_shape[0:2], self.__input_size)
+        x = x.view(*original_shape[0:2], self.input_size)
         _, (hidden, cell) = self.rnn(x)
 
         return hidden, cell
 
 
 class Decoder(nn.Module):
-    def __init__(self, hid_dim=64, n_layers=2, dropout=0.2, output_nodes_len=26, output_features=6):
+    def __init__(
+        self,
+        hid_dim=64,
+        n_layers=2,
+        dropout=0.2,
+        output_size=26*6,
+        bidirectional=False
+    ):
         super().__init__()
 
         self.hid_dim = hid_dim
         self.n_layers = n_layers
+        self.output_size = output_size
 
-        self.__output_nodes_len = output_nodes_len
-        self.__output_features = output_features  # Rotation 6D
-        self.output_size = self.__output_nodes_len * self.__output_features
+        if isinstance(hid_dim, int):
+            self.rnn = nn.LSTM(self.output_size, hid_dim, num_layers=n_layers,
+                               dropout=dropout, bidirectional=bidirectional)
+        else:
+            sizes = [self.output_size] + list(hid_dim)
+            self.rnn = nn.Sequential(*[
+                nn.LSTM(sizes[i], sizes[i+1], num_layers=1,
+                        dropout=dropout, bidirectional=bidirectional)
+                for i in range(len(sizes) - 1)
+            ])
 
-        self.rnn = nn.LSTM(self.output_size, hid_dim, n_layers, dropout=dropout)
         self.fc_out = nn.Linear(hid_dim, self.output_size)
         self.dropout = nn.Dropout(dropout)
 
@@ -82,33 +110,52 @@ class Seq2Seq(MovementsModelOutputTypeMixin, MovementsModel):
     """
 
     def __init__(self,
-                 hidden_size=64,
-                 num_layers=2,
-                 p_dropout=0.2,
+                 hidden_size: Union[int, Iterable[int]] = 64,
+                 num_layers: int = 2,
+                 p_dropout: float = 0.2,
                  teacher_mode: TeacherMode = TeacherMode.no_force,
                  teacher_force_ratio: float = 0.2,
                  teacher_force_drop: float = 0.02,
                  input_features: int = 2,
+                 invert_sequence: bool = False,
+                 bidirectional: bool = False,
+                 input_size: int = None,
                  **kwargs):
         super().__init__(**kwargs)
+
+        if input_size is not None and input_features is not None:
+            warnings.warn("Both input_size and input_features were specified, using input_size.")
+
+        if input_size is None:
+            self.input_size = input_features * len(self.input_nodes)
+        else:
+            self.input_size = input_size
+        self.output_size = self.output_features * len(self.output_nodes)
 
         self.teacher_mode = teacher_mode
         self.teacher_force_ratio = teacher_force_ratio if teacher_mode != TeacherMode.no_force else 0.0
         self.teacher_force_drop = teacher_force_drop if teacher_mode != TeacherMode.no_force else 0.0
 
+        if not isinstance(hidden_size, int):
+            assert len(
+                hidden_size) == num_layers, "hidden_size must be a single int or a list of ints of length num_layers"
+
         self.encoder = Encoder(
-            hid_dim=hidden_size, n_layers=num_layers, dropout=p_dropout,
-            input_nodes_len=len(self.input_nodes), input_features=input_features
+            hid_dim=hidden_size,
+            n_layers=num_layers,
+            dropout=p_dropout,
+            input_size=self.input_size,
+            bidirectional=bidirectional
         )
         self.decoder = Decoder(
-            hid_dim=hidden_size, n_layers=num_layers, dropout=p_dropout,
-            output_nodes_len=len(self.output_nodes), output_features=self.output_features
+            hid_dim=hidden_size if isinstance(hidden_size, int) else hidden_size[::-1],
+            n_layers=num_layers,
+            dropout=p_dropout,
+            output_size=self.output_size,
+            bidirectional=bidirectional
         )
 
-        assert self.encoder.hid_dim == self.decoder.hid_dim, \
-            "Hidden dimensions of encoder and decoder must be equal!"
-        assert self.encoder.n_layers == self.decoder.n_layers, \
-            "Encoder and decoder must have equal number of layers!"
+        self.invert_sequence = invert_sequence
 
         self._hparams = {
             'hidden_size': hidden_size,
@@ -116,7 +163,9 @@ class Seq2Seq(MovementsModelOutputTypeMixin, MovementsModel):
             'p_dropout': p_dropout,
             'teacher_mode': self.teacher_mode.name,
             'teacher_force_ratio': self.teacher_force_ratio,
-            'teacher_force_drop': self.teacher_force_drop
+            'teacher_force_drop': self.teacher_force_drop,
+            'invert_sequence': self.invert_sequence,
+            'bidirectional': bidirectional,
         }
 
     @property
@@ -171,6 +220,16 @@ class Seq2Seq(MovementsModelOutputTypeMixin, MovementsModel):
                 """,
             default=0.02,
             type=float
+        )
+        parser.add_argument(
+            '--invert_sequence',
+            default=False,
+            type=lambda x:bool(distutils.util.strtobool(x))
+        )
+        parser.add_argument(
+            '--bidirectional',
+            default=False,
+            type=lambda x:bool(distutils.util.strtobool(x))
         )
 
         return parent_parser
@@ -247,6 +306,9 @@ class Seq2Seq(MovementsModelOutputTypeMixin, MovementsModel):
         """
         # convert to sequence-first format
         x = x.permute(1, 0, *range(2, x.dim()))
+
+        if self.invert_sequence:
+            x = x[::-1]
 
         return x
 
