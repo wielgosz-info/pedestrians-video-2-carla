@@ -104,6 +104,6 @@ class Seq2SeqFlatEmbeddings(Seq2Seq):
         embeddings = embeddings.permute(1, 0, 2)
 
         if self.invert_sequence:
-            embeddings = embeddings[::-1]
+            embeddings = embeddings.flip(0)
 
         return embeddings

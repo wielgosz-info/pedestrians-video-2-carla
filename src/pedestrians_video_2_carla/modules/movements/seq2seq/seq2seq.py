@@ -8,6 +8,7 @@ from torch import Tensor
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModel, MovementsModelOutputType, MovementsModelOutputTypeMixin
 import distutils
 
+
 class TeacherMode(Enum):
     """
     Enum for teacher mode.
@@ -78,7 +79,10 @@ class Decoder(nn.Module):
                 for i in range(len(sizes) - 1)
             ])
 
-        self.fc_out = nn.Linear(hid_dim, self.output_size)
+        self.fc_out = nn.Linear(
+            hid_dim*2 if bidirectional else hid_dim,
+            self.output_size
+        )
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, hidden, cell):
@@ -124,7 +128,8 @@ class Seq2Seq(MovementsModelOutputTypeMixin, MovementsModel):
         super().__init__(**kwargs)
 
         if input_size is not None and input_features is not None:
-            warnings.warn("Both input_size and input_features were specified, using input_size.")
+            warnings.warn(
+                "Both input_size and input_features were specified, using input_size.")
 
         if input_size is None:
             self.input_size = input_features * len(self.input_nodes)
@@ -223,13 +228,15 @@ class Seq2Seq(MovementsModelOutputTypeMixin, MovementsModel):
         )
         parser.add_argument(
             '--invert_sequence',
+            help="""Should the sequence be inverted before training? Doesn't make sense for bidirectional models.""",
             default=False,
-            type=lambda x:bool(distutils.util.strtobool(x))
+            type=lambda x: bool(distutils.util.strtobool(x))
         )
         parser.add_argument(
             '--bidirectional',
+            help="""Should the encoder/decoder use bidirectional LSTM?""",
             default=False,
-            type=lambda x:bool(distutils.util.strtobool(x))
+            type=lambda x: bool(distutils.util.strtobool(x))
         )
 
         return parent_parser
@@ -308,7 +315,7 @@ class Seq2Seq(MovementsModelOutputTypeMixin, MovementsModel):
         x = x.permute(1, 0, *range(2, x.dim()))
 
         if self.invert_sequence:
-            x = x[::-1]
+            x = x.flip(0)
 
         return x
 

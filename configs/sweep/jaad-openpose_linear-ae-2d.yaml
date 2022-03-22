@@ -28,7 +28,7 @@ parameters:
   num_sanity_val_steps:
     value: 1
   max_epochs:
-    value: 750
+    value: 1500
   enable_progress_bar:
     value: False
   lr:

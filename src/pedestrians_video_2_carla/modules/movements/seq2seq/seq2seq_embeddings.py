@@ -74,6 +74,6 @@ class Seq2SeqEmbeddings(Seq2Seq):
             embeddings[:, :, i, :] = embedding(x[:, :, i, :])
 
         if self.invert_sequence:
-            embeddings = embeddings[::-1]
+            embeddings = embeddings.flip(0)
 
         return embeddings
