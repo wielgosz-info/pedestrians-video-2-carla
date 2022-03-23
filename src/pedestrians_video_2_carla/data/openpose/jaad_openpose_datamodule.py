@@ -67,7 +67,6 @@ class JAADOpenPoseDataModule(BaseDataModule):
                 ''',
             action='store_true'
         )
-        Projection2DMixin.add_cli_args(parser)
         return parent_parser
 
     def prepare_data(self) -> None:

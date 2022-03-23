@@ -36,13 +36,6 @@ class Carla2D3DDataModule(BaseDataModule):
             'test_set_size': self.test_set_size,
         }
 
-    @property
-    def additional_hparams(self):
-        return {
-            **super().additional_hparams,
-            **Projection2DMixin.extract_hparams(self.kwargs)
-        }
-
     @staticmethod
     def add_data_specific_args(parent_parser):
         BaseDataModule.add_data_specific_args(parent_parser)
@@ -99,7 +92,6 @@ class Carla2D3DDataModule(BaseDataModule):
             metavar='NUM_SAMPLES',
             help="Number of samples (clips) to use for testing."
         )
-        Projection2DMixin.add_cli_args(parser)
         return parent_parser
 
     def prepare_data(self) -> None:

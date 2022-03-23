@@ -137,9 +137,10 @@ class Seq2Seq(MovementsModelOutputTypeMixin, MovementsModel):
             self.input_size = input_size
         self.output_size = self.output_features * len(self.output_nodes)
 
-        self.teacher_mode = teacher_mode
-        self.teacher_force_ratio = teacher_force_ratio if teacher_mode != TeacherMode.no_force else 0.0
-        self.teacher_force_drop = teacher_force_drop if teacher_mode != TeacherMode.no_force else 0.0
+        self.teacher_mode = teacher_mode if isinstance(
+            teacher_mode, TeacherMode) else TeacherMode[teacher_mode]
+        self.teacher_force_ratio = teacher_force_ratio if self.teacher_mode != TeacherMode.no_force else 0.0
+        self.teacher_force_drop = teacher_force_drop if self.teacher_mode != TeacherMode.no_force else 0.0
 
         if not isinstance(hidden_size, int):
             assert len(

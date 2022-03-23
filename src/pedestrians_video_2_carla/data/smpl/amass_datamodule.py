@@ -15,17 +15,12 @@ import glob
 
 class AMASSDataModule(BaseDataModule):
     def __init__(self,
-                 clip_offset: Optional[int] = 10,
                  mirror: Optional[bool] = False,
                  **kwargs
                  ):
-        self.clip_offset = clip_offset
         self.mirror = mirror
 
-        assert self.clip_offset > 0, 'clip_offset must be greater than 0'
-
         self.__settings = {
-            'clip_offset': self.clip_offset,
             'mirror': self.mirror,
         }
 
@@ -40,37 +35,18 @@ class AMASSDataModule(BaseDataModule):
             **self.__settings
         }
 
-    @property
-    def additional_hparams(self):
-        return {
-            **super().additional_hparams,
-            **Projection2DMixin.extract_hparams(self.kwargs)
-        }
+    # @staticmethod
+    # def add_data_specific_args(parent_parser):
+    #     BaseDataModule.add_data_specific_args(parent_parser)
 
-    @staticmethod
-    def add_data_specific_args(parent_parser):
-        BaseDataModule.add_data_specific_args(parent_parser)
-
-        parser = parent_parser.add_argument_group('AMASS DataModule')
-        parser.add_argument(
-            '--clip_offset',
-            metavar='NUM_FRAMES',
-            help='''
-                Number of frames to shift from the BEGINNING of the last clip.
-                Example: clip_length=30 and clip_offset=10 means that there will be
-                20 frames overlap between subsequent clips.
-                ''',
-            type=int,
-            default=10
-        )
-        parser.add_argument(
-            '--mirror',
-            help="Add mirror clips to the dataset.",
-            default=False,
-            type=lambda x: bool(distutils.util.strtobool(x))
-        )
-        Projection2DMixin.add_cli_args(parser)
-        return parent_parser
+    #     parser = parent_parser.add_argument_group('AMASS DataModule')
+    #     parser.add_argument(
+    #         '--mirror',
+    #         help="Add mirror clips to the dataset.",
+    #         default=False,
+    #         type=lambda x: bool(distutils.util.strtobool(x))
+    #     )
+    #     return parent_parser
 
     def prepare_data(self) -> None:
         # this is only called on one GPU, do not use self.something assignments
