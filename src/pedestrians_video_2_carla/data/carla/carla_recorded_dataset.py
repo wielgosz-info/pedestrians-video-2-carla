@@ -18,59 +18,17 @@ except ModuleNotFoundError:
 
 
 class CarlaRecordedDataset(BaseDataset):
-    def __init__(self,
-                 set_filepath: str,
-                 nodes: Type[CARLA_SKELETON] = CARLA_SKELETON,
-                 skip_metadata: bool = False,
-                 **kwargs
-                 ) -> None:
-        super().__init__(nodes=nodes, **kwargs)
-
-        self.set_file = h5py.File(set_filepath, 'r', driver='core')
-
-        self.projection_2d = self.set_file['carla_recorded/projection_2d']
-
-        if skip_metadata:
-            self.meta = [{}] * len(self)
-        else:
-            self.meta = self.__decode_meta(self.set_file['carla_recorded/meta'])
-
-    def __decode_meta(self, meta):
-        logging.getLogger(__name__).debug(
-            'Decoding meta for {}...'.format(self.set_file.filename))
-        out = [{
-            k: meta[k].attrs['labels'][v[idx]].decode("latin-1")
-            for k, v in meta.items()
-        } for idx in range(len(self))]
-
-        for item in out:
-            for k in ['start_frame', 'end_frame', 'clip_id', 'pedestrian_id']:
-                item[k] = int(item[k])
-        logging.getLogger(__name__).debug('Meta decoding done.')
-
-        return out
-
-    def __len__(self) -> int:
-        return len(self.projection_2d)
-
-    def _get_raw_projection_2d(self, idx: int) -> torch.Tensor:
-        projection_2d = self.projection_2d[idx]
-        return torch.from_numpy(projection_2d), {}
-
-    def _get_meta(self, idx: int) -> Dict[str, Any]:
-        return self.meta[idx]
-
     def _get_targets(self, idx: int, raw_projection_2d: torch.Tensor, intermediate_outputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         bboxes = get_bboxes(raw_projection_2d)
 
         # relative_pose_loc, relative_pose_rot = self.__extract_transform(
-        #     'carla_recorded/targets/relative_pose', idx)
+        #     'targets/relative_pose', idx)
         # absolute_pose_loc, absolute_pose_rot = self.__extract_transform(
-        #     'carla_recorded/targets/component_pose', idx)
+        #     'targets/component_pose', idx)
         # world_pose_loc, world_pose_rot = self.__extract_transform(
-        #     'carla_recorded/targets/world_pose', idx)
+        #     'targets/world_pose', idx)
         # world_loc, world_rot = self.__extract_transform(
-        #     'carla_recorded/targets/transform', idx)
+        #     'targets/transform', idx)
 
         return {
             'bboxes': bboxes,

@@ -1,7 +1,7 @@
 import ast
 import json
 import os
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas
@@ -21,19 +21,14 @@ class JAADOpenPoseDataModule(BaseDataModule):
     def __init__(self,
                  df_usecols=DF_USECOLS,
                  df_isin: Optional[Dict] = DF_ISIN,
-                 clip_offset: Optional[int] = 10,
                  strong_points: Optional[bool] = False,
                  **kwargs
                  ):
         self.annotations_usecols = df_usecols
         self.annotations_filters = df_isin
-        self.clip_offset = clip_offset
         self.strong_points = strong_points
 
-        assert self.clip_offset > 0, 'clip_offset must be greater than 0'
-
         self.__settings = {
-            'clip_offset': self.clip_offset,
             'annotations_usecols': self.annotations_usecols,
             'annotations_filters': self.annotations_filters,
             'strong_points': self.strong_points,
@@ -64,17 +59,6 @@ class JAADOpenPoseDataModule(BaseDataModule):
         BaseDataModule.add_data_specific_args(parent_parser)
 
         parser = parent_parser.add_argument_group('JAAD OpenPose DataModule')
-        parser.add_argument(
-            '--clip_offset',
-            metavar='NUM_FRAMES',
-            help='''
-                Number of frames to shift from the BEGINNING of the last clip.
-                Example: clip_length=30 and clip_offset=10 means that there will be
-                20 frames overlap between subsequent clips.
-                ''',
-            type=int,
-            default=10
-        )
         parser.add_argument(
             '--strong_points',
             help='''
@@ -114,7 +98,7 @@ class JAADOpenPoseDataModule(BaseDataModule):
         annotations_df['age'] = annotations_df['age'].replace('senior', 'adult')
 
         # Add 'keypoints' column
-        annotations_df['keypoints'] = [""] * len(annotations_df)
+        annotations_df['keypoints'] = pandas.Series(dtype='object')
 
         progress_bar.update()
 
@@ -178,15 +162,39 @@ class JAADOpenPoseDataModule(BaseDataModule):
             ]
 
         self._split_clips(clips, ['video', 'id'], [
-                          'clip', 'frame'], progress_bar=progress_bar, settings=self.__settings)
+                          'clip', 'frame'], progress_bar=progress_bar)
+
+    def _get_raw_data(self, clips: pandas.DataFrame) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, Any]]:
+        no_of_clips = len(clips) // self.clip_length
+        projection_2d = np.stack(clips.loc[:, 'keypoints'].to_list()).astype(np.float32)
+        projection_2d = projection_2d.reshape(
+            (no_of_clips, self.clip_length, *projection_2d.shape[1:]))
+        targets = {
+            'bboxes': clips.loc[:, ['x1', 'y1', 'x2', 'y2']
+                                ].to_numpy().reshape((no_of_clips, self.clip_length, 2, 2)).astype(np.float32)
+        }
+        grouped = clips.groupby(level=[0, 1, 2], sort=False)
+        grouped_tail = grouped.tail(1).reset_index(drop=False)
+        meta = {
+            'video_id': grouped_tail.loc[:, 'video'].to_list(),
+            'pedestrian_id': grouped_tail.loc[:, 'id'].to_list(),
+            'clip_id': grouped_tail.loc[:, 'clip'].to_numpy().astype(np.int32),
+            'age': grouped_tail.loc[:, 'age'].to_list(),
+            'gender': grouped_tail.loc[:, 'gender'].to_list(),
+            'action': grouped_tail.loc[:, 'action'].to_list(),
+            'speed': grouped_tail.loc[:, 'speed'].to_list(),
+            'start_frame': grouped.head(1).loc[:, 'frame'].to_numpy().astype(np.int32),
+            'end_frame': grouped_tail.loc[:, 'frame'].to_numpy().astype(np.int32) + 1,
+        }
+        return projection_2d, targets, meta
 
     def setup(self, stage: Optional[str] = None) -> None:
-        return self._setup(dataset_creator=OpenPoseDataset, stage=stage)
+        return self._setup(dataset_creator=OpenPoseDataset, stage=stage, set_ext='hdf5')
 
     def _is_strong_points(self, clip: DataFrame) -> None:
         # TODO: avoid back-and-forth conversion
         # TODO: use threshold instead of all or nothing?
-        keypoints_list = clip.loc[:, 'keypoints'].apply(ast.literal_eval)
+        keypoints_list = clip.loc[:, 'keypoints'].tolist()  # .apply(ast.literal_eval)
         keypoints = np.stack(keypoints_list)
 
         return np.all(np.any(keypoints[..., :2], axis=-1))
@@ -214,14 +222,14 @@ class JAADOpenPoseDataModule(BaseDataModule):
                     people = json.load(jp)['people']
                     if not len(people):
                         # OpenPose didn't detect anything in this frame - append empty array
-                        clip.loc[pedestrian_info.index[i], 'keypoints'] = str(np.zeros(
-                            (len(self.nodes), 3)).tolist())
+                        clip.at[pedestrian_info.index[i], 'keypoints'] = np.zeros(
+                            (len(self.nodes), 3)).tolist()
                     else:
                         # select the pose with biggest IOU with base bounding box
                         candidates = [np.array(p['pose_keypoints_2d']).reshape(
                             (-1, 3)) for p in people]
-                        clip.loc[pedestrian_info.index[i], 'keypoints'] = str(self._select_best_candidate(
-                            candidates, gt_bbox).tolist())
+                        clip.at[pedestrian_info.index[i], 'keypoints'] = self._select_best_candidate(
+                            candidates, gt_bbox).tolist()
 
     def _select_best_candidate(self, candidates: List[np.ndarray], gt_bbox: np.ndarray, near_zero: float = 1e-5) -> np.ndarray:
         """

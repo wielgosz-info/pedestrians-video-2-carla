@@ -58,3 +58,6 @@ MANIFEST
 # Logs
 lightning_logs/
 wandb/
+
+# Some testing models/data
+notebooks/data/

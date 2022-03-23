@@ -1,4 +1,6 @@
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
+
+import numpy as np
 
 from pedestrians_video_2_carla.data import OUTPUTS_BASE, DATASETS_BASE, SUBSETS_BASE, DEFAULT_ROOT
 import os
@@ -8,6 +10,7 @@ import math
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 from torch_geometric.loader import DataLoader as GraphDataLoader
+from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
 
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 import yaml
@@ -19,6 +22,8 @@ from pedestrians_video_2_carla.transforms.normalization import Normalizer
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 
 from .base_transforms import BaseTransforms
+
+import h5py
 
 try:
     from yaml import CDumper as Dumper
@@ -36,6 +41,8 @@ class BaseDataModule(LightningDataModule):
                  transform: Optional[Union[BaseTransforms, Callable]
                                      ] = BaseTransforms.hips_neck,
                  return_graph: bool = False,
+                 val_set_frac: Optional[float] = 0.2,
+                 test_set_frac: Optional[float] = 0.2,
                  **kwargs):
         super().__init__()
 
@@ -47,7 +54,15 @@ class BaseDataModule(LightningDataModule):
         self.num_workers = num_workers
         self.nodes = input_nodes
         self.return_graph = return_graph
+        self.val_set_frac = val_set_frac
+        self.test_set_frac = test_set_frac
         self.kwargs = kwargs
+
+        if self.uses_clip_offset():
+            self.clip_offset = kwargs.get('clip_offset', self.clip_length)
+            assert self.clip_offset > 0, 'clip_offset must be greater than 0'
+        else:
+            self.clip_offset = None
 
         if self.return_graph:
             assert self.clip_length == 1 or self.batch_size == 1, 'Either clip_length or batch_size must be 1 for GNNs.'
@@ -55,6 +70,7 @@ class BaseDataModule(LightningDataModule):
         self.train_set = None
         self.val_set = None
         self.test_set = None
+        self.set_size = {}
 
         self.transform, self.transform_callable = self._setup_data_transform(transform)
 
@@ -79,7 +95,11 @@ class BaseDataModule(LightningDataModule):
         return {
             'data_module_name': self.__class__.__name__,
             'clip_length': self.clip_length,
+            'clip_offset': self.clip_offset,
             'nodes': self.nodes.__name__,
+            'train_set_size': self.set_size.get('train', None),
+            'val_set_size': self.set_size.get('val', None),
+            'test_set_size': self.set_size.get('test', None),
         }
 
     @property
@@ -88,7 +108,8 @@ class BaseDataModule(LightningDataModule):
             'batch_size': self.batch_size,
             'num_workers': self.num_workers,
             'transform': self.transform,
-            'settings_digest': self._settings_digest
+            'settings_digest': self._settings_digest,
+            **(Projection2DMixin.extract_hparams(self.kwargs) if self.uses_projection_mixin() else {})
         }
 
     def _calculate_settings_digest(self):
@@ -108,8 +129,16 @@ class BaseDataModule(LightningDataModule):
             BaseTransforms.user_defined: transform
         }[transform]) if isinstance(transform, BaseTransforms) else (BaseTransforms.user_defined, transform)
 
-    @ staticmethod
-    def add_data_specific_args(parent_parser):
+    @classmethod
+    def uses_clip_offset(cls):
+        return True
+
+    @classmethod
+    def uses_projection_mixin(cls):
+        return True
+
+    @classmethod
+    def add_data_specific_args(cls, parent_parser):
         parser = parent_parser.add_argument_group('Base DataModule')
         parser.add_argument(
             "--clip_length",
@@ -118,6 +147,18 @@ class BaseDataModule(LightningDataModule):
             default=30,
             help="Length of the clips."
         )
+        if cls.uses_clip_offset():
+            parser.add_argument(
+                '--clip_offset',
+                metavar='NUM_FRAMES',
+                help='''
+                    Number of frames to shift from the BEGINNING of the last clip.
+                    Example: clip_length=30 and clip_offset=10 means that there will be
+                    20 frames overlap between subsequent clips.
+                    ''',
+                type=int,
+                default=None
+            )
         parser.add_argument(
             "--batch_size",
             type=int,
@@ -143,6 +184,14 @@ class BaseDataModule(LightningDataModule):
             choices=list(set(BaseTransforms) - {BaseTransforms.user_defined}),
             type=BaseTransforms.__getitem__
         )
+        parser.add_argument(
+            '--skip_metadata',
+            help="If True, metadata will not be loaded from the dataset.",
+            default=False,
+            action='store_true'
+        )
+        if cls.uses_projection_mixin():
+            Projection2DMixin.add_cli_args(parser)
         # input nodes are handled in the model hyperparameters
         return parent_parser
 
@@ -176,7 +225,7 @@ class BaseDataModule(LightningDataModule):
     def test_dataloader(self):
         return self.get_dataloader(self.test_set)
 
-    def _split_clips(self, clips, primary_index, clips_index, test_split=0.2, val_split=0.2, progress_bar=None, settings=None):
+    def _split_clips(self, clips, primary_index, clips_index, test_split=0.2, val_split=0.2, progress_bar=None):
         """
         Helper function to split the clips into train, val and test sets and dump them as CSV files.
         Not called automatically anywhere, usually should be called at the end of the prepare_data() method.
@@ -223,7 +272,7 @@ class BaseDataModule(LightningDataModule):
         # so we try to assign them in roundrobin fashion
         # start by assigning the videos with most clips
 
-        targets = (train_count, val_count, test_count)
+        target_counts = (train_count, val_count, test_count)
         sets = [[], [], []]  # train, val, test
         current = [0, 0, 0]
         assigned = 0
@@ -231,7 +280,7 @@ class BaseDataModule(LightningDataModule):
         while assigned < total:
             skipped = 0
             for i in range(3):
-                needed = targets[i] - current[i]
+                needed = target_counts[i] - current[i]
                 if needed > 0:
                     to_assign = clip_counts[(assigned < clip_counts['clips_cumsum']) &
                                             (clip_counts['clips_cumsum'] <= assigned+needed)]
@@ -254,19 +303,54 @@ class BaseDataModule(LightningDataModule):
         for (i, name) in enumerate(names):
             clips_set = clips.join(pandas.concat(sets[i]), how='right')
             clips_set.drop(['clips_count', 'clips_cumsum'], inplace=True, axis=1)
+            clips_set.reset_index(level='frame', inplace=True, drop=False)
             # shuffle the clips so that for val/test we have more variety when utilizing only part of the dataset
-            shuffled_clips = clips_set.sample(frac=1)
-            shuffled_clips.to_csv(os.path.join(
-                self._subsets_dir, '{:s}.csv'.format(name)))
-            if settings is not None:
-                settings['{}_set_size'.format(
-                    name)] = int(current[i]) if i > 0 else int(total - sum(current[1:]))
+            index = pandas.MultiIndex.from_frame(clips_set.index.to_frame(
+                index=False).drop_duplicates().sample(frac=1))
+            shuffled_clips = clips_set.loc[index.values, :]
+            projection_2d, targets, meta = self._get_raw_data(shuffled_clips)
+            self.set_size[name] = self._save_subset(name, projection_2d, targets, meta)
 
         progress_bar.update()
         progress_bar.close()
 
         # save settings
         self.save_settings()
+
+    def _get_raw_data(self, clips: pandas.DataFrame) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, Any]]:
+        """
+        Helper function to get the raw data from the clips. They are already shuffled.
+        This is called by _split_clips() and should be implemented by the subclass.
+
+        :param clips: Dataframe with the clips to process.
+        :type clips: pandas.DataFrame
+        :return: 2D data, targets and meta data.
+        :rtype: Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, Any]]
+        """
+        raise NotImplementedError()
+
+    def _save_subset(self, name, projection_2d, targets, meta):
+        with h5py.File(os.path.join(self._subsets_dir, "{}.hdf5".format(name)), "w") as f:
+            f.create_dataset("projection_2d", data=projection_2d,
+                             chunks=(1, *projection_2d.shape[1:]))
+
+            for k, v in targets.items():
+                f.create_dataset(f"targets/{k}", data=v,
+                                 chunks=(1, *v.shape[1:]))
+
+            for k, v in meta.items():
+                if isinstance(v, np.ndarray) and v.dtype != np.dtype('object'):
+                    f.create_dataset(f"meta/{k}", data=v,
+                                     chunks=(1, *v.shape[1:]))
+                else:
+                    unique = list(set(v))
+                    labels = np.array([
+                        str(s).encode("latin-1") for s in unique
+                    ], dtype=h5py.string_dtype('ascii', 30))
+                    mapping = {s: i for i, s in enumerate(unique)}
+                    f.create_dataset("meta/{}".format(k),
+                                     data=[mapping[s] for s in v], dtype=np.uint16)
+                    f["meta/{}".format(k)].attrs["labels"] = labels
 
     def _setup(self,
                dataset_creator: Callable,

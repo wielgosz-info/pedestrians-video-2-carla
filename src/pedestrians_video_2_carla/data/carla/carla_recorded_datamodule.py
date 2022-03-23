@@ -5,12 +5,12 @@ import pandas as pd
 import h5py
 import sklearn
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
-from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
 from pedestrians_video_2_carla.data.carla.carla_recorded_dataset import CarlaRecordedDataset
 import pandas as pd
 import ast
 from sklearn.model_selection import train_test_split
 from .constants import CARLA_RECORDED_DIR
+
 
 def convert_to_list(x):
     try:
@@ -22,62 +22,10 @@ def convert_to_list(x):
 
 class CarlaRecordedDataModule(BaseDataModule):
     def __init__(self,
-                 val_set_frac: Optional[float] = 0.2,
-                 test_set_frac: Optional[float] = 0.2,
-                 clip_offset: Optional[int] = 30,
                  **kwargs):
-        assert clip_offset > 0, 'clip_offset must be greater than 0'
-
-        self.clip_offset = clip_offset
-        self.__settings = {
-            'clip_offset': self.clip_offset,
-        }
-
         super().__init__(**kwargs)
 
         self.data_dir = os.path.join(self.datasets_dir, CARLA_RECORDED_DIR)
-        self.val_set_frac = val_set_frac
-        self.test_set_frac = test_set_frac
-
-    @property
-    def settings(self):
-        return {
-            **super().settings,
-            **self.__settings
-        }
-
-    @property
-    def additional_hparams(self):
-        return {
-            **super().additional_hparams,
-            **Projection2DMixin.extract_hparams(self.kwargs)
-        }
-
-    @staticmethod
-    def add_data_specific_args(parent_parser):
-        BaseDataModule.add_data_specific_args(parent_parser)
-
-        parser = parent_parser.add_argument_group('CARLARendered DataModule')
-        parser.add_argument(
-            '--clip_offset',
-            metavar='NUM_FRAMES',
-            help='''
-                Number of frames to shift from the BEGINNING of the last clip.
-                Example: clip_length=30 and clip_offset=10 means that there will be
-                20 frames overlap between subsequent clips.
-                ''',
-            type=int,
-            default=30
-        )
-        parser.add_argument(
-            '--skip_metadata',
-            help="If True, metadata will not be loaded from the dataset.",
-            default=False,
-            action='store_true'
-        )
-        Projection2DMixin.add_cli_args(parser)
-
-        return parent_parser
 
     def prepare_data(self) -> None:
         if not self._needs_preparation:
@@ -199,26 +147,12 @@ class CarlaRecordedDataModule(BaseDataModule):
             # This is better when visualizing/using only part of the dataset.
             useful_clips = sklearn.utils.shuffle(*np.nonzero(useful_clips_mask))
 
-            with h5py.File(os.path.join(self._subsets_dir, "{}.hdf5".format(name)), "w") as f:
-                f.create_dataset("carla_recorded/projection_2d", data=projection_2d[useful_clips],
-                                 chunks=(1, *projection_2d.shape[1:]))
-
-                for k, v in targets.items():
-                    f.create_dataset(f"carla_recorded/targets/{k}", data=v[useful_clips],
-                                     chunks=(1, *v.shape[1:]))
-
-                for k, v in meta.items():
-                    used_v = v[useful_clips]
-                    unique = list(set(used_v))
-                    labels = np.array([
-                        str(s).encode("latin-1") for s in unique
-                    ], dtype=h5py.string_dtype('ascii', 30))
-                    mapping = {s: i for i, s in enumerate(unique)}
-                    f.create_dataset("carla_recorded/meta/{}".format(k),
-                                     data=[mapping[s] for s in used_v], dtype=np.uint16)
-                    f["carla_recorded/meta/{}".format(k)].attrs["labels"] = labels
-
-            self.__settings['{}_set_size'.format(name)] = int(np.sum(useful_clips_mask))
+            self.set_size[name] = self._save_subset(
+                name,
+                projection_2d[useful_clips],
+                {k: v[useful_clips] for k, v in targets.items()},
+                {k: v[useful_clips] for k, v in meta.items()},
+            )
 
         # save settings
         self.save_settings()

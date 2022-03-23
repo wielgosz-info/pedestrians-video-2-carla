@@ -139,7 +139,7 @@ class AMASSDataModule(BaseDataModule):
 
         # this takes 3 progress_bar steps
         self._split_clips([pandas.DataFrame(clips)], ['id'], [
-                          'clip'], progress_bar=progress_bar, settings=self.__settings)
+                          'clip'], progress_bar=progress_bar)
 
     def setup(self, stage: Optional[str] = None) -> None:
         return self._setup(dataset_creator=lambda *args, **kwargs: SMPLDataset(
