@@ -1,5 +1,7 @@
 import logging
 from typing import Any, Dict, Tuple, Type
+import numpy as np
+from pandas import value_counts
 from pedestrians_scenarios.karma.pose.skeleton import Skeleton
 from torch.utils.data import Dataset, IterableDataset
 from pedestrians_video_2_carla.data.base.confidence_mixin import ConfidenceMixin
@@ -44,13 +46,24 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         else:
             self.meta = self._decode_meta(self.set_file['meta'])
 
+    def _decode_meta_value(self, value: Any, meta_item: Any) -> Any:
+        if 'labels' in meta_item.attrs:
+            return meta_item.attrs['labels'][value].decode("latin-1")
+
+        if isinstance(value, np.floating):
+            return float(value)
+
+        if isinstance(value, np.integer):
+            return int(value)
+
+        return value
+
     def _decode_meta(self, meta):
         logging.getLogger(__name__).debug(
             'Decoding meta for {}...'.format(self.set_file.filename))
 
         out = [{
-            k: meta[k].attrs['labels'][v[idx]].decode(
-                "latin-1") if v.dtype == h5py.string_dtype('ascii', 30) else v[idx]
+            k: self._decode_meta_value(v[idx], meta[k])
             for k, v in meta.items()
         } for idx in range(len(self))]
 

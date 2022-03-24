@@ -29,7 +29,7 @@ class Seq2SeqFlatEmbeddings(Seq2Seq):
                  embeddings_size: Union[int, Iterable[int]] = 64,
                  **kwargs):
 
-        if embeddings_size is None:
+        if embeddings_size is None or (isinstance(embeddings_size, list) and len(embeddings_size) == 0):
             # try to get the embeddings size from kwargs
             es_kwargs = [kw for kw in kwargs.keys(
             ) if kw.startswith('embeddings_size_')]
@@ -68,7 +68,7 @@ class Seq2SeqFlatEmbeddings(Seq2Seq):
             "Seq2SeqFlatEmbeddings Movements Module")
         parser.add_argument(
             '--embeddings_size',
-            default=[128, 64],
+            default=[],
             type=int,
             nargs='+',
         )

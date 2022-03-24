@@ -1,5 +1,5 @@
 import os
-from typing import Any, Callable, Dict, Iterator, List, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Tuple, Type
 
 import numpy as np
 import torch
@@ -26,8 +26,8 @@ class PedestrianWriter(object):
                  log_dir: str,
                  renderers: List[PedestrianRenderers],
                  extractor: Extractor,
-                 input_nodes: Skeleton,
-                 output_nodes: Skeleton,
+                 input_nodes: Type[Skeleton],
+                 output_nodes: Type[Skeleton],
                  reduced_log_every_n_steps: int = 500,
                  fps: float = 30.0,
                  max_videos: int = 10,
