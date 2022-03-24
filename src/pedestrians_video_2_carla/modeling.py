@@ -288,6 +288,7 @@ def main(args: List[str]):
             version=version,
             project=args.flow,
             entity="carla-pedestrians",
+            log_model=True,  # this will log models created by ModelCheckpoint
         )
         log_dir = os.path.realpath(os.path.join(str(logger.experiment.dir), ".."))
     else:
