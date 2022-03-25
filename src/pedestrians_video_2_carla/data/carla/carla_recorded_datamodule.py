@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Callable, Optional
 import os
 import numpy as np
 import pandas as pd
@@ -184,9 +184,5 @@ class CarlaRecordedDataModule(BaseDataModule):
 
         return clips.reshape((-1, self.clip_length, *continuous_series.shape[1:]))
 
-    def setup(self, stage: Optional[str] = None) -> None:
-        return self._setup(
-            CarlaRecordedDataset,
-            stage,
-            'hdf5'
-        )
+    def _get_dataset_creator(self) -> Callable:
+        return CarlaRecordedDataset

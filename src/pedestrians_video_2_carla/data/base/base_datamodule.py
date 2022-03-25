@@ -1,7 +1,7 @@
 import hashlib
 import math
 import os
-from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
 
 import h5py
 import numpy as np
@@ -22,6 +22,7 @@ from pedestrians_video_2_carla.transforms.normalization import Normalizer
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 from torch_geometric.loader import DataLoader as GraphDataLoader
+from tqdm.auto import tqdm
 
 from .base_transforms import BaseTransforms
 
@@ -33,6 +34,7 @@ except ImportError:
 
 sharing_strategy = "file_system"
 torch.multiprocessing.set_sharing_strategy(sharing_strategy)
+
 
 def set_worker_sharing_strategy(worker_id: int) -> None:
     torch.multiprocessing.set_sharing_strategy(sharing_strategy)
@@ -79,6 +81,7 @@ class BaseDataModule(LightningDataModule):
         self.train_set = None
         self.val_set = None
         self.test_set = None
+        self._settings = {}  # this is used to store the child's class subset settings
         self.set_size = {}
 
         self.transform, self.transform_callable = self._setup_data_transform(transform)
@@ -109,6 +112,7 @@ class BaseDataModule(LightningDataModule):
             'train_set_size': self.set_size.get('train', None),
             'val_set_size': self.set_size.get('val', None),
             'test_set_size': self.set_size.get('test', None),
+            **self._settings
         }
 
     @property
@@ -126,6 +130,9 @@ class BaseDataModule(LightningDataModule):
                                      for k, s in self.settings.items()]).encode()).hexdigest()
 
     def save_settings(self):
+        """
+        Saves the subset settings to file.
+        """
         with open(os.path.join(self._subsets_dir, 'dparams.yaml'), 'w') as f:
             yaml.dump(self.settings, f, Dumper=Dumper)
 
@@ -253,111 +260,75 @@ class BaseDataModule(LightningDataModule):
     def test_dataloader(self):
         return self.get_dataloader(self.test_set)
 
-    def _split_clips(self, clips, primary_index, clips_index, test_split=0.2, val_split=0.2, progress_bar=None):
+    def _read_data(self) -> Any:
+        raise NotImplementedError()
+
+    def _clean_filter_sort_data(self, data: Any) -> Any:
+        return data
+
+    def _get_frame_counts(self, data: Any) -> Any:
+        return None
+
+    def _extract_clips(self, data: Any, frame_counts: Any) -> Iterable[Any]:
+        raise NotImplementedError()
+
+    def _extract_additional_data(self, clips: Iterable[Any]) -> Iterable[Any]:
+        return clips
+
+    def _clean_filter_sort_clips(self, clips: Iterable[Any]) -> Iterable[Any]:
+        return clips
+
+    def _split_and_save_clips(self, clips: Iterable[Any]) -> Dict[str, int]:
         """
-        Helper function to split the clips into train, val and test sets and dump them as CSV files.
-        Not called automatically anywhere, usually should be called at the end of the prepare_data() method.
+        This method is used to split the clips into train, val and test sets.
+        It should return a dictionary containing the number of clips in each set.
 
-        :param clips: Full list of clips in a format hat can be fed into pandas.concat() to get a single dataframe.
-        :type clips: List[Any]
-        :param primary_index: Names of the primary index columns. Usually those will allow to identify a single skeleton.
-        :type primary_index: List[str]
-        :param clips_index: Names of the index columns that will be used to group the clips.
-        :type clips_index: List[str]
-        :param test_split: Testing split as a fraction of the whole dataset, defaults to 0.2
-        :type test_split: float, optional
-        :param val_split: Validation split as a fraction of (total - test) dataset, defaults to 0.2
-        :type val_split: float, optional
-        :param progress_bar: tqdm instance if reporting progress is needed, defaults to None
-        :type progress_bar: tqdm.tqdm, optional
-        """
+        The implementation should use self.val_set_frac and self.test_set_frac
+        to get the desired split proportions.
 
-        if progress_bar is None:
-            progress_bar = object()
-            progress_bar.update = lambda: None
-            progress_bar.close = lambda: None
-
-        full_index = primary_index + clips_index
-
-        clips = pandas.concat(clips).set_index(full_index)
-        clips.sort_index(inplace=True)
-
-        # aaaand finally we have what we need in "clips" to create our dataset
-        # how many clips do we have?
-        clip_counts = clips.reset_index(level=clips_index).groupby(primary_index).agg(
-            clips_count=pandas.NamedAgg(column='clip', aggfunc='nunique')).sort_values('clips_count', ascending=False)
-        clip_counts = clip_counts.assign(clips_cumsum=clip_counts.cumsum())
-        total = clip_counts['clips_count'].sum()
-
-        progress_bar.update()
-
-        test_count = math.floor(total*test_split)
-        val_count = math.floor((total-test_count)*val_split)
-        train_count = total - test_count - val_count
-
-        # we do not want to assign clips from the same video/pedestrian combination to different datasets,
-        # especially since they are overlapping by default
-        # so we try to assign them in roundrobin fashion
-        # start by assigning the videos with most clips
-
-        target_counts = (train_count, val_count, test_count)
-        sets = [[], [], []]  # train, val, test
-        current = [0, 0, 0]
-        assigned = 0
-
-        while assigned < total:
-            skipped = 0
-            for i in range(3):
-                needed = target_counts[i] - current[i]
-                if needed > 0:
-                    to_assign = clip_counts[(assigned < clip_counts['clips_cumsum']) &
-                                            (clip_counts['clips_cumsum'] <= assigned+needed)]
-                    if not len(to_assign):
-                        skipped += 1
-                        continue
-                    current[i] += to_assign['clips_count'].sum()
-                    sets[i].append(to_assign)
-                    assigned = sum(current)
-                else:
-                    skipped += 1
-            if skipped == 3:
-                # assign whatever is left to train set
-                sets[0].append(clip_counts[assigned < clip_counts['clips_cumsum']])
-                break
-        progress_bar.update()
-
-        # now we need to dump the actual clips info
-        names = ['train', 'val', 'test']
-        for (i, name) in enumerate(names):
-            clips_set = clips.join(pandas.concat(sets[i]), how='right')
-            clips_set.drop(['clips_count', 'clips_cumsum'], inplace=True, axis=1)
-            clips_set.reset_index(level='frame', inplace=True, drop=False)
-            # shuffle the clips so that for val/test we have more variety when utilizing only part of the dataset
-            index = pandas.MultiIndex.from_frame(clips_set.index.to_frame(
-                index=False).drop_duplicates().sample(frac=1))
-            shuffled_clips = clips_set.loc[index.values, :]
-            projection_2d, targets, meta = self._get_raw_data(shuffled_clips)
-            self.set_size[name] = self._save_subset(name, projection_2d, targets, meta)
-
-        progress_bar.update()
-        progress_bar.close()
-
-        # save settings
-        self.save_settings()
-
-    def _get_raw_data(self, clips: pandas.DataFrame) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, Any]]:
-        """
-        Helper function to get the raw data from the clips. They are already shuffled.
-        This is called by _split_clips() and should be implemented by the subclass.
-
-        :param clips: Dataframe with the clips to process.
-        :type clips: pandas.DataFrame
-        :return: 2D data, targets and meta data.
-        :rtype: Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, Any]]
+        :param clips: List (or other iterable) of clips to split.
+        :type clips: Iterable[Any]
+        :return: A dictionary containing the number of clips in each set.
+        :rtype: Dict[str, int]
         """
         raise NotImplementedError()
 
+    def prepare_data(self) -> None:
+        # this is only called on one GPU, do not use self.something assignments
+
+        if not self._needs_preparation:
+            # we already have datasset prepared for this combination of settings
+            return
+
+        # initial preparation
+        progress_bar = tqdm(total=6, desc='Generating subsets')
+        loaded_data = self._read_data()
+        progress_bar.update(1)
+        filtered_data = self._clean_filter_sort_data(loaded_data)
+        progress_bar.update(1)
+
+        # gather clips
+        clips = self._extract_clips(filtered_data)
+        progress_bar.update(1)
+        updated_clips = self._extract_additional_data(clips)
+        progress_bar.update(1)
+
+        # post-processing
+        filtered_clips = self._clean_filter_sort_clips(updated_clips)
+        progress_bar.update(1)
+
+        # save data
+        self.set_size = self._split_and_save_clips(filtered_clips)
+        progress_bar.update(1)
+
+        # save subset settings
+        self.save_settings()
+        progress_bar.close()
+
     def _save_subset(self, name, projection_2d, targets, meta):
+        """
+        This method is used to save the subset of data as HDF5 file that follows common format.
+        """
         with h5py.File(os.path.join(self._subsets_dir, "{}.hdf5".format(name)), "w") as f:
             f.create_dataset("projection_2d", data=projection_2d,
                              chunks=(1, *projection_2d.shape[1:]))
@@ -380,20 +351,18 @@ class BaseDataModule(LightningDataModule):
                                      data=[mapping[s] for s in v], dtype=np.uint16)
                     f["meta/{}".format(k)].attrs["labels"] = labels
 
-    def _setup(self,
-               dataset_creator: Callable,
-               stage: Optional[str] = None,
-               set_ext: Optional[str] = 'csv',
-               train_kwargs: Optional[Dict[str, Any]] = None,
-               val_kwargs: Optional[Dict[str, Any]] = None,
-               test_kwargs: Optional[Dict[str, Any]] = None,
-               ) -> None:
-        """
-        Helper for setup function when using CSV/something train/val/test splits.
+        return len(projection_2d)
 
-        :param stage: Pytorch Lightning processing stage, defaults to None
-        :type stage: Optional[str], optional
+    def _get_dataset_creator(self) -> Callable:
+        raise NotImplementedError()
+
+    def setup(self, stage: Optional[str] = None) -> None:
         """
+        This method is used to setup the data module.
+        """
+        set_ext = 'hdf5'
+        dataset_creator = self._get_dataset_creator()
+
         if stage == "fit" or stage is None:
             self.train_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'train.{set_ext}'),
@@ -402,10 +371,7 @@ class BaseDataModule(LightningDataModule):
                 transform=self.transform_callable,
                 return_graph=self.return_graph,
                 clip_length=self.clip_length,
-                **{
-                    **self.kwargs,
-                    **(train_kwargs or {})
-                }
+                **self.kwargs,
             )
             self.val_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'val.{set_ext}'),
@@ -414,10 +380,7 @@ class BaseDataModule(LightningDataModule):
                 transform=self.transform_callable,
                 return_graph=self.return_graph,
                 clip_length=self.clip_length,
-                **{
-                    **self.kwargs,
-                    **(val_kwargs or {})
-                }
+                **self.kwargs,
             )
 
         if stage == "test" or stage is None:
@@ -428,8 +391,5 @@ class BaseDataModule(LightningDataModule):
                 transform=self.transform_callable,
                 return_graph=self.return_graph,
                 clip_length=self.clip_length,
-                **{
-                    **self.kwargs,
-                    **(test_kwargs or {})
-                }
+                **self.kwargs,
             )
