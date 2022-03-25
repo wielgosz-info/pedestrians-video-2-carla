@@ -47,17 +47,8 @@ class JAADOpenPoseDataModule(BaseDataModule):
             **self.__settings
         }
 
-    @property
-    def additional_hparams(self):
-        return {
-            **super().additional_hparams,
-            **Projection2DMixin.extract_hparams(self.kwargs)
-        }
-
     @staticmethod
-    def add_data_specific_args(parent_parser):
-        BaseDataModule.add_data_specific_args(parent_parser)
-
+    def add_subclass_specific_args(parent_parser):
         parser = parent_parser.add_argument_group('JAAD OpenPose DataModule')
         parser.add_argument(
             '--strong_points',
@@ -222,7 +213,7 @@ class JAADOpenPoseDataModule(BaseDataModule):
                     if not len(people):
                         # OpenPose didn't detect anything in this frame - append empty array
                         clip.at[pedestrian_info.index[i], 'keypoints'] = np.zeros(
-                            (len(self.nodes), 3)).tolist()
+                            (len(self.data_nodes), 3)).tolist()
                     else:
                         # select the pose with biggest IOU with base bounding box
                         candidates = [np.array(p['pose_keypoints_2d']).reshape(
@@ -230,7 +221,7 @@ class JAADOpenPoseDataModule(BaseDataModule):
                         clip.at[pedestrian_info.index[i], 'keypoints'] = self._select_best_candidate(
                             candidates, gt_bbox).tolist()
 
-    def _select_best_candidate(self, candidates: List[np.ndarray], gt_bbox: np.ndarray, near_zero: float = 1e-5) -> np.ndarray:
+    def _select_best_candidate(self, candidates: List[np.ndarray], gt_bbox: np.ndarray, iou_threshold: float = 1e-1) -> np.ndarray:
         """
         Selects the pose with the biggest overlap with ground truth bounding box.
         If the IOU is smaller than `near_zero` value, it returns empty array.
@@ -239,8 +230,8 @@ class JAADOpenPoseDataModule(BaseDataModule):
         :type candidates: List[np.ndarray]
         :param gt_bbox: [description]
         :type gt_bbox: np.ndarray
-        :param near_zero: [description], defaults to 1e-5
-        :type near_zero: float, optional
+        :param iou_threshold: if best IoU is lower than this thereshold, return all zeros (not detected), defaults to 1e-1
+        :type iou_threshold: float, optional
         :return: Best pose candidate for specified bounding box.
         :rtype: np.ndarray
         """
@@ -271,7 +262,7 @@ class JAADOpenPoseDataModule(BaseDataModule):
 
         best_iou_idx = np.argmax(iou)
 
-        if iou[best_iou_idx] < near_zero:
-            return np.zeros((len(self.nodes), 3))
+        if iou[best_iou_idx] < iou_threshold:
+            return np.zeros((len(self.data_nodes), 3))
 
         return candidates[best_iou_idx]

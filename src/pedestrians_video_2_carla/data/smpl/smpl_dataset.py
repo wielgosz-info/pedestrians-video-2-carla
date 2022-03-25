@@ -29,11 +29,11 @@ class SMPLDataset(BaseDataset):
                  data_dir,
                  set_filepath,
                  nodes: Union[Type[SMPL_SKELETON],
-                               Type[CARLA_SKELETON]] = SMPL_SKELETON,
+                              Type[CARLA_SKELETON]] = SMPL_SKELETON,
                  device=torch.device('cpu'),
                  **kwargs
                  ) -> None:
-        super().__init__(nodes=nodes, **kwargs)
+        super().__init__(data_nodes=nodes, **kwargs)
 
         self.data_dir = data_dir
 
@@ -43,7 +43,7 @@ class SMPLDataset(BaseDataset):
         self.indices = pandas.MultiIndex.from_frame(
             self.clips.index.to_frame(index=False).drop_duplicates())
 
-        self.nodes_len = len(self.nodes)
+        self.nodes_len = len(self.data_nodes)
 
         self.structure = load('structure')['structure']
         self.device = device
@@ -90,7 +90,7 @@ class SMPLDataset(BaseDataset):
         # convert to absolute pose and projection
         relative_loc, relative_rot, absolute_loc, absolute_rot, projections, _ = self.get_clip_projection(
             smpl_pose=amass_relative_pose_rot_rad,
-            nodes=self.nodes,
+            nodes=self.data_nodes,
             age=clip_info['age'],
             gender=clip_info['gender'],
             world_rot=world_rot,

@@ -28,7 +28,7 @@ class Carla2D3DDataset(BaseDataset):
         skip_metadata: bool = False,
         **kwargs
     ) -> None:
-        super().__init__(nodes=nodes, **kwargs)
+        super().__init__(data_nodes=nodes, **kwargs)
 
         self.set_file = h5py.File(set_filepath, 'r', driver='core')
 

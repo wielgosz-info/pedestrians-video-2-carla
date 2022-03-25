@@ -1,20 +1,10 @@
-import logging
-from typing import Any, Dict, Type
+from typing import Dict
 
 import numpy as np
 import torch
 from pedestrians_video_2_carla.data.base.base_dataset import BaseDataset
-from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.utils.tensors import get_bboxes
 from pytorch3d.transforms import euler_angles_to_matrix
-
-try:
-    import h5pickle as h5py
-except ModuleNotFoundError:
-    import warnings
-
-    import h5py
-    warnings.warn("h5pickle not found, using h5py instead")
 
 
 class CarlaRecordedDataset(BaseDataset):

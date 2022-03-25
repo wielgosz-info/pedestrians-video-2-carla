@@ -5,8 +5,13 @@ from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON, C
 
 
 class OpenPoseDataset(BaseDataset):
-    def __init__(self, set_filepath, nodes: Union[Type[BODY_25_SKELETON], Type[COCO_SKELETON]] = BODY_25_SKELETON, **kwargs) -> None:
-        super().__init__(set_filepath=set_filepath, nodes=nodes, **kwargs)
+    def __init__(self,
+                 set_filepath,
+                 input_nodes: Union[Type[BODY_25_SKELETON],
+                                    Type[COCO_SKELETON]] = BODY_25_SKELETON,
+                 **kwargs
+                 ) -> None:
+        super().__init__(set_filepath=set_filepath, input_nodes=input_nodes, **kwargs)
 
     def _get_targets(self, idx: int, *args, **kwargs) -> Dict[str, torch.Tensor]:
         return {

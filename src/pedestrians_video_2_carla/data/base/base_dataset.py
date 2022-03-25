@@ -1,7 +1,6 @@
 import logging
 from typing import Any, Dict, Tuple, Type
 import numpy as np
-from pandas import value_counts
 from pedestrians_scenarios.karma.pose.skeleton import Skeleton
 from torch.utils.data import Dataset, IterableDataset
 from pedestrians_video_2_carla.data.base.confidence_mixin import ConfidenceMixin
@@ -9,6 +8,8 @@ from pedestrians_video_2_carla.data.base.graph_mixin import GraphMixin
 from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
 import torch
 import h5py
+
+from pedestrians_video_2_carla.data.base.skeleton import get_common_indices
 
 
 class TorchDataset(Dataset):
@@ -27,14 +28,36 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
     def __init__(
         self,
         set_filepath,
-        nodes: Type[Skeleton],
+        input_nodes: Type[Skeleton],
+        data_nodes: Type[Skeleton] = None,
         skip_metadata: bool = False,
         **kwargs
     ) -> None:
+        """
+        Initializes the dataset using the given filepath.
+
+        :param set_filepath: Path to the set file
+        :type set_filepath: str
+        :param input_nodes: Nodes as expected by the model
+        :type input_nodes: Type[Skeleton]
+        :param data_nodes: Nodes as present in the data
+        :type data_nodes: Type[Skeleton]
+        :param skip_metadata: Whether to skip the metadata (default: False). Skipping metadata loading speeds up the dataset creation.
+        :type skip_metadata: bool
+        """
         super().__init__(**kwargs)
 
-        self.nodes = nodes
+        self.input_nodes = input_nodes
+        self.data_nodes = data_nodes if data_nodes is not None else input_nodes
+
         self._load_data(set_filepath, skip_metadata)
+
+        self.input_indices, self.data_indices = get_common_indices(
+            input_nodes=self.data_nodes,
+            output_nodes=self.input_nodes
+        )
+        self.num_input_joints = len(self.input_nodes)
+        self.num_data_joints = len(self.data_nodes)
 
     def _load_data(self, set_filepath: str, skip_metadata: bool) -> None:
         self.set_file = h5py.File(set_filepath, 'r', driver='core')
@@ -89,6 +112,43 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
     def _get_meta(self, idx: int) -> Dict[str, Any]:
         return self.meta[idx]
 
+    def _get_common_tensor(self, data_item):
+        # map data nodes to input nodes expected by the model
+        # assumption: data_tensor.shape[1] is num_data_joints
+        # TODO: some other data may accidentally have the same size as num_data_joints, it would be incorrectly mapped
+        if not isinstance(data_item, torch.Tensor) or len(data_item.shape) < 2 or data_item.shape[1] != self.num_data_joints:
+            return data_item
+
+        input_tensor = torch.zeros(
+            (data_item.shape[0], self.num_input_joints, *data_item.shape[2:]), dtype=data_item.dtype, device=data_item.device)
+        input_tensor[:, self.input_indices] = data_item[:, self.data_indices]
+
+        return input_tensor
+
+    def _map_nodes(self, projection_2d: torch.Tensor, projection_targets: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+        """
+        Maps the input nodes to the data nodes.
+
+        :param projection_2d: 2D projection
+        :type projection_2d: torch.Tensor
+        :param projection_targets: 2D projection targets
+        :type projection_targets: Dict[str, torch.Tensor]
+        :param targets: targets
+        :type targets: Dict[str, torch.Tensor]
+        """
+        # map data nodes to input nodes expected by the model
+        return (
+            self._get_common_tensor(projection_2d),
+            {
+                k: self._get_common_tensor(v)
+                for k, v in projection_targets.items()
+            },
+            {
+                k: self._get_common_tensor(v)
+                for k, v in targets.items()
+            }
+        )
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, Any]]:
         """
         Returns a single clip.
@@ -104,6 +164,10 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         projection_2d, projection_targets = self.process_projection_2d(
             raw_projection_2d)
         projection_2d = self.process_confidence(projection_2d)
+
+        if self.data_nodes != self.input_nodes:
+            projection_2d, projection_targets, targets = self._map_nodes(
+                projection_2d, projection_targets, targets)
 
         out = (projection_2d, {
             **projection_targets,

@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from torch_geometric.loader import DataLoader as GraphDataLoader
 from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
 
-from pedestrians_video_2_carla.data.base.skeleton import Skeleton
+from pedestrians_video_2_carla.data.base.skeleton import Skeleton, get_skeleton_type_by_name
 import yaml
 
 from pedestrians_video_2_carla.transforms.bbox import BBoxExtractor
@@ -34,6 +34,7 @@ except ImportError:
 class BaseDataModule(LightningDataModule):
     def __init__(self,
                  input_nodes: Type[Skeleton],
+                 data_nodes: Type[Skeleton] = None,
                  root_dir: Optional[str] = DEFAULT_ROOT,
                  clip_length: Optional[int] = 30,
                  batch_size: Optional[int] = 64,
@@ -52,7 +53,8 @@ class BaseDataModule(LightningDataModule):
         self.clip_length = clip_length
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.nodes = input_nodes
+        self.data_nodes = data_nodes if data_nodes is not None else input_nodes
+        self.input_nodes = input_nodes
         self.return_graph = return_graph
         self.val_set_frac = val_set_frac
         self.test_set_frac = test_set_frac
@@ -96,7 +98,7 @@ class BaseDataModule(LightningDataModule):
             'data_module_name': self.__class__.__name__,
             'clip_length': self.clip_length,
             'clip_offset': self.clip_offset,
-            'nodes': self.nodes.__name__,
+            'data_nodes': self.data_nodes.__name__,
             'train_set_size': self.set_size.get('train', None),
             'val_set_size': self.set_size.get('val', None),
             'test_set_size': self.set_size.get('test', None),
@@ -123,9 +125,9 @@ class BaseDataModule(LightningDataModule):
     def _setup_data_transform(self, transform: Union[BaseTransforms, Callable]):
         return (transform, {
             BaseTransforms.none: None,
-            BaseTransforms.hips_neck: Normalizer(HipsNeckExtractor(self.nodes)),
-            BaseTransforms.bbox: Normalizer(BBoxExtractor(self.nodes)),
-            BaseTransforms.hips_neck_bbox: Normalizer(HipsNeckBBoxFallbackExtractor(self.nodes)),
+            BaseTransforms.hips_neck: Normalizer(HipsNeckExtractor(self.data_nodes)),
+            BaseTransforms.bbox: Normalizer(BBoxExtractor(self.data_nodes)),
+            BaseTransforms.hips_neck_bbox: Normalizer(HipsNeckBBoxFallbackExtractor(self.data_nodes)),
             BaseTransforms.user_defined: transform
         }[transform]) if isinstance(transform, BaseTransforms) else (BaseTransforms.user_defined, transform)
 
@@ -140,6 +142,11 @@ class BaseDataModule(LightningDataModule):
     @classmethod
     def add_data_specific_args(cls, parent_parser):
         parser = parent_parser.add_argument_group('Base DataModule')
+        parser.add_argument(
+            '--data_nodes',
+            type=get_skeleton_type_by_name,
+            default=None
+        )
         parser.add_argument(
             "--clip_length",
             metavar='NUM_FRAMES',
@@ -192,7 +199,19 @@ class BaseDataModule(LightningDataModule):
         )
         if cls.uses_projection_mixin():
             Projection2DMixin.add_cli_args(parser)
+
+        parent_parser = cls.add_subclass_specific_args(parent_parser)
+
         # input nodes are handled in the model hyperparameters
+        return parent_parser
+
+    @classmethod
+    def add_subclass_specific_args(cls, parent_parser):
+        """
+        This method is used to add data-specific arguments to the parser in the subclasses.
+        Please use this method instead of overriding add_data_specific_args, especially if you
+        want to potentially use MixedDataModule.
+        """
         return parent_parser
 
     def get_dataloader(self, dataset, shuffle=False, persistent_workers=False):
@@ -369,7 +388,8 @@ class BaseDataModule(LightningDataModule):
         if stage == "fit" or stage is None:
             self.train_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'train.{set_ext}'),
-                nodes=self.nodes,
+                data_nodes=self.data_nodes,
+                input_nodes=self.input_nodes,
                 transform=self.transform_callable,
                 return_graph=self.return_graph,
                 clip_length=self.clip_length,
@@ -380,7 +400,8 @@ class BaseDataModule(LightningDataModule):
             )
             self.val_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'val.{set_ext}'),
-                nodes=self.nodes,
+                data_nodes=self.data_nodes,
+                input_nodes=self.input_nodes,
                 transform=self.transform_callable,
                 return_graph=self.return_graph,
                 clip_length=self.clip_length,
@@ -393,7 +414,8 @@ class BaseDataModule(LightningDataModule):
         if stage == "test" or stage is None:
             self.test_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'test.{set_ext}'),
-                nodes=self.nodes,
+                data_nodes=self.data_nodes,
+                input_nodes=self.input_nodes,
                 transform=self.transform_callable,
                 return_graph=self.return_graph,
                 clip_length=self.clip_length,

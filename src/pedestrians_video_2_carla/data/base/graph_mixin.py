@@ -28,7 +28,7 @@ class GraphMixin:
         self.return_graph = return_graph
 
         if self.return_graph:
-            self.edge_index = kwargs.get('nodes', CARLA_SKELETON).get_edge_index()
+            self.edge_index = kwargs.get('input_nodes', CARLA_SKELETON).get_edge_index()
             self.clip_length = kwargs.get('clip_length', 30)
 
     def process_graph(self, out: Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, Iterable]]) -> torch.Tensor:
@@ -42,7 +42,7 @@ class GraphMixin:
                 x=projection_2d,
                 edge_index=self.edge_index,
                 **{
-                    f'targets_{k}': v for k,v in targets.items()
+                    f'targets_{k}': v for k, v in targets.items()
                 },
                 meta=meta
             )
@@ -52,7 +52,7 @@ class GraphMixin:
                 features=projection_2d,
                 edge_index=self.edge_index,
                 **{
-                    f'targets_{k}': v for k,v in targets.items()
+                    f'targets_{k}': v for k, v in targets.items()
                 },
                 meta=meta
             )

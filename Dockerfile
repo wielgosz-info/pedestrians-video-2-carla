@@ -14,6 +14,11 @@ ENV PACKAGE=pedestrians-video-2-carla
 ENV torch_version=1.9.1
 ENV torchvision_version=0.10.1
 ENV pytorch3d_version=0.6.0
+ENV torchscatter_version=2.0.9
+ENV torchsparse_version=0.6.12
+ENV torchcluster_version=1.5.9
+ENV torchsplineconv_version=1.2.1
+ENV torchgeometric_version=2.0.3
 
 # ----------------------------------------------------------------------------
 # NVIDIA-specific dependencies
@@ -41,6 +46,13 @@ RUN /venv/bin/python -m pip install --no-cache-dir -f https://download.pytorch.o
     torch==${torch_version}+cu111 \
     torchvision==${torchvision_version}+cu111
 
+RUN /venv/bin/python -m pip install  --no-cache-dir -f https://data.pyg.org/whl/torch-${torch_version}+cu111.html \ 
+    torch-scatter==${torchscatter_version} \
+    torch-sparse==${torchsparse_version} \
+    torch-cluster==${torchcluster_version} \
+    torch-spline-conv==${torchsplineconv_version} \
+    torch-geometric==${torchgeometric_version}
+
 # ----------------------------------------------------------------------------
 # CPU-specific dependencies
 # ----------------------------------------------------------------------------
@@ -62,6 +74,13 @@ USER ${USERNAME}
 RUN /venv/bin/python -m pip install --no-cache-dir -f https://download.pytorch.org/whl/cpu/torch_stable.html \
     torch==${torch_version}+cpu \
     torchvision==${torchvision_version}+cpu
+
+RUN /venv/bin/python -m pip install  --no-cache-dir -f https://data.pyg.org/whl/torch-${torch_version}+cpu.html \ 
+    torch-scatter==${torchscatter_version} \
+    torch-sparse==${torchsparse_version} \
+    torch-cluster==${torchcluster_version} \
+    torch-spline-conv==${torchsplineconv_version} \
+    torch-geometric==${torchgeometric_version}
 
 # -------------------------------------------------------------------------------------------------
 # Common II
@@ -85,10 +104,10 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     matplotlib==3.5.1 \
     moviepy==1.0.3 \
     networkx==2.2 \
-    numpy==1.22.1 \
+    numpy==1.22.3 \
     opencv-python-headless==4.5.4.58 \
     pandas==1.3.5 \
-    Pillow==9.0.0 \
+    Pillow==9.0.1 \
     pims==0.5 \
     pyrender==0.1.45 \
     pytorch-lightning==1.5.2 \
@@ -113,13 +132,6 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
 RUN /venv/bin/python -m pip install --no-cache-dir \
     PyOpenGL==3.1.5 \
     PyOpenGL-accelerate==3.1.5
-
-RUN /venv/bin/python -m pip install  --no-cache-dir \ 
-    torch-scatter==2.0.9 \
-    torch-sparse==0.6.12 \
-    torch-cluster==1.5.9 \
-    torch-spline-conv==1.2.1 \
-    torch-geometric==2.0.3 -f https://data.pyg.org/whl/torch-1.9.0+cu111.html
 
 RUN /venv/bin/python -m pip install  --no-cache-dir \
     torch-geometric-temporal==0.51.0

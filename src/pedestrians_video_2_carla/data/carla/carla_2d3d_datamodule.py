@@ -100,7 +100,7 @@ class Carla2D3DDataModule(BaseDataModule):
 
         # generate and save validation & test sets so they are reproducible
         iterable_dataset = Carla2D3DIterableDataset(
-            points=self.nodes,
+            points=self.data_nodes,
             return_graph=self.return_graph,
             clip_length=self.clip_length,
             **{
@@ -151,7 +151,7 @@ class Carla2D3DDataModule(BaseDataModule):
     def setup(self, stage: Optional[str] = None) -> None:
         if stage == "fit" or stage is None:
             self.train_set = Carla2D3DIterableDataset(
-                points=self.nodes,
+                points=self.data_nodes,
                 transform=self.transform_callable,
                 return_graph=self.return_graph,
                 clip_length=self.clip_length,
@@ -159,7 +159,7 @@ class Carla2D3DDataModule(BaseDataModule):
             )
             self.val_set = Carla2D3DDataset(
                 os.path.join(self._subsets_dir, 'val.hdf5'),
-                points=self.nodes,
+                points=self.data_nodes,
                 transform=self.transform_callable,
                 return_graph=self.return_graph,
                 clip_length=self.clip_length,
@@ -169,7 +169,7 @@ class Carla2D3DDataModule(BaseDataModule):
         if stage == "test" or stage is None:
             self.test_set = Carla2D3DDataset(
                 os.path.join(self._subsets_dir, 'test.hdf5'),
-                points=self.nodes,
+                points=self.data_nodes,
                 transform=self.transform_callable,
                 return_graph=self.return_graph,
                 clip_length=self.clip_length,
