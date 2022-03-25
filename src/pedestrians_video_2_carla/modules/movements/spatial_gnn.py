@@ -1,4 +1,9 @@
 import torch
+from torch.nn import Linear as Linear
+from torch.nn import Sequential as Seq
+from torch.nn import BatchNorm1d as BN
+from torch.nn import ReLU, Identity
+from torch_geometric.nn.conv import PointTransformerConv
 
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModel
@@ -47,6 +52,52 @@ class SpatialGnn(MovementsModel):
 
         return config
 
+def MLP(channels, batch_norm=True):
+    return Seq(*[
+        Seq(Linear(channels[i - 1], channels[i]),
+            BN(channels[i]) if batch_norm else Identity(), ReLU())
+        for i in range(1, len(channels))
+    ])
+
+class TransformerBlock(torch.nn.Module):
+    # taken from here: https://github.com/pyg-team/pytorch_geometric/blob/master/examples/point_transformer_classification.py
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.lin_in = Linear(in_channels, in_channels)
+        self.lin_out = Linear(out_channels, out_channels)
+
+        self.pos_nn = MLP([3, 64, out_channels], batch_norm=False)
+
+        self.attn_nn = MLP([out_channels, 64, out_channels], batch_norm=False)
+
+        self.transformer = PointTransformerConv(in_channels, out_channels,
+                                                pos_nn=self.pos_nn,
+                                                attn_nn=self.attn_nn)
+
+    def forward(self, x, pos, edge_index):
+        x = self.lin_in(x).relu()
+        x = self.transformer(x, pos, edge_index)
+        x = self.lin_out(x).relu()
+        return x
+
+class TransformerGNN(SpatialGnn):
+    @property
+    def needs_graph(self) -> bool:
+        return True
+
+    @property
+    def output_type(self) -> MovementsModelOutputType:
+        return MovementsModelOutputType.pose_2d
+
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.transformer = TransformerBlock(in_channels, out_channels)
+
+    def forward(self, x, edge_index, pos=3, **kwargs):
+        x = self.transformer(x, pos, edge_index)
+        return x
 
 class GCNEncoder(SpatialGnn):
     def __init__(self, in_channels, out_channels, **kwargs):

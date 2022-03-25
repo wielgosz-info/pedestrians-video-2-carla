@@ -6,6 +6,7 @@ from .baseline_3d_pose import Baseline3DPose, Baseline3DPoseRot
 from .seq2seq import Seq2Seq, Seq2SeqEmbeddings, Seq2SeqFlatEmbeddings, Seq2SeqResidualA, Seq2SeqResidualB, Seq2SeqResidualC
 from .pose_former import PoseFormer, PoseFormerRot
 from .spatial_gnn import GNNLinearAutoencoder, VariationalGcn, TransformerGNN
+from .transformers import SimpleTransformer
 
 MOVEMENTS_MODELS = {
     m.__name__: m
@@ -36,6 +37,10 @@ MOVEMENTS_MODELS = {
         LinearAE2D,
         GNNLinearAutoencoder,
         VariationalGcn,
-        TransformerGNN
+        TransformerGNN,
+
+        # For transformers
+        SimpleTransformer
+
     ]
 }
