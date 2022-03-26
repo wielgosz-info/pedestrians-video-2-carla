@@ -44,9 +44,13 @@ def get_common_indices(input_nodes: Type[Skeleton] = None, output_nodes: Type[Sk
 
     # we have both input and output nodes and their intersections with CARLA_SKELETON
     common_carla_indices = set(input_carla_indices).intersection(output_carla_indices)
-    input_indices = [i for c, i in zip(
+    filtered_input = [(c, i) for (c, i) in zip(
         input_carla_indices, input_indices) if c in common_carla_indices]
-    output_indices = [o for c, o in zip(
+    filtered_output = [(c, o) for (c, o) in zip(
         output_carla_indices, output_indices) if c in common_carla_indices]
 
-    return output_indices, input_indices
+    # if we sort by CARLA indices now, we will have matching order in both lists
+    sorted_input = sorted(filtered_input, key=lambda x: x[0])
+    sorted_output = sorted(filtered_output, key=lambda x: x[0])
+
+    return [x[1] for x in sorted_output], [x[1] for x in sorted_input]
