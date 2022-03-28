@@ -76,17 +76,25 @@ class JAADOpenPoseDataModule(PandasDataModuleMixin, BaseDataModule):
 
         return clips
 
-    def _get_raw_data(self, clips: pandas.DataFrame) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, Any]]:
-        no_of_clips = len(clips) // self.clip_length
-        projection_2d = np.stack(clips.loc[:, 'keypoints'].to_list()).astype(np.float32)
-        projection_2d = projection_2d.reshape(
-            (no_of_clips, self.clip_length, *projection_2d.shape[1:]))
+    def _get_raw_data(self, grouped: pandas.DataFrame) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, Any]]:
+        # projections
+        projection_2d = self._reshape_to_sequences(grouped, 'keypoints')
+
+        # targets
+        bboxes = np.stack([
+            self._reshape_to_sequences(grouped, 'x1'),
+            self._reshape_to_sequences(grouped, 'y1'),
+            self._reshape_to_sequences(grouped, 'x2'),
+            self._reshape_to_sequences(grouped, 'y2'),
+        ], axis=-1).astype(np.float32)
+
         targets = {
-            'bboxes': clips.loc[:, ['x1', 'y1', 'x2', 'y2']
-                                ].to_numpy().reshape((no_of_clips, self.clip_length, 2, 2)).astype(np.float32)
+            'bboxes': bboxes.reshape((*bboxes.shape[:-1], 2, 2))
         }
-        grouped = clips.groupby(level=[0, 1, 2], sort=False)
-        grouped_tail = grouped.tail(1).reset_index(drop=False)
+
+        # meta
+        grouped_head, grouped_tail = grouped.head(1).reset_index(
+            drop=False), grouped.tail(1).reset_index(drop=False)
         meta = {
             'video_id': grouped_tail.loc[:, 'video'].to_list(),
             'pedestrian_id': grouped_tail.loc[:, 'id'].to_list(),
@@ -95,9 +103,10 @@ class JAADOpenPoseDataModule(PandasDataModuleMixin, BaseDataModule):
             'gender': grouped_tail.loc[:, 'gender'].to_list(),
             'action': grouped_tail.loc[:, 'action'].to_list(),
             'speed': grouped_tail.loc[:, 'speed'].to_list(),
-            'start_frame': grouped.head(1).loc[:, 'frame'].to_numpy().astype(np.int32),
+            'start_frame': grouped_head.loc[:, 'frame'].to_numpy().astype(np.int32),
             'end_frame': grouped_tail.loc[:, 'frame'].to_numpy().astype(np.int32) + 1,
         }
+
         return projection_2d, targets, meta
 
     def _get_dataset_creator(self) -> Callable:

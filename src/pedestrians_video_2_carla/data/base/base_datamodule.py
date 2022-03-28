@@ -269,7 +269,7 @@ class BaseDataModule(LightningDataModule):
     def _get_frame_counts(self, data: Any) -> Any:
         return None
 
-    def _extract_clips(self, data: Any, frame_counts: Any) -> Iterable[Any]:
+    def _extract_clips(self, data: Any) -> Iterable[Any]:
         raise NotImplementedError()
 
     def _extract_additional_data(self, clips: Iterable[Any]) -> Iterable[Any]:
@@ -301,7 +301,8 @@ class BaseDataModule(LightningDataModule):
             return
 
         # initial preparation
-        progress_bar = tqdm(total=6, desc='Generating subsets')
+        progress_bar = tqdm(
+            total=6, desc=f'Generating {self.__class__.__name__} subsets')
         loaded_data = self._read_data()
         progress_bar.update(1)
         filtered_data = self._clean_filter_sort_data(loaded_data)

@@ -2,6 +2,7 @@ from typing import Any, Dict, Iterable, List, Optional, Type
 from pytorch_lightning import LightningDataModule
 import torch
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
+from pedestrians_video_2_carla.data.mixed.mixed_dataset import MixedDataset
 
 
 class MixedDataModule(LightningDataModule):
@@ -24,6 +25,8 @@ class MixedDataModule(LightningDataModule):
         assert all(uses_projection_mixin) or not any(
             uses_projection_mixin), 'All data modules must use projection mixin or none of them can.'
         self._uses_projection_mixin = all(uses_projection_mixin)
+
+        self._skip_metadata = kwargs.get('skip_metadata', False)
 
         self._data_modules: List[BaseDataModule] = [
             dm_cls(
@@ -61,17 +64,17 @@ class MixedDataModule(LightningDataModule):
         if stage == "fit" or stage is None:
             # TODO: for now, all sets are ConcatDataset, but this should be changed to something more flexible
             # e.g. to train on various datasets but only validate on the one we're most interested in
-            self.train_set = torch.utils.data.ConcatDataset([
+            self.train_set = MixedDataset([
                 dm.train_set for dm in self._data_modules
-            ])
-            self.val_set = torch.utils.data.ConcatDataset([
+            ], skip_metadata=self._skip_metadata)
+            self.val_set = MixedDataset([
                 dm.val_set for dm in self._data_modules
-            ])
+            ], skip_metadata=self._skip_metadata)
 
         if stage == "test" or stage is None:
-            self.test_set = torch.utils.data.ConcatDataset([
+            self.test_set = MixedDataset([
                 dm.test_set for dm in self._data_modules
-            ])
+            ], skip_metadata=self._skip_metadata)
 
     def train_dataloader(self):
         return self._data_modules[0].get_dataloader(self.train_set, shuffle=True, persistent_workers=True)

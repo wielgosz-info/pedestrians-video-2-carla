@@ -1,6 +1,8 @@
+from logging import warning
 import math
 import os
 from typing import Any, Dict, Iterable, List, Tuple
+import warnings
 import numpy as np
 import pandas
 from tqdm.auto import tqdm
@@ -15,26 +17,47 @@ class PandasDataModuleMixin(object):
         data_filepath: str,
         primary_index: List[str],
         clips_index: List[str],
-        df_usecols: List[str],
-        df_filters: Dict[str, Iterable],
-        extra_cols: Dict[str, Any],
+        df_usecols: List[str] = None,
+        df_filters: Dict[str, Iterable] = None,
+        extra_cols: Dict[str, Any] = None,
+        converters: Dict[str, Any] = None,
         **kwargs
     ) -> None:
         super().__init__(**kwargs)
 
-        self.data_filepath = data_filepath if os.path.isabs(
-            data_filepath) else os.path.join(self.outputs_dir, data_filepath)
+        if os.path.isabs(data_filepath):
+            self.data_filepath = data_filepath
+        elif os.path.exists(os.path.join(self.outputs_dir, data_filepath)):
+            self.data_filepath = os.path.join(self.outputs_dir, data_filepath)
+        elif os.path.exists(os.path.join(self.datasets_dir, data_filepath)):
+            self.data_filepath = os.path.join(self.datasets_dir, data_filepath)
+        else:
+            raise FileNotFoundError(
+                "Could not find data file '{}'".format(data_filepath))
+
         self.primary_index = primary_index
         self.clips_index = clips_index
         self.full_index = primary_index + clips_index
-        self.df_usecols = df_usecols if df_usecols is not None else []
-        self.df_filters = df_filters if df_filters is not None else {}
+        self.df_usecols = df_usecols
+        self.df_filters = df_filters
 
         self.extra_cols = extra_cols if extra_cols is not None else {}
-        self.all_cols = self.df_usecols + list(self.extra_cols.keys())
+
+        if self.df_usecols is None:
+            self.copied_columns = slice(None)
+        else:
+            self.copied_columns = self.df_usecols + list(self.extra_cols.keys())
+
+        self.converters = converters
 
         self._settings['df_usecols'] = self.df_usecols
         self._settings['df_filters'] = self.df_filters
+
+        # used for debugging; will save additional setting value
+        # to prevent mixing up of 'debugging' data with real data
+        self.__fast_dev_run = kwargs.get('fast_dev_run', False)
+        if self.__fast_dev_run:
+            self._settings['fast_dev_run'] = True
 
     def _get_raw_data(self, clips: pandas.DataFrame) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, Any]]:
         """
@@ -48,11 +71,23 @@ class PandasDataModuleMixin(object):
         """
         raise NotImplementedError()
 
+    def _reshape_to_sequences(self, grouped, column_name):
+        """
+        Helper function to reshape the clips to sequences.
+        Intended to be used in subclasses, mostly _get_raw_data().
+        """
+        out = np.stack(grouped[column_name].apply(list).to_list())
+        if np.issubdtype(out.dtype, np.floating):
+            out = out.astype(np.float32)
+        return out
+
     def _read_data(self) -> pandas.DataFrame:
         df: pandas.DataFrame = pandas.read_csv(
             self.data_filepath,
             usecols=self.df_usecols,
-            index_col=self.primary_index
+            index_col=self.primary_index,
+            converters=self.converters,
+            nrows=18000 if self.__fast_dev_run else None
         )
 
         for k, v in self.extra_cols.items():
@@ -61,6 +96,9 @@ class PandasDataModuleMixin(object):
         return df
 
     def _clean_filter_sort_data(self, df: pandas.DataFrame) -> pandas.DataFrame:
+        if self.df_filters is None:
+            return df.sort_index()
+
         filtering_results = df.isin(self.df_filters)[
             list(self.df_filters.keys())].all(axis=1)
 
@@ -94,7 +132,7 @@ class PandasDataModuleMixin(object):
             ci = 0
             while (ci*self.clip_offset + self.clip_length) <= frame_counts.loc[idx].frame_count:
                 clips.append(video.iloc[ci * self.clip_offset:ci *
-                                        self.clip_offset + self.clip_length].reset_index().loc[:, self.all_cols].assign(clip=ci))
+                                        self.clip_offset + self.clip_length].reset_index().loc[:, self.copied_columns].assign(clip=ci))
                 ci += 1
 
         # then try to extract from non-continuos
@@ -113,7 +151,7 @@ class PandasDataModuleMixin(object):
             for (fmin, fmax) in zip(frame_min, frame_max):
                 while (ci*self.clip_offset + self.clip_length + fmin) <= fmax:
                     clips.append(video.loc[video.frame >= ci*self.clip_offset + fmin]
-                                 [:self.clip_length].reset_index().loc[:, self.all_cols].assign(clip=ci))
+                                 [:self.clip_length].reset_index().loc[:, self.copied_columns].assign(clip=ci))
                     ci += 1
 
         return clips
@@ -145,8 +183,8 @@ class PandasDataModuleMixin(object):
         clip_counts = clip_counts.assign(clips_cumsum=clip_counts.cumsum())
         total = clip_counts['clips_count'].sum()
 
-        test_count = math.floor(total*self.test_set_frac)
-        val_count = math.floor((total-test_count)*self.val_set_frac)
+        test_count = max(math.floor(total*self.test_set_frac), 1)
+        val_count = max(math.floor((total-test_count)*self.val_set_frac), 1)
         train_count = total - test_count - val_count
 
         # we do not want to assign clips from the same video/pedestrian combination to different datasets,
@@ -167,8 +205,14 @@ class PandasDataModuleMixin(object):
                     to_assign = clip_counts[(assigned < clip_counts['clips_cumsum']) &
                                             (clip_counts['clips_cumsum'] <= assigned+needed)]
                     if not len(to_assign):
-                        skipped += 1
-                        continue
+                        # special case: current set is empty; assign clips even if it is too many
+                        # this is to avoid empty sets
+                        if not len(sets[i]):
+                            to_assign = clip_counts[assigned <
+                                                    clip_counts['clips_cumsum']].iloc[0:1]
+                        else:
+                            skipped += 1
+                            continue
                     current[i] += to_assign['clips_count'].sum()
                     sets[i].append(to_assign)
                     assigned = sum(current)
@@ -182,6 +226,10 @@ class PandasDataModuleMixin(object):
         # now we need to dump the actual clips info
         names = ['train', 'val', 'test']
         for (i, name) in enumerate(names):
+            if not len(sets[i]):
+                warnings.warn(f'No clips assigned to {name} set.')
+                continue
+
             clips_set = clips.join(pandas.concat(sets[i]), how='right')
             clips_set.drop(['clips_count', 'clips_cumsum'], inplace=True, axis=1)
             clips_set.reset_index(level=self.clips_index[-1], inplace=True, drop=False)
@@ -189,7 +237,9 @@ class PandasDataModuleMixin(object):
             index = pandas.MultiIndex.from_frame(clips_set.index.to_frame(
                 index=False).drop_duplicates().sample(frac=1))
             shuffled_clips = clips_set.loc[index.values, :]
-            projection_2d, targets, meta = self._get_raw_data(shuffled_clips)
+            grouped = shuffled_clips.groupby(level=list(
+                range(len(self.full_index) - 1)), sort=False)
+            projection_2d, targets, meta = self._get_raw_data(grouped)
             set_size[name] = self._save_subset(name, projection_2d, targets, meta)
 
         return set_size

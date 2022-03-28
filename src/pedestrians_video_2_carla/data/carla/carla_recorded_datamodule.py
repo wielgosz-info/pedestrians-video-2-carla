@@ -1,14 +1,17 @@
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, List, Tuple
 import os
 import numpy as np
 import pandas as pd
-import h5py
 import sklearn
+import torch
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
+from pedestrians_video_2_carla.data.base.pandas_datamodule_mixin import PandasDataModuleMixin
 from pedestrians_video_2_carla.data.carla.carla_recorded_dataset import CarlaRecordedDataset
 import pandas as pd
 import ast
-from sklearn.model_selection import train_test_split
+from pytorch3d.transforms import euler_angles_to_matrix
+
+from pedestrians_video_2_carla.utils.tensors import get_bboxes
 from .constants import CARLA_RECORDED_DIR
 
 
@@ -20,21 +23,13 @@ def convert_to_list(x):
         return str(x)
 
 
-class CarlaRecordedDataModule(BaseDataModule):
+class CarlaRecordedDataModule(PandasDataModuleMixin, BaseDataModule):
     def __init__(self,
                  **kwargs):
-        super().__init__(**kwargs)
-
-        self.data_dir = os.path.join(self.datasets_dir, CARLA_RECORDED_DIR)
-
-    def prepare_data(self) -> None:
-        if not self._needs_preparation:
-            return
-
-        # load the data
-        dataset = pd.read_csv(
-            os.path.join(self.data_dir, 'data.csv'),
-            index_col=['id', 'camera.idx', 'pedestrian.idx', 'frame.idx'],
+        super().__init__(
+            data_filepath=os.path.join(CARLA_RECORDED_DIR, 'data.csv'),
+            primary_index=['id', 'camera.idx', 'pedestrian.idx'],
+            clips_index=['clip', 'frame.idx'],
             converters={
                 'camera.transform': convert_to_list,
                 'pedestrian.spawn_point': convert_to_list,
@@ -44,145 +39,94 @@ class CarlaRecordedDataModule(BaseDataModule):
                 'frame.pedestrian.pose.component': convert_to_list,
                 'frame.pedestrian.pose.relative': convert_to_list,
                 'frame.pedestrian.pose.camera': convert_to_list
-            }
+            },
+            **kwargs
         )
 
-        # split and save train, validation & test sets so they are reproducible
-        # since this is artificially generated data, it's enough to split at the clip level
-        # since all clips are of the same frame length, number of cameras and number of pedestrians
-        videos = dataset.index.get_level_values('id').unique()
-        train_val, test = train_test_split(videos, test_size=self.test_set_frac)
-        train, val = train_test_split(train_val, test_size=self.val_set_frac)
+    def _clean_filter_sort_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        df['camera.recording'] = df['camera.recording'].str.replace(
+            '.mp4', '', regex=False)
 
-        for name, set_list in [('train', train), ('val', val), ('test', test)]:
-            videos_set: pd.DataFrame = dataset.loc[set_list, :]
-            videos_set.sort_index(inplace=True)
+        return super()._clean_filter_sort_data(df)
 
-            unique_videos = videos_set.groupby(
-                level=['id', 'camera.idx', 'pedestrian.idx'])
-            all_videos_lengths = unique_videos.count()[
-                'frame.pedestrian.pose.camera']
+    def _clean_filter_sort_clips(self, clips: List[pd.DataFrame]) -> List[pd.DataFrame]:
+        return [
+            c
+            for c in clips
+            if self._has_pedestrian_in_all_frames(c)
+        ]
 
-            # for now, ensure that all clips have the same length
-            # TODO: make this more robust; padding?
-            assert all_videos_lengths.min() == all_videos_lengths.max()
+    def _has_pedestrian_in_all_frames(self, clip: pd.DataFrame) -> bool:
+        first_row = clip.iloc[0]
 
-            # reshape to have it separated by pedestrians
-            videos_count = len(all_videos_lengths)
-            videos_length = all_videos_lengths.min()
+        frame_width = first_row.get('camera.width', 800)
+        frame_height = first_row.get('camera.height', 600)
 
-            assert (videos_length - self.clip_length) % self.clip_offset == 0
-            resulting_count = ((videos_length - self.clip_length) //
-                               self.clip_offset) + 1
+        projection_2d = np.array(
+            clip.loc[:, 'frame.pedestrian.pose.camera'].to_list(), dtype=np.float32)
 
-            projection_2d = self.__extract_clip_data(
-                'frame.pedestrian.pose.camera',
-                videos_set,
-                videos_count,
-                resulting_count,
-                videos_length
-            )
+        has_pedestrian_in_all_frames = np.all(
+            projection_2d >= 0) & np.all(
+            projection_2d[..., 0] <= frame_width) & np.all(
+            projection_2d[..., 1] <= frame_height)
 
-            targets = {
-                'relative_pose': self.__extract_clip_data(
-                    'frame.pedestrian.pose.relative',
-                    videos_set,
-                    videos_count,
-                    resulting_count,
-                    videos_length
-                ),
-                'world_pose': self.__extract_clip_data(
-                    'frame.pedestrian.pose.world',
-                    videos_set,
-                    videos_count,
-                    resulting_count,
-                    videos_length
-                ),
-                'component_pose': self.__extract_clip_data(
-                    'frame.pedestrian.pose.component',
-                    videos_set,
-                    videos_count,
-                    resulting_count,
-                    videos_length
-                ),
-                'velocity': self.__extract_clip_data(
-                    'frame.pedestrian.velocity',
-                    videos_set,
-                    videos_count,
-                    resulting_count,
-                    videos_length
-                ),
-                'transform': self.__extract_clip_data(
-                    'frame.pedestrian.transform',
-                    videos_set,
-                    videos_count,
-                    resulting_count,
-                    videos_length
-                ),
-            }
+        return has_pedestrian_in_all_frames
 
-            first_row = unique_videos.first().reset_index()
-            meta = {
-                'age': first_row.loc[:, 'pedestrian.age'].to_numpy().repeat((resulting_count,)),
-                'gender': first_row.loc[:, 'pedestrian.gender'].to_numpy().repeat((resulting_count,)),
-                'video_id': first_row.loc[:, 'camera.recording'].str.replace('.mp4', '', regex=False).to_numpy().repeat((resulting_count,)),
-                'pedestrian_id': first_row.loc[:, 'pedestrian.idx'].to_numpy().repeat((resulting_count,)),
-                'clip_id': np.tile(np.arange(resulting_count), videos_count),
-                'start_frame': np.tile(np.arange(0, videos_length-self.clip_length+1, self.clip_offset), videos_count),
-                'end_frame': np.tile(np.arange(self.clip_length, videos_length+1, self.clip_offset), videos_count),
-            }
+    def _get_raw_data(self, grouped: pd.DataFrame) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, Any]]:
+        # projections
+        projection_2d = self._reshape_to_sequences(
+            grouped, 'frame.pedestrian.pose.camera')
 
-            # only save 'useful' clips (i.e. those that have the pedestrian in all frames)
-            frame_width = first_row.get('camera.width', 800)
-            frame_height = first_row.get('camera.height', 600)
-            useful_clips_mask = np.all(
-                np.stack((
-                    np.all(projection_2d >= 0, axis=(1, 2, 3)),
-                    np.all(projection_2d[..., 0] <= frame_width, axis=(1, 2)),
-                    np.all(projection_2d[..., 1] <= frame_height, axis=(1, 2))
-                ), axis=1),
-                axis=1
-            )
-            # Shuffle the data, so that the order in val/test is random.
-            # This is better when visualizing/using only part of the dataset.
-            useful_clips = sklearn.utils.shuffle(*np.nonzero(useful_clips_mask))
+        # targets
+        bboxes = get_bboxes(torch.from_numpy(projection_2d))
+        relative_pose_loc, relative_pose_rot = self._extract_transform(grouped,
+                                                                       'frame.pedestrian.pose.relative'
+                                                                       )
+        absolute_pose_loc, absolute_pose_rot = self._extract_transform(grouped,
+                                                                       'frame.pedestrian.pose.component'
+                                                                       )
+        world_pose_loc, world_pose_rot = self._extract_transform(grouped,
+                                                                 'frame.pedestrian.pose.world'
+                                                                 )
+        world_loc, world_rot = self._extract_transform(grouped,
+                                                       'frame.pedestrian.transform'
+                                                       )
+        velocity = self._reshape_to_sequences(grouped, 'frame.pedestrian.velocity')
 
-            self.set_size[name] = self._save_subset(
-                name,
-                projection_2d[useful_clips],
-                {k: v[useful_clips] for k, v in targets.items()},
-                {k: v[useful_clips] for k, v in meta.items()},
-            )
+        targets = {
+            'bboxes': bboxes.numpy(),
+            'relative_pose_loc': relative_pose_loc,
+            'relative_pose_rot': relative_pose_rot,
+            'absolute_pose_loc': absolute_pose_loc,
+            'absolute_pose_rot': absolute_pose_rot,
+            'world_pose_loc': world_pose_loc,
+            'world_pose_rot': world_pose_rot,
+            'world_loc': world_loc,
+            'world_rot': world_rot,
+            'velocity': velocity
+        }
 
-        # save settings
-        self.save_settings()
+        # meta
+        grouped_head, grouped_tail = grouped.head(1).reset_index(
+            drop=False), grouped.tail(1).reset_index(drop=False)
+        meta = {
+            'video_id': grouped_tail.loc[:, 'camera.recording'].to_list(),
+            'pedestrian_id': grouped_tail.loc[:, ['camera.idx', 'pedestrian.idx']].apply(lambda x: '_'.join([str(y) for y in x]), axis=1).to_list(),
+            'clip_id': grouped_tail.loc[:, 'clip'].to_numpy().astype(np.int32),
+            'age': grouped_tail.loc[:, 'pedestrian.age'].to_list(),
+            'gender': grouped_tail.loc[:, 'pedestrian.gender'].to_list(),
+            'start_frame': grouped_head.loc[:, 'frame.idx'].to_numpy().astype(np.int32),
+            'end_frame': grouped_tail.loc[:, 'frame.idx'].to_numpy().astype(np.int32) + 1,
+        }
 
-    def __extract_clip_data(self, key, videos_set, videos_count, clips_count_per_video, videos_length):
-        continuous_series = np.stack(
-            videos_set.loc[:, key]).astype(np.float32)
-        videos_series = continuous_series.reshape(
-            (videos_count, videos_length, *continuous_series.shape[1:])
-        )
+        return projection_2d, targets, meta
 
-        clips = np.lib.stride_tricks.as_strided(
-            videos_series,
-            shape=(
-                # number of resulting clips for each pedestrian * number of pedestrians
-                videos_count,
-                clips_count_per_video,
-                self.clip_length,  # clip length
-                *continuous_series.shape[1:]  # rest of the dimensions
-            ),
-            strides=(
-                videos_length*continuous_series.strides[0],  # move by whole videos
-                # move by offset clip frames
-                self.clip_offset*continuous_series.strides[0],
-                *continuous_series.strides  # rest of the dimensions
-            ),
-            writeable=False
-        )
+    def _extract_transform(self, grouped, column_name):
+        carla_transforms = self._reshape_to_sequences(grouped, column_name)
 
-        return clips.reshape((-1, self.clip_length, *continuous_series.shape[1:]))
+        carla_transforms[..., 3:] = np.deg2rad(carla_transforms[..., 3:])
+        carla_transforms = torch.from_numpy(carla_transforms)
+        return carla_transforms[..., :3].numpy(), euler_angles_to_matrix(carla_transforms[..., 3:], 'XYZ').numpy()
 
     def _get_dataset_creator(self) -> Callable:
         return CarlaRecordedDataset
