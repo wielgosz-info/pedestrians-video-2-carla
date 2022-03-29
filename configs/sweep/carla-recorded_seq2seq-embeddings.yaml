@@ -8,6 +8,7 @@ command:
   - ${args}
   - --skip_metadata
   - --disable_lr_scheduler
+  - --mask_missing_joints
 method: bayes
 metric:
   goal: maximize

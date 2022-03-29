@@ -1,6 +1,5 @@
 from typing import Any, Dict, Iterable, List, Optional, Type
 from pytorch_lightning import LightningDataModule
-import torch
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
 from pedestrians_video_2_carla.data.mixed.mixed_dataset import MixedDataset
 
@@ -122,6 +121,9 @@ class MixedDataModule(LightningDataModule):
                 proportions=self.requested_val_proportions
             )
 
+            self.hparams['train_set_cumulative_sizes'] = self.train_set.cumulative_sizes
+            self.hparams['val_set_cumulative_sizes'] = self.val_set.cumulative_sizes
+
         if stage == "test" or stage is None:
             self.test_set = MixedDataset([
                 dm.test_set for dm in self._data_modules
@@ -129,8 +131,7 @@ class MixedDataModule(LightningDataModule):
                 skip_metadata=self._skip_metadata,
                 proportions=self.requested_test_proportions
             )
-
-        # TODO: log the actual dataset sizes
+            self.hparams['test_set_cumulative_sizes'] = self.test_set.cumulative_sizes
 
     def train_dataloader(self):
         return self._data_modules[0].get_dataloader(self.train_set, shuffle=True, persistent_workers=True)

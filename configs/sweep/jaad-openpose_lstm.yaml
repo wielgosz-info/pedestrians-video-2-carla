@@ -8,12 +8,14 @@ command:
   - ${args}
   - --skip_metadata
   - --disable_lr_scheduler
-  - --strong_points
+  - --mask_missing_joints
 method: bayes
 metric:
   goal: maximize
   name: hp/PCKhn@01
 parameters:
+  strong_points:
+    value: 1
   mode:
     value: train
   flow:

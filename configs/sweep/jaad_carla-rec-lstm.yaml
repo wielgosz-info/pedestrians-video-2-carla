@@ -1,17 +1,19 @@
 command:
-- ${env}
-- ${interpreter}
-- ${program}
-- ${args}
-- --skip_metadata
-- --disable_lr_scheduler
-- --strong_points
+  - ${env}
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - --skip_metadata
+  - --disable_lr_scheduler
+  - --mask_missing_joints
 entity: carla-pedestrians
 method: bayes
 metric:
   goal: maximize
   name: hp/PCKhn@01
 parameters:
+  strong_points:
+    value: 1
   batch_size:
     value: 256
   clip_length:
