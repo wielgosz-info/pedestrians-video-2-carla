@@ -10,6 +10,10 @@ class JAADCarlaRecDataModule(MixedDataModule):
         JAADOpenPoseDataModule,
         CarlaRecordedDataModule,
     ]
+    # default mixing proportions
+    train_proportions = [0.5, 0.5]
+    val_proportions = [-1, 0]
+    test_proportions = [-1, 0]
 
     def __init__(self, **kwargs):
         super().__init__({

@@ -3,7 +3,7 @@ import torch
 from torchmetrics import Metric
 
 from pedestrians_video_2_carla.data.base.skeleton import get_common_indices
-from pedestrians_video_2_carla.utils.tensors import get_bboxes
+from pedestrians_video_2_carla.utils.tensors import get_bboxes, get_missing_joints_mask
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 
@@ -14,10 +14,10 @@ class PCK(Metric):
         dist_sync_on_step=False,
         input_nodes: Type[Skeleton] = CARLA_SKELETON,
         output_nodes: Type[Skeleton] = CARLA_SKELETON,
+        mask_missing_joints: bool = True,
         key: Literal['projection_2d', 'projection_2d_transformed'] = 'projection_2d',
         threshold: float = 0.05,
         get_normalization_tensor: Callable[[torch.Tensor], torch.Tensor] = None,
-        ignore_target_missing_joints: bool = True,
     ) -> None:
         """
         Percentage of correct keypoints.
@@ -33,7 +33,11 @@ class PCK(Metric):
         self.key = key
         self.threshold = threshold
         self.get_normalization_tensor = get_normalization_tensor if get_normalization_tensor is not None else self.bbox_norm_dist
-        self.ignore_target_missing_joints = ignore_target_missing_joints
+
+        self.mask_missing_joints = mask_missing_joints
+        self._input_hips = input_nodes.get_hips_point()
+        if isinstance(self._input_hips, (list, tuple)):
+            self._input_hips = None
         self.near_zero = 1e-5
 
         self.add_state("correct", default=torch.tensor(0), dist_reduce_fx="sum")
@@ -48,14 +52,14 @@ class PCK(Metric):
         return torch.linalg.norm(diffs, dim=-1, ord=2)
 
     def update(self, predictions: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]):
-        if self.ignore_target_missing_joints and 'projection_2d' in targets:
+        if self.mask_missing_joints and 'projection_2d' in targets:
             target_with_missing = targets['projection_2d'][:, :, self.input_indices]
-            missing_points_mask = torch.all(
-                target_with_missing[..., 0:2] < self.near_zero, dim=-1)
+            mask = get_missing_joints_mask(
+                target_with_missing, self._input_hips, self.input_indices)
         else:
             # if there are only data after normalization, we can't ignore missing joints
-            missing_points_mask = torch.zeros_like(
-                targets[self.key][:, :, self.input_indices, 0])
+            mask = torch.ones(
+                targets[self.key][:, :, self.input_indices].shape[-1])
 
         try:
             prediction = predictions[self.key][:, :, self.output_indices]
@@ -64,16 +68,16 @@ class PCK(Metric):
             assert prediction.shape == target.shape
 
             normalize = self.get_normalization_tensor(targets[self.key])
-            missing_points_mask[normalize < self.near_zero] = 1
-            normalize[missing_points_mask[..., 0]] = 1
+            mask[normalize < self.near_zero] = 0
+            normalize[normalize < self.near_zero] = 1
             normalize = normalize[(slice(None),) * normalize.ndim +
                                   (None,) * (prediction.ndim - normalize.ndim)]
 
             norm_dist = torch.linalg.norm(
                 (prediction - target) / normalize, dim=-1, ord=2)
 
-            self.correct += torch.sum(norm_dist[~missing_points_mask] < self.threshold)
-            self.total += norm_dist[~missing_points_mask].numel()
+            self.correct += torch.sum(norm_dist[mask] < self.threshold)
+            self.total += norm_dist[mask].numel()
         except KeyError:
             pass
 

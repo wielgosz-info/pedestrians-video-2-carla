@@ -23,6 +23,9 @@ class PandasDataModuleMixin(object):
         converters: Dict[str, Any] = None,
         **kwargs
     ) -> None:
+        self.df_usecols = df_usecols
+        self.df_filters = df_filters
+
         super().__init__(**kwargs)
 
         if os.path.isabs(data_filepath):
@@ -38,8 +41,6 @@ class PandasDataModuleMixin(object):
         self.primary_index = primary_index
         self.clips_index = clips_index
         self.full_index = primary_index + clips_index
-        self.df_usecols = df_usecols
-        self.df_filters = df_filters
 
         self.extra_cols = extra_cols if extra_cols is not None else {}
 
@@ -50,14 +51,14 @@ class PandasDataModuleMixin(object):
 
         self.converters = converters
 
-        self._settings['df_usecols'] = self.df_usecols
-        self._settings['df_filters'] = self.df_filters
-
-        # used for debugging; will save additional setting value
-        # to prevent mixing up of 'debugging' data with real data
-        self.__fast_dev_run = kwargs.get('fast_dev_run', False)
-        if self.__fast_dev_run:
-            self._settings['fast_dev_run'] = True
+    @property
+    def settings(self):
+        return {
+            **super().settings,
+            'df_usecols': self.df_usecols,
+            'df_filters': self.df_filters,
+            'fast_dev_run': self._fast_dev_run
+        }
 
     def _get_raw_data(self, clips: pandas.DataFrame) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, Any]]:
         """
@@ -87,7 +88,7 @@ class PandasDataModuleMixin(object):
             usecols=self.df_usecols,
             index_col=self.primary_index,
             converters=self.converters,
-            nrows=18000 if self.__fast_dev_run else None
+            nrows=18000 if self._fast_dev_run else None
         )
 
         for k, v in self.extra_cols.items():

@@ -24,3 +24,17 @@ def get_bboxes(sample, near_zero=1e-5) -> torch.Tensor:
     maximums, _ = detected_points_max.max(dim=-2)
 
     return torch.stack((minimums, maximums), dim=-2)
+
+
+def get_missing_joints_mask(common_gt, hips, input_indices):
+    mask = torch.all(common_gt != 0, dim=-1)  # missing joints are 'perfect' zeros
+
+    # do not mask hips joint if it exists
+    if hips is not None:
+        if isinstance(input_indices, slice):
+            common_hips_idx = hips.value
+        else:
+            common_hips_idx = input_indices.index(hips.value)
+        mask[..., common_hips_idx] = 1
+
+    return mask

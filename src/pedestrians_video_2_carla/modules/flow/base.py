@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Tuple, Union
 
 import pytorch_lightning as pl
 import torch
+import torchmetrics
 from pedestrians_video_2_carla.data.base.base_transforms import BaseTransforms
 from pedestrians_video_2_carla.data.base.skeleton import \
     get_skeleton_type_by_name
@@ -41,6 +42,7 @@ class LitBaseFlow(pl.LightningModule):
         trajectory_model: TrajectoryModel = None,
         loss_modes: List[LossModes] = None,
         loss_weights: Dict[str, Tensor] = None,
+        mask_missing_joints: bool = False,
         **kwargs
     ):
         super().__init__()
@@ -54,6 +56,8 @@ class LitBaseFlow(pl.LightningModule):
         if trajectory_model is None:
             trajectory_model = ZeroTrajectory()
         self.trajectory_model = trajectory_model
+
+        self.mask_missing_joints = mask_missing_joints
 
         # losses
         if loss_weights is None:
@@ -77,6 +81,7 @@ class LitBaseFlow(pl.LightningModule):
                 criterion=mode.value[1],
                 input_nodes=self.movements_model.input_nodes,
                 output_nodes=self.movements_model.output_nodes,
+                mask_missing_joints=self.mask_missing_joints,
             ), None, mode.value[2] if len(mode.value) > 2 else tuple()) if issubclass(mode.value[0], BasePoseLoss) else (mode.name, *mode.value)
             for mode in list(dict.fromkeys(modes))
         ]
@@ -103,8 +108,19 @@ class LitBaseFlow(pl.LightningModule):
             self._outputs_key,
         ]
 
-    def _get_metrics(self):
-        return []
+    def _get_initial_metrics(self) -> Dict[str, torchmetrics.Metric]:
+        """
+        Returns metrics to calculate on each validation batch at the beginning of the training.
+        They will be added to the metrics returned by _get_metrics() method.
+        """
+        return {}
+
+    def _get_metrics(self) -> Dict[str, torchmetrics.Metric]:
+        """
+        Returns metrics to calculate on each batch. They should take into account
+        the self.mask_missing_joints flag.
+        """
+        return {}
 
     def configure_optimizers(self):
         movements_optimizers = self.movements_model.configure_optimizers()
@@ -137,6 +153,12 @@ class LitBaseFlow(pl.LightningModule):
             '--output_nodes',
             type=get_skeleton_type_by_name,
             default=CARLA_SKELETON
+        )
+        parser.add_argument(
+            '--mask_missing_joints',
+            action='store_true',
+            default=False,
+            help='Mask missing ground truth joints when calculating loss and metrics.'
         )
         parser.add_argument(
             '--loss_modes',
@@ -204,20 +226,36 @@ class LitBaseFlow(pl.LightningModule):
 
     def _calculate_initial_metrics(self) -> Dict[str, float]:
         dl = self.trainer.datamodule.val_dataloader()
+        if dl is None:
+            return {}
+
+        initial_metrics = MetricCollection({
+            **self._get_metrics(),
+            **self._get_initial_metrics()
+        })
+
+        if not len(initial_metrics):
+            return {}
 
         for batch in dl:
             (inputs, targets, *_) = self._unwrap_batch(batch)
-            if 'projection_2d_deformed' not in targets:
-                return {}
+            if 'projection_2d_deformed' in targets:
+                # this will be true if there are artificial missing joints
+                key = 'projection_2d_deformed'
+            else:
+                # this will measure it for ground truth; usually should be 0s/1s
+                # but it will serve as a sanity check and can be something else
+                # when mixed datasets are used
+                key = 'projection_2d'
 
             d_targets = {k: v.to(self.device) for k, v in targets.items()}
 
-            self.metrics.update({
-                'projection_2d': d_targets['projection_2d_deformed'],
+            initial_metrics.update({
+                'projection_2d': d_targets[key],
                 'projection_2d_transformed': inputs.to(self.device)
             }, d_targets)
 
-        results = self.metrics.compute()
+        results = initial_metrics.compute()
         unwrapped = {
             k: v.item()
             for k, v in self._unwrap_nested_metrics(results, ['initial']).items()
@@ -231,7 +269,6 @@ class LitBaseFlow(pl.LightningModule):
                 print(f'{k}: {v}')
             print('------------------------------------------------------')
 
-        self.metrics.reset()
         return unwrapped
 
     def _update_hparams(self, initial_metrics: Dict[str, float] = None):
@@ -369,6 +406,7 @@ class LitBaseFlow(pl.LightningModule):
                 criterion=criterion,
                 input_nodes=self.movements_model.input_nodes,
                 output_nodes=self.movements_model.output_nodes,
+                mask_missing_joints=self.mask_missing_joints,
                 requirements={
                     k.name: v
                     for k, v in loss_dict.items()

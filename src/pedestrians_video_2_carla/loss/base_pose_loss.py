@@ -5,23 +5,40 @@ from pedestrians_video_2_carla.data.base.skeleton import (Skeleton,
 from torch import Tensor
 from torch.nn.modules import loss
 
+from pedestrians_video_2_carla.utils.tensors import get_missing_joints_mask
+
 
 class BasePoseLoss(object):
     def __init__(self,
                  criterion: loss._Loss,
                  input_nodes: Type[Skeleton],
-                 output_nodes: Type[Skeleton]):
+                 output_nodes: Type[Skeleton],
+                 mask_missing_joints: bool = False) -> None:
         self._criterion = criterion
         self._output_indices, self._input_indices = get_common_indices(
             input_nodes, output_nodes)
+
+        self._mask_missing_joints = mask_missing_joints
+        self._input_hips = input_nodes.get_hips_point()
+        if isinstance(self._input_hips, (list, tuple)):
+            self._input_hips = None
 
     def __call__(self, **kwargs) -> Tensor:
         gt = self._extract_gt_targets(**kwargs)
         pred = self._extract_predicted_targets(**kwargs)
 
+        common_pred = pred[..., self._output_indices, :]
+        common_gt = gt[..., self._input_indices, :]
+
+        if self._mask_missing_joints:
+            mask = get_missing_joints_mask(
+                common_gt, self._input_hips, self._input_indices)
+            common_pred = common_pred[mask]
+            common_gt = common_gt[mask]
+
         loss = self._criterion(
-            pred[..., self._output_indices, :],
-            gt[..., self._input_indices, :]
+            common_pred,
+            common_gt
         )
 
         return loss

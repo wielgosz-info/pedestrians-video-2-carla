@@ -69,6 +69,11 @@ class BaseDataModule(LightningDataModule):
         self.test_set_frac = test_set_frac
         self.kwargs = kwargs
 
+        # used for debugging; will save additional setting value
+        # to prevent mixing up of 'debugging' data with real data
+        # this is NOT saved automatically to settings, it should be saved in subclasses if needed
+        self._fast_dev_run = kwargs.get('fast_dev_run', False)
+
         if self.uses_clip_offset():
             self.clip_offset = kwargs.get('clip_offset', self.clip_length)
             assert self.clip_offset > 0, 'clip_offset must be greater than 0'
@@ -81,7 +86,6 @@ class BaseDataModule(LightningDataModule):
         self.train_set = None
         self.val_set = None
         self.test_set = None
-        self._settings = {}  # this is used to store the child's class subset settings
         self.set_size = {}
 
         self.transform, self.transform_callable = self._setup_data_transform(transform)
@@ -112,7 +116,6 @@ class BaseDataModule(LightningDataModule):
             'train_set_size': self.set_size.get('train', None),
             'val_set_size': self.set_size.get('val', None),
             'test_set_size': self.set_size.get('test', None),
-            **self._settings
         }
 
     @property

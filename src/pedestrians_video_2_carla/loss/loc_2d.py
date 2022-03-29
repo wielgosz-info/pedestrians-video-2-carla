@@ -1,11 +1,14 @@
 from typing import Dict, Type
 
+import torch
+
 from pedestrians_video_2_carla.data.base.skeleton import (Skeleton,
                                                           get_common_indices)
 from torch import Tensor
 from torch.nn.modules import loss
 
 from pedestrians_video_2_carla.loss.base_pose_loss import BasePoseLoss
+from pedestrians_video_2_carla.utils.tensors import get_missing_joints_mask
 
 
 def calculate_loss_loc_2d(
@@ -15,6 +18,7 @@ def calculate_loss_loc_2d(
         targets: Dict[str, Tensor],
         projection_2d: Tensor = None,
         projection_2d_transformed: Tensor = None,
+        mask_missing_joints: bool = False,
         **kwargs) -> Tensor:
     """
     Calculates the loss for the 2D pose projection.
@@ -32,6 +36,8 @@ def calculate_loss_loc_2d(
     :type projection_2d: Tensor
     :param projection_2d_transformed: Projection as calculated by the projection module, transformed using same transform as in DataModule.
     :type projection_2d_transformed: Tensor
+    :param mask_missing_joints: Whether to mask out ground truth missing joints.
+    :type mask_missing_joints: bool
     :return: Calculated loss.
     :rtype: Tensor
     """
@@ -45,6 +51,12 @@ def calculate_loss_loc_2d(
     else:
         common_projection = projection_2d[..., output_indices, 0:2]
         common_gt = targets['projection_2d'][..., input_indices, 0:2]
+
+    if mask_missing_joints:
+        mask = get_missing_joints_mask(
+            common_gt, input_nodes.get_hips_point(), input_indices)
+        common_projection = common_projection[mask]
+        common_gt = common_gt[mask]
 
     loss = criterion(
         common_projection,

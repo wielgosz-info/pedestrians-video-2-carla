@@ -1,6 +1,7 @@
 from typing import Dict
 import torch
 from torchmetrics import MeanSquaredError
+import torchmetrics
 from pedestrians_video_2_carla.metrics.missing_joints_ratio import MissingJointsRatio
 from pedestrians_video_2_carla.metrics.multiinput_wrapper import MultiinputWrapper
 from pedestrians_video_2_carla.metrics.pck import PCK
@@ -9,7 +10,17 @@ from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 
 
 class LitAutoencoderFlow(LitBaseFlow):
-    def _get_metrics(self):
+    def _get_initial_metrics(self) -> Dict[str, torchmetrics.Metric]:
+        return {
+            'MJR': MissingJointsRatio(
+                dist_sync_on_step=True,
+                input_nodes=self.movements_model.input_nodes,
+                output_nodes=self.movements_model.output_nodes,
+                # no missing joints masking for this metric, since it is supposed to calculate it
+            ),
+        }
+
+    def _get_metrics(self) -> Dict[str, torchmetrics.Metric]:
         def get_normalization_tensor(x): return HipsNeckExtractor(
             input_nodes=self.movements_model.input_nodes
         ).get_shift_scale(x)[1]
@@ -17,28 +28,28 @@ class LitAutoencoderFlow(LitBaseFlow):
         return {
             'MSE': MultiinputWrapper(
                 MeanSquaredError(dist_sync_on_step=True),
-                self._outputs_key, self._outputs_key
-            ),
-            'MJR': MissingJointsRatio(
-                dist_sync_on_step=True,
+                self._outputs_key, self._outputs_key,
                 input_nodes=self.movements_model.input_nodes,
-                output_nodes=self.movements_model.output_nodes
+                output_nodes=self.movements_model.output_nodes,
+                mask_missing_joints=self.mask_missing_joints,
             ),
             'PCKhn@01': PCK(
                 dist_sync_on_step=True,
                 input_nodes=self.movements_model.input_nodes,
                 output_nodes=self.movements_model.output_nodes,
+                mask_missing_joints=self.mask_missing_joints,
                 key=self._outputs_key,
                 threshold=0.1,
-                get_normalization_tensor=get_normalization_tensor
+                get_normalization_tensor=get_normalization_tensor,
             ),
             'PCK@005': PCK(
                 dist_sync_on_step=True,
                 input_nodes=self.movements_model.input_nodes,
                 output_nodes=self.movements_model.output_nodes,
+                mask_missing_joints=self.mask_missing_joints,
                 key=self._outputs_key,
                 threshold=0.05,
-                get_normalization_tensor=None  # standard bbox normalization
+                get_normalization_tensor=None,  # standard bbox normalization
             ),
         }
 
