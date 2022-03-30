@@ -278,7 +278,13 @@ class LitBaseFlow(pl.LightningModule):
                 '__len__',
                 lambda: self.trainer.limit_train_batches*self.trainer.datamodule.batch_size
             )(),
-            **(initial_metrics or {})
+            'val_set_size': getattr(
+                self.trainer.datamodule.val_set,
+                '__len__',
+                lambda: self.trainer.limit_val_batches*self.trainer.datamodule.batch_size
+            )(),
+            **(initial_metrics or {}),
+            **self.trainer.datamodule.hparams
         }
 
         if not isinstance(self.logger[0], TensorBoardLogger):
@@ -290,14 +296,11 @@ class LitBaseFlow(pl.LightningModule):
 
         # We need to manually add the datamodule hparams,
         # because the merge is automatically handled only for initial_hparams
-        # in the Trainer.
-        hparams = self.hparams
-        hparams.update(self.trainer.datamodule.hparams)
         # additionally, store info on train set size for easy access
-        hparams.update(additional_config)
+        self.hparams.update(additional_config)
 
         self.logger[0].log_hyperparams(
-            hparams,
+            self.hparams,
             self._unwrap_nested_metrics(self.metrics, ['hp'], nans=True)
         )
 
