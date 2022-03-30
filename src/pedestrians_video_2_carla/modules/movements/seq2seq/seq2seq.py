@@ -6,7 +6,7 @@ import torch
 from torch import nn
 from torch import Tensor
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModel, MovementsModelOutputType, MovementsModelOutputTypeMixin
-import distutils
+from pedestrians_video_2_carla.utils.argparse import boolean
 
 
 class TeacherMode(Enum):
@@ -231,13 +231,13 @@ class Seq2Seq(MovementsModelOutputTypeMixin, MovementsModel):
             '--invert_sequence',
             help="""Should the sequence be inverted before training? Doesn't make sense for bidirectional models.""",
             default=False,
-            type=lambda x: bool(distutils.util.strtobool(x))
+            type=boolean
         )
         parser.add_argument(
             '--bidirectional',
             help="""Should the encoder/decoder use bidirectional LSTM?""",
             default=False,
-            type=lambda x: bool(distutils.util.strtobool(x))
+            type=boolean
         )
 
         return parent_parser

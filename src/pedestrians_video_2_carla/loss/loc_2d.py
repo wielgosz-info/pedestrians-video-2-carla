@@ -18,7 +18,7 @@ def calculate_loss_loc_2d(
         targets: Dict[str, Tensor],
         projection_2d: Tensor = None,
         projection_2d_transformed: Tensor = None,
-        mask_missing_joints: bool = False,
+        mask_missing_joints: bool = True,
         **kwargs) -> Tensor:
     """
     Calculates the loss for the 2D pose projection.

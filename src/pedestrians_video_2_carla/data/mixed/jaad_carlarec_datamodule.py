@@ -11,7 +11,7 @@ class JAADCarlaRecDataModule(MixedDataModule):
         CarlaRecordedDataModule,
     ]
     # default mixing proportions
-    train_proportions = [0.5, 0.5]
+    train_proportions = [0.2, 0.8]
     val_proportions = [-1, 0]
     test_proportions = [-1, 0]
 

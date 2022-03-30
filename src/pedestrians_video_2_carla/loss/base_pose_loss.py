@@ -13,7 +13,7 @@ class BasePoseLoss(object):
                  criterion: loss._Loss,
                  input_nodes: Type[Skeleton],
                  output_nodes: Type[Skeleton],
-                 mask_missing_joints: bool = False) -> None:
+                 mask_missing_joints: bool = True) -> None:
         self._criterion = criterion
         self._output_indices, self._input_indices = get_common_indices(
             input_nodes, output_nodes)

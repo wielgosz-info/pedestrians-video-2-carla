@@ -14,7 +14,7 @@ class MultiinputWrapper(Metric):
         target_key,
         input_nodes: Type[Skeleton],
         output_nodes: Type[Skeleton],
-        mask_missing_joints: bool = False,
+        mask_missing_joints: bool = True,
         **kwargs
     ):
         super().__init__(**kwargs)

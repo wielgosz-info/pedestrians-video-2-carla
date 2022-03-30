@@ -174,6 +174,13 @@ class PedestrianLogger(LightningLoggerBase):
             default=False,
             action='store_true'
         )
+        parser.add_argument(
+            "--source_videos_overlay_bboxes",
+            dest="source_videos_overlay_bboxes",
+            help="Draw 2D input bboxes on top of source video. Default: False",
+            default=False,
+            action='store_true'
+        )
 
         return parent_parser
 

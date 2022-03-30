@@ -1,4 +1,4 @@
-import distutils
+from pedestrians_video_2_carla.utils.argparse import boolean
 from torch import nn
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModel, MovementsModelOutputTypeMixin
 
@@ -41,7 +41,7 @@ class Linear(MovementsModelOutputTypeMixin, MovementsModel):
         parser.add_argument(
             '--needs_confidence',
             dest='needs_confidence',
-            type=lambda x: bool(distutils.util.strtobool(x)),
+            type=boolean,
             default=False,
         )
         return parent_parser

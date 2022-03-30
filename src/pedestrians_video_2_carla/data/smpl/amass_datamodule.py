@@ -1,7 +1,6 @@
 import os
 from typing import Optional
 import numpy
-import distutils
 import pandas
 
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
@@ -44,7 +43,7 @@ class AMASSDataModule(BaseDataModule):
     #         '--mirror',
     #         help="Add mirror clips to the dataset.",
     #         default=False,
-    #         type=lambda x: bool(distutils.util.strtobool(x))
+    #         type=boolean
     #     )
     #     return parent_parser
 

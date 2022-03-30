@@ -8,7 +8,7 @@ common_params:
   batch_size: 256
   renderers: none
   skip_metadata: null
-  mask_missing_joints: null
+  mask_missing_joints: True
   num_sanity_val_steps: 1
   clip_offset: 15
   clip_length: 15

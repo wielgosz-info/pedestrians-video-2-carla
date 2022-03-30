@@ -1,4 +1,5 @@
 import argparse
+import distutils
 
 
 class MinMaxAction(argparse.Action):
@@ -30,3 +31,7 @@ class DictAction(argparse.Action):
             prev_dict[key] = self.value_type(value)
 
         setattr(namespace, self.dest, prev_dict)
+
+
+def boolean(x):
+    return bool(distutils.util.strtobool(x))

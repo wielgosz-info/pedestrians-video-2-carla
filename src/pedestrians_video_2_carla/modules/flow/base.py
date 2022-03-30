@@ -24,6 +24,7 @@ from pytorch_lightning.utilities import rank_zero_only
 from torch import Tensor
 from torch_geometric.data import Batch
 from torchmetrics import MetricCollection
+from pedestrians_video_2_carla.utils.argparse import boolean
 
 
 class LitBaseFlow(pl.LightningModule):
@@ -42,7 +43,7 @@ class LitBaseFlow(pl.LightningModule):
         trajectory_model: TrajectoryModel = None,
         loss_modes: List[LossModes] = None,
         loss_weights: Dict[str, Tensor] = None,
-        mask_missing_joints: bool = False,
+        mask_missing_joints: bool = True,
         **kwargs
     ):
         super().__init__()
@@ -156,8 +157,8 @@ class LitBaseFlow(pl.LightningModule):
         )
         parser.add_argument(
             '--mask_missing_joints',
-            action='store_true',
-            default=False,
+            type=boolean,
+            default=True,
             help='Mask missing ground truth joints when calculating loss and metrics.'
         )
         parser.add_argument(
@@ -272,7 +273,11 @@ class LitBaseFlow(pl.LightningModule):
         return unwrapped
 
     def _update_hparams(self, initial_metrics: Dict[str, float] = None):
+        # We need to manually add the datamodule hparams,
+        # because the merge is automatically handled only for initial_hparams
+        # additionally, store info on train set size for easy access
         additional_config = {
+            **self.trainer.datamodule.hparams,
             'train_set_size': getattr(
                 self.trainer.datamodule.train_set,
                 '__len__',
@@ -284,7 +289,6 @@ class LitBaseFlow(pl.LightningModule):
                 lambda: self.trainer.limit_val_batches*self.trainer.datamodule.batch_size
             )(),
             **(initial_metrics or {}),
-            **self.trainer.datamodule.hparams
         }
 
         if not isinstance(self.logger[0], TensorBoardLogger):
@@ -294,9 +298,6 @@ class LitBaseFlow(pl.LightningModule):
                 pass
             return
 
-        # We need to manually add the datamodule hparams,
-        # because the merge is automatically handled only for initial_hparams
-        # additionally, store info on train set size for easy access
         self.hparams.update(additional_config)
 
         self.logger[0].log_hyperparams(

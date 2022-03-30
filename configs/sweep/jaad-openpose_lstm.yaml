@@ -8,12 +8,13 @@ command:
   - ${args}
   - --skip_metadata
   - --disable_lr_scheduler
-  - --mask_missing_joints
 method: bayes
 metric:
   goal: maximize
   name: hp/PCKhn@01
 parameters:
+  mask_missing_joints:
+    value: True
   strong_points:
     value: 1
   mode:

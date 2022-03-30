@@ -2,6 +2,7 @@ from typing import Any, Dict, Iterable, List, Optional, Type
 from pytorch_lightning import LightningDataModule
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
 from pedestrians_video_2_carla.data.mixed.mixed_dataset import MixedDataset
+import numpy as np
 
 
 class MixedDataModule(LightningDataModule):
@@ -44,12 +45,19 @@ class MixedDataModule(LightningDataModule):
             ) for dm_cls in all_data_modules
         ]
 
+        for dm in self._data_modules:
+            self.hparams.update(dm.hparams)
+
         self.requested_train_proportions = self._validate_proportions(
             train_proportions or self.train_proportions)
         self.requested_val_proportions = self._validate_proportions(
             val_proportions or self.val_proportions)
         self.requested_test_proportions = self._validate_proportions(
             test_proportions or self.test_proportions)
+
+        self.hparams['train_proportions'] = self.requested_train_proportions
+        self.hparams['val_proportions'] = self.requested_val_proportions
+        self.hparams['test_proportions'] = self.requested_test_proportions
 
         self.train_set = None
         self.val_set = None
@@ -121,8 +129,10 @@ class MixedDataModule(LightningDataModule):
                 proportions=self.requested_val_proportions
             )
 
-            self.hparams['train_set_cumulative_sizes'] = self.train_set.cumulative_sizes
-            self.hparams['val_set_cumulative_sizes'] = self.val_set.cumulative_sizes
+            self.hparams['train_set_sizes'] = tuple(np.diff(
+                self.train_set.cumulative_sizes, prepend=0))
+            self.hparams['val_set_sizes'] = tuple(np.diff(
+                self.val_set.cumulative_sizes, prepend=0))
 
         if stage == "test" or stage is None:
             self.test_set = MixedDataset([
@@ -131,7 +141,8 @@ class MixedDataModule(LightningDataModule):
                 skip_metadata=self._skip_metadata,
                 proportions=self.requested_test_proportions
             )
-            self.hparams['test_set_cumulative_sizes'] = self.test_set.cumulative_sizes
+            self.hparams['test_set_sizes'] = tuple(np.diff(
+                self.test_set.cumulative_sizes, prepend=0))
 
     def train_dataloader(self):
         return self._data_modules[0].get_dataloader(self.train_set, shuffle=True, persistent_workers=True)

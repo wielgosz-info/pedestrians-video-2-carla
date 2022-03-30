@@ -59,7 +59,7 @@ class PCK(Metric):
         else:
             # if there are only data after normalization, we can't ignore missing joints
             mask = torch.ones(
-                targets[self.key][:, :, self.input_indices].shape[-1])
+                targets[self.key][:, :, self.input_indices].shape[:-1], dtype=torch.bool)
 
         try:
             prediction = predictions[self.key][:, :, self.output_indices]
