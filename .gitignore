@@ -61,3 +61,4 @@ wandb/
 
 # Some testing models/data
 notebooks/data/
+artifacts/

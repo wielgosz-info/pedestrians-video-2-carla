@@ -258,19 +258,6 @@ def main(args: List[str]):
     # data
     dm = data_module_cls(**dict_args, return_graph=movements_model.needs_graph)
 
-    if args.ckpt_path is not None:
-        model = flow_module_cls.load_from_checkpoint(
-            checkpoint_path=args.ckpt_path,
-            movements_model=movements_model,
-            trajectory_model=trajectory_model
-        )
-    else:
-        model = flow_module_cls(
-            movements_model=movements_model,
-            trajectory_model=trajectory_model,
-            **dict_args
-        )
-
     # loggers - try to use WandbLogger or fallback to TensorBoardLogger
     # the primary logger log dir is used as default for all loggers & checkpoints
     if os.path.isabs(args.logs_dir):
@@ -324,6 +311,32 @@ def main(args: List[str]):
         save_top_k=1,
     )
     lr_monitor = LearningRateMonitor(logging_interval="step")
+
+    # flow model
+    if args.ckpt_path is not None:
+        # is this a W&B artifact?
+        if isinstance(logger, WandbLogger) and args.ckpt_path.startswith("wandb://"):
+            artifact_path = args.ckpt_path.lstrip("wandb://")
+            artifact = wandb.run.use_artifact(artifact_path, type='model')
+            artifact_dir = artifact.download()
+            args.ckpt_path = os.path.join(artifact_dir, "model.ckpt")
+        elif args.ckpt_path.startswith("file://"):
+            args.ckpt_path = args.ckpt_path.lstrip("file://")
+
+        if not os.path.isfile(args.ckpt_path):
+            raise ValueError(f"Checkpoint {args.ckpt_path} does not exist")
+
+        model = flow_module_cls.load_from_checkpoint(
+            checkpoint_path=args.ckpt_path,
+            movements_model=movements_model,
+            trajectory_model=trajectory_model
+        )
+    else:
+        model = flow_module_cls(
+            movements_model=movements_model,
+            trajectory_model=trajectory_model,
+            **dict_args
+        )
 
     # training
     trainer = pl.Trainer.from_argparse_args(
