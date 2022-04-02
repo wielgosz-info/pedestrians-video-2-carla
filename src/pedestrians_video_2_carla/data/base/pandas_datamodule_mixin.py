@@ -1,4 +1,5 @@
 from logging import warning
+import logging
 import math
 import os
 from typing import Any, Dict, Iterable, List, Tuple
@@ -28,7 +29,9 @@ class PandasDataModuleMixin(object):
 
         super().__init__(**kwargs)
 
-        if os.path.isabs(data_filepath):
+        if data_filepath is None:
+            logging.getLogger(__name__).debug('Data filepath explicitly set to None.')
+        elif os.path.isabs(data_filepath):
             self.data_filepath = data_filepath
         elif os.path.exists(os.path.join(self.outputs_dir, data_filepath)):
             self.data_filepath = os.path.join(self.outputs_dir, data_filepath)
@@ -211,6 +214,9 @@ class PandasDataModuleMixin(object):
                         if not len(sets[i]):
                             to_assign = clip_counts[assigned <
                                                     clip_counts['clips_cumsum']].iloc[0:1]
+                            if not len(to_assign):
+                                raise RuntimeError(
+                                    f'Could not assign clips to {name} set.')
                         else:
                             skipped += 1
                             continue

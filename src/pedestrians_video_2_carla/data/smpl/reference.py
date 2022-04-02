@@ -48,7 +48,7 @@ def get_absolute_tensors(device=torch.device('cpu'), as_dict=False):
     absolute_rot = []
 
     for (age, gender) in SMPL_REFERENCE_SKELETON_TYPES:
-        abs_loc, abs_rot = convert_smpl_pose_to_absolute_loc_rot(
+        relative_loc, relative_rot, abs_loc, abs_rot = convert_smpl_pose_to_absolute_loc_rot(
             gender=gender, reference_pose=poses[(age, gender)], device=device)
 
         absolute_loc.append(abs_loc)
