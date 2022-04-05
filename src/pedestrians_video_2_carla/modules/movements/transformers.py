@@ -41,7 +41,7 @@ class TransformerBase(MovementsModel):
         optimizer = torch.optim.AdamW(self.parameters(), lr=1e-3)
 
         lr_scheduler = {
-            'scheduler': CosineWarmupScheduler(optimizer, warmup=10, max_iters=100),
+            'scheduler': CosineWarmupScheduler(optimizer, warmup=30, max_iters=200),
             'interval': 'epoch',
             'monitor': 'val_loss/primary'
         }

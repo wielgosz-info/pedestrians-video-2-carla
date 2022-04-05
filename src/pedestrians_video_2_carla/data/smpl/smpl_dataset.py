@@ -33,7 +33,7 @@ class SMPLDataset(BaseDataset):
 
         if self.input_nodes == CARLA_SKELETON and kwargs.get('skip_metadata', False):
             warnings.warn(
-                'Skipping metadata when using CARLA_SKELETON results in using neutral adult pose for all clips.')
+                'Skipping metadata when using CARLA_SKELETON results in using female adult pose for all clips.')
 
         self.nodes_len = len(self.data_nodes)
 
@@ -62,7 +62,7 @@ class SMPLDataset(BaseDataset):
         # if self.input_nodes == CARLA_SKELETON:
         #     m = self.meta[idx]
         #     age = m['age'] if 'age' in m else 'adult'
-        #     gender = m['gender'] if 'gender' in m else 'neutral'
+        #     gender = m['gender'] if 'gender' in m else 'female'
 
         #     smpl_pose = torch.from_numpy(self.set_file['targets/amass_body_pose'][idx])
 

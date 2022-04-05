@@ -232,7 +232,7 @@ class PandasDataModuleMixin(object):
 
         # now we need to dump the actual clips info
         names = ['train', 'val', 'test']
-        for (i, name) in enumerate(names):
+        for (i, name) in tqdm(enumerate(names), desc='Saving clips', leave=False):
             if not len(sets[i]):
                 warnings.warn(f'No clips assigned to {name} set.')
                 continue

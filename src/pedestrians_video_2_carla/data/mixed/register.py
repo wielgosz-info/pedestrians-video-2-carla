@@ -1,4 +1,6 @@
 from pedestrians_video_2_carla.data import register_datamodule
-from pedestrians_video_2_carla.data.mixed.jaad_carlarec_datamodule import JAADCarlaRecDataModule
+from .jaad_carlarec_datamodule import JAADCarlaRecDataModule
+from .jaad_carlarec_amass_datamodule import JAADCarlaRecAMASSDataModule
 
 register_datamodule('JAADCarlaRec', JAADCarlaRecDataModule)
+register_datamodule('JAADCarlaRecAMASS', JAADCarlaRecAMASSDataModule)

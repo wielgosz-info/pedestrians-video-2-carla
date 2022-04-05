@@ -3,13 +3,24 @@ import os
 from typing import Any, Dict
 
 import torch
-from human_body_prior.body_model.body_model import BodyModel
 
 from pedestrians_video_2_carla.data.base.utils import load_reference_file
 from pedestrians_video_2_carla.data.smpl.constants import SMPL_BODY_MODEL_DIR, SMPL_MODELS
 from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON
 from pedestrians_video_2_carla.utils.tensors import eye_batch
 from pytorch3d.transforms.rotation_conversions import euler_angles_to_matrix
+
+# make it possible to use the generated dataset,
+# even if generation itself is impossible
+# e.g. generate dataset in docker somewhere and then copy it for the agents
+try:   
+    from human_body_prior.body_model.body_model import BodyModel
+except ModuleNotFoundError:
+    from pedestrians_video_2_carla.utils.exceptions import NotAvailableException
+
+    class BodyModel:
+        def __init__(self, *args, **kwargs):
+            raise NotAvailableException("BodyModel", "smpl_renderer")
 
 
 @lru_cache(maxsize=10)
