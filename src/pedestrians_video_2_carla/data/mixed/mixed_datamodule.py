@@ -58,6 +58,8 @@ class MixedDataModule(LightningDataModule):
         self.hparams['train_proportions'] = self.requested_train_proportions
         self.hparams['val_proportions'] = self.requested_val_proportions
         self.hparams['test_proportions'] = self.requested_test_proportions
+        self.hparams['mixed_datasets'] = [
+            dm.__class__.__name__ for dm in self._data_modules]
 
         self.train_set = None
         self.val_set = None

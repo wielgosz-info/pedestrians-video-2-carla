@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, Iterable, Optional, Tuple
+from typing import Any, Dict, Iterable, Tuple
 import numpy as np
 import pandas
 import torch
@@ -14,8 +14,7 @@ from tqdm.std import tqdm
 import glob
 from pytorch3d.transforms.rotation_conversions import euler_angles_to_matrix
 from pedestrians_video_2_carla.data.smpl import reference as smpl_reference
-from pedestrians_video_2_carla.data.smpl.utils import (
-    convert_smpl_pose_to_absolute_loc_rot, get_conventions_rot, load)
+from pedestrians_video_2_carla.data.smpl.utils import convert_smpl_pose_to_absolute_loc_rot
 from pedestrians_video_2_carla.walker_control.p3d_pose_projection import \
     P3dPoseProjection
 

@@ -2,10 +2,11 @@ from typing import Any, Callable, Dict, List, Tuple
 import os
 import numpy as np
 import pandas as pd
-import sklearn
+
 import torch
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
 from pedestrians_video_2_carla.data.base.pandas_datamodule_mixin import PandasDataModuleMixin
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.data.carla.carla_recorded_dataset import CarlaRecordedDataset
 import pandas as pd
 import ast
@@ -25,9 +26,13 @@ def convert_to_list(x):
 
 class CarlaRecordedDataModule(PandasDataModuleMixin, BaseDataModule):
     def __init__(self,
+                 carla_rec_set_name: str = 'BasicPedestriansCrossing',
                  **kwargs):
+        self.set_name = carla_rec_set_name
+
         super().__init__(
-            data_filepath=os.path.join(CARLA_RECORDED_DIR, 'data.csv'),
+            data_filepath=os.path.join(
+                CARLA_RECORDED_DIR, self.set_name, 'data.csv'),
             primary_index=['id', 'camera.idx', 'pedestrian.idx'],
             clips_index=['clip', 'frame.idx'],
             converters={
@@ -40,8 +45,25 @@ class CarlaRecordedDataModule(PandasDataModuleMixin, BaseDataModule):
                 'frame.pedestrian.pose.relative': convert_to_list,
                 'frame.pedestrian.pose.camera': convert_to_list
             },
-            **kwargs
+            **{
+                **kwargs,
+                'data_nodes': CARLA_SKELETON
+            }
         )
+
+    @property
+    def settings(self):
+        return {
+            **super().settings,
+            'carla_rec_set_name': self.set_name,
+        }
+
+    @classmethod
+    def add_subclass_specific_args(cls, parent_parser):
+        parser = parent_parser.add_argument_group('Carla Recorded Data Module')
+        parser.add_argument('--carla_rec_set_name', type=str,
+                            default='BasicPedestriansCrossing')
+        return parent_parser
 
     def _clean_filter_sort_data(self, df: pd.DataFrame) -> pd.DataFrame:
         df['camera.recording'] = df['camera.recording'].str.replace(

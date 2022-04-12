@@ -233,7 +233,7 @@ class LitBaseFlow(pl.LightningModule):
         initial_metrics = MetricCollection({
             **self._get_metrics(),
             **self._get_initial_metrics()
-        })
+        }).to(self.device)
 
         if not len(initial_metrics):
             return {}

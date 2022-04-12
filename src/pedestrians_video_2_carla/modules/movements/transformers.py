@@ -1,7 +1,5 @@
 import numpy as np
 import torch
-from torch import nn
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch import optim
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModel
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModelOutputType
@@ -54,19 +52,38 @@ class TransformerBase(MovementsModel):
         return config
 
 
-
 class SimpleTransformer(TransformerBase):
-    def __init__(self, **kwargs):
+    def __init__(self, n_heads=4, **kwargs):
         super().__init__(**kwargs)
-        self.encoder_layer = TransformerEncoderLayer(d_model=2 * len(self.input_nodes), nhead=2, batch_first=True)
+
+        self.input_size = 2 * len(self.input_nodes)
+        self.n_heads = n_heads
+
+        # ensure input_size is divisible by nhead
+        assert self.input_size % self.n_heads == 0, f"input_size ({self.input_size}) must be divisible by n_heads"
+
+        self.encoder_layer = TransformerEncoderLayer(
+            d_model=self.input_size,
+            nhead=self.n_heads,
+            batch_first=True
+        )
         self.encoder = TransformerEncoder(self.encoder_layer, num_layers=6)
-     
+
+    @staticmethod
+    def add_model_specific_args(parent_parser):
+        parser = parent_parser.add_argument_group("Simple Transformer Model")
+        parser.add_argument(
+            '--n_heads',
+            type=int,
+            default=4,
+            help='the number of heads in the encoder/decoder of the transformer model'
+        )
+        return parent_parser
 
     def forward(self, x, **kwargs):
         orig_shape = x.shape
-        x = x.view(x.size(0), x.size(1), -1)
+        x = x.view(orig_shape[0], orig_shape[1], -1)
         # print("input shape: ", x.shape)
         x = self.encoder(x)
         x = x.view(orig_shape)
         return x
-

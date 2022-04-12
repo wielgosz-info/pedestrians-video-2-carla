@@ -5,7 +5,7 @@ import h5py
 import numpy as np
 import torch
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
-from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.data.carla.carla_2d3d_dataset import (
     Carla2D3DDataset, Carla2D3DIterableDataset)
 from tqdm import trange
@@ -22,7 +22,10 @@ class Carla2D3DDataModule(BaseDataModule):
         self.val_set_size = val_set_size
         self.test_set_size = test_set_size
 
-        super().__init__(**kwargs)
+        super().__init__(**{
+            **kwargs,
+            'data_nodes': CARLA_SKELETON
+        })
 
     @property
     def settings(self):

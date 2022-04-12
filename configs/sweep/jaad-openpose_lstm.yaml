@@ -29,8 +29,6 @@ parameters:
     value: 1
   max_epochs:
     value: 1500
-  enable_progress_bar:
-    value: False
   lr:
     max: 0.01
     min: 0.001

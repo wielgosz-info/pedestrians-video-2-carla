@@ -65,5 +65,7 @@ parameters:
     value: none
   transform:
     value: hips_neck_bbox
+  carla_rec_set_name:
+    value: BasicPedestriansCrossing_jitter-10
 program: src/pedestrians_video_2_carla/modeling.py
 project: autoencoder

@@ -14,6 +14,8 @@ from pedestrians_video_2_carla.data.openpose.openpose_dataset import \
     OpenPoseDataset
 from tqdm.auto import tqdm
 
+from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON
+
 
 class JAADOpenPoseDataModule(PandasDataModuleMixin, BaseDataModule):
     def __init__(self,
@@ -34,7 +36,10 @@ class JAADOpenPoseDataModule(PandasDataModuleMixin, BaseDataModule):
             df_usecols=df_usecols,
             df_filters=df_filters,
             extra_cols={'keypoints': 'object'},
-            **kwargs
+            **{
+                **kwargs,
+                'data_nodes': kwargs.get('data_nodes', BODY_25_SKELETON),
+            }
         )
 
         self.openpose_dir = os.path.join(self.outputs_dir, OPENPOSE_DIR)
