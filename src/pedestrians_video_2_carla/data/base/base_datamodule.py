@@ -1,11 +1,11 @@
 import hashlib
-import math
 import os
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
+import shutil
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import h5py
+from matplotlib import projections
 import numpy as np
-import pandas
 import torch.multiprocessing
 import yaml
 from pedestrians_video_2_carla.data import (DATASETS_BASE, DEFAULT_ROOT,
@@ -18,11 +18,12 @@ from pedestrians_video_2_carla.transforms.bbox import BBoxExtractor
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 from pedestrians_video_2_carla.transforms.hips_neck_bbox_fallback import \
     HipsNeckBBoxFallbackExtractor
-from pedestrians_video_2_carla.transforms.normalization import Normalizer
+from pedestrians_video_2_carla.transforms.normalization import DeNormalizer, Normalizer
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 from torch_geometric.loader import DataLoader as GraphDataLoader
 from tqdm.auto import tqdm
+import itertools
 
 from .base_transforms import BaseTransforms
 
@@ -53,6 +54,8 @@ class BaseDataModule(LightningDataModule):
                  return_graph: bool = False,
                  val_set_frac: Optional[float] = 0.2,
                  test_set_frac: Optional[float] = 0.2,
+                 predict_sets: List[str] = None,
+                 subsets_dir: Optional[str] = None,
                  **kwargs):
         super().__init__()
 
@@ -88,16 +91,25 @@ class BaseDataModule(LightningDataModule):
         self.test_set = None
         self.set_size = {}
 
+        self._predict_set_names = predict_sets if predict_sets is not None else []
+        self._predict_sets = {}
+        self.predict_set_name = None
+        self.predict_set = None
+
         self.transform, self.transform_callable = self._setup_data_transform(transform)
 
         self._settings_digest = self._calculate_settings_digest()
-        self._subsets_dir = os.path.join(
-            self.outputs_dir, SUBSETS_BASE, self._settings_digest)
+        if subsets_dir is None:
+            self._subsets_dir = os.path.join(
+                self.outputs_dir, SUBSETS_BASE, self._settings_digest)
+        else:
+            self._subsets_dir = subsets_dir
 
         print('Subsets dir: {}'.format(self._subsets_dir))
 
         self._needs_preparation = False
-        if not os.path.exists(self._subsets_dir) or len(os.listdir(self._subsets_dir)) == 0:
+        # only try to generate subsets if dir was not provided
+        if subsets_dir is None and (not os.path.exists(self._subsets_dir) or len(os.listdir(self._subsets_dir)) == 0):
             self._needs_preparation = True
             os.makedirs(self._subsets_dir, exist_ok=True)
 
@@ -219,6 +231,25 @@ class BaseDataModule(LightningDataModule):
 
         parent_parser = cls.add_subclass_specific_args(parent_parser)
 
+        # for prediction only
+        parser.add_argument(
+            "--predict_sets",
+            dest="predict_sets",
+            help="Which sets ('train', 'val', 'test') to use in 'predict' mode. Has no effect otherwise.",
+            default=[],
+            nargs="+",
+            type=str
+        )
+
+        # overrides subsets generation
+        parser.add_argument(
+            "--subsets_dir",
+            dest="subsets_dir",
+            help="Directory to use for subsets. If specified, will use subsets as-is.",
+            default=None,
+            type=str
+        )
+
         # input nodes are handled in the model hyperparameters
         return parent_parser
 
@@ -257,6 +288,9 @@ class BaseDataModule(LightningDataModule):
     def train_dataloader(self):
         return self.get_dataloader(self.train_set, shuffle=True, persistent_workers=True)
 
+    def predict_dataloader(self):
+        return self.get_dataloader(self.predict_set)
+
     def val_dataloader(self):
         return self.get_dataloader(self.val_set)
 
@@ -287,7 +321,8 @@ class BaseDataModule(LightningDataModule):
         It should return a dictionary containing the number of clips in each set.
 
         The implementation should use self.val_set_frac and self.test_set_frac
-        to get the desired split proportions.
+        to get the desired split proportions. The _save_subset method is provided
+        to facilitate actual saving of the clips to HDF5 files.
 
         :param clips: List (or other iterable) of clips to split.
         :type clips: Iterable[Any]
@@ -329,11 +364,13 @@ class BaseDataModule(LightningDataModule):
         self.save_settings()
         progress_bar.close()
 
-    def _save_subset(self, name, projection_2d, targets, meta):
+    def _save_subset(self, name, projection_2d, targets, meta, save_dir=None):
         """
         This method is used to save the subset of data as HDF5 file that follows common format.
         """
-        with h5py.File(os.path.join(self._subsets_dir, "{}.hdf5".format(name)), "w") as f:
+        if save_dir is None:
+            save_dir = self._subsets_dir
+        with h5py.File(os.path.join(save_dir, "{}.hdf5".format(name)), "w") as f:
             f.create_dataset("projection_2d", data=projection_2d,
                              chunks=(1, *projection_2d.shape[1:]))
 
@@ -366,34 +403,103 @@ class BaseDataModule(LightningDataModule):
         """
         set_ext = 'hdf5'
         dataset_creator = self._get_dataset_creator()
+        common_kwargs = {
+            'data_nodes': self.data_nodes,
+            'input_nodes': self.input_nodes,
+            'transform': self.transform_callable,
+            'return_graph': self.return_graph,
+            'clip_length': self.clip_length,
+            **self.kwargs
+        }
 
         if stage == "fit" or stage is None:
             self.train_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'train.{set_ext}'),
-                data_nodes=self.data_nodes,
-                input_nodes=self.input_nodes,
-                transform=self.transform_callable,
-                return_graph=self.return_graph,
-                clip_length=self.clip_length,
-                **self.kwargs,
+                **common_kwargs,
             )
             self.val_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'val.{set_ext}'),
-                data_nodes=self.data_nodes,
-                input_nodes=self.input_nodes,
-                transform=self.transform_callable,
-                return_graph=self.return_graph,
-                clip_length=self.clip_length,
-                **self.kwargs,
+                **common_kwargs,
             )
 
         if stage == "test" or stage is None:
             self.test_set = dataset_creator(
                 os.path.join(self._subsets_dir, f'test.{set_ext}'),
-                data_nodes=self.data_nodes,
-                input_nodes=self.input_nodes,
-                transform=self.transform_callable,
-                return_graph=self.return_graph,
-                clip_length=self.clip_length,
-                **self.kwargs,
+                **common_kwargs,
             )
+
+        if stage == "predict":
+            self._predict_sets = {
+                name: dataset_creator(
+                    os.path.join(self._subsets_dir, f'{name}.{set_ext}'),
+                    **common_kwargs,
+                )
+                for name in self._predict_set_names
+            }
+
+    def choose_predict_set(self, set_name: str) -> None:
+        self.predict_set = self._predict_sets[set_name]
+        self.predict_set_name = set_name
+
+    def save_predictions(self, run_id, outputs: Iterable[Tuple[Dict, Dict]], crucial_keys: List[str], outputs_key: str) -> None:
+        """
+        Saves predictions from the model so that they can be used as input (dataset) for the next model.
+        """
+        predictions_output_dir = os.path.join(
+            f"{self.outputs_dir}Predictions", SUBSETS_BASE, self._settings_digest, run_id)
+
+        if not os.path.exists(predictions_output_dir):
+            os.makedirs(predictions_output_dir)
+            shutil.copy(os.path.join(self._subsets_dir, "dparams.yaml"),
+                        predictions_output_dir)
+
+        print(f"Saving {self.predict_set_name} predictions to {predictions_output_dir}.")
+
+        # what to save?
+        meta_keys = list(outputs[0][1].keys())
+        targets_keys = set(outputs[0][0]['targets'].keys()).union(set(crucial_keys))
+        targets_keys = list(
+            filter(lambda k: not k.startswith('projection_2d_'), targets_keys))
+
+        # extract relevant data
+        projections_2d = []
+        targets = {
+            k: [] for k in targets_keys
+        }
+        meta = {
+            k: [] for k in meta_keys
+        }
+        for sliced_data, batch_meta in outputs:
+            if outputs_key == "projections_2d_transformed":
+                projection_2d_transformed = sliced_data[outputs_key]
+                output_denormalizer = DeNormalizer()
+                denormalized_projections = output_denormalizer(
+                    projection_2d_transformed[..., :2],
+                    sliced_data['targets']['projection_2d_scale'],
+                    sliced_data['targets']['projection_2d_shift']
+                ).cpu().numpy()
+                projections_2d.append(denormalized_projections)
+            else:
+                projections_2d.append(sliced_data[outputs_key].cpu().numpy())
+
+            for k in targets_keys:
+                if k in sliced_data:
+                    targets[k].append(sliced_data[k].cpu().numpy())
+                else:
+                    targets[k].append(sliced_data['targets'][k].cpu().numpy())
+
+            for k in meta_keys:
+                meta[k].append(batch_meta[k])
+
+        projections_2d = np.concatenate(projections_2d, axis=0)
+        for k, v in targets.items():
+            targets[k] = np.concatenate(v, axis=0)
+        for k, v in meta.items():
+            if isinstance(v[0], list):
+                meta[k] = list(itertools.chain(*v))
+            else:
+                meta[k] = np.concatenate(v, axis=0)
+
+        # save predictions
+        self._save_subset(self.predict_set_name, projections_2d,
+                          targets, meta, save_dir=predictions_output_dir)

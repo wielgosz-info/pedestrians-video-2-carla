@@ -16,15 +16,12 @@ from pedestrians_video_2_carla.data.base.base_dataset import BaseDataset
 
 class SMPLDataset(BaseDataset):
     def __init__(self,
-                 data_dir,
                  set_filepath,
                  input_nodes: Union[Type[SMPL_SKELETON],
                                     Type[CARLA_SKELETON]] = SMPL_SKELETON,
                  device=torch.device('cpu'),
                  **kwargs
                  ) -> None:
-        self.data_dir = data_dir
-
         super().__init__(
             set_filepath=set_filepath,
             input_nodes=input_nodes,

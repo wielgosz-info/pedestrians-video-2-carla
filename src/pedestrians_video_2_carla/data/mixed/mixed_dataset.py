@@ -19,8 +19,8 @@ class MixedDataset(torch.utils.data.ConcatDataset):
         else:  # use a subset of the dataset
             subsets = []
             lengths = [len(dataset) for dataset in datasets]
-            possible_total = min([lengths[i] / p
-                                 for i, p in enumerate(proportions) if p != 0])
+            possible_total = min([lengths[i] / p if p != 0 else float('inf')
+                                 for i, p in enumerate(proportions)])
             for i, p in enumerate(proportions):
                 if p == 0:
                     continue

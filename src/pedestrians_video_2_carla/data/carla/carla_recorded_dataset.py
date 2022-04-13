@@ -1,10 +1,7 @@
 from typing import Dict
 
-import numpy as np
 import torch
 from pedestrians_video_2_carla.data.base.base_dataset import BaseDataset
-from pedestrians_video_2_carla.utils.tensors import get_bboxes
-from pytorch3d.transforms import euler_angles_to_matrix
 
 
 class CarlaRecordedDataset(BaseDataset):

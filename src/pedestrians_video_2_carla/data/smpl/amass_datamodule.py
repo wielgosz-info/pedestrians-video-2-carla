@@ -261,7 +261,4 @@ class AMASSDataModule(PandasDataModuleMixin, BaseDataModule):
         return relative_rot, absolute_loc, absolute_rot, projections[..., :2]
 
     def _get_dataset_creator(self):
-        return lambda *args, **kwargs: SMPLDataset(
-            self.amass_dir,
-            *args, **kwargs
-        )
+        return SMPLDataset

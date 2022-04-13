@@ -109,6 +109,14 @@ class LitBaseFlow(pl.LightningModule):
             self._outputs_key,
         ]
 
+    @property
+    def outputs_key(self) -> str:
+        return self._outputs_key
+
+    @property
+    def crucial_keys(self) -> List[str]:
+        return self._crucial_keys.copy()
+
     def _get_initial_metrics(self) -> Dict[str, torchmetrics.Metric]:
         """
         Returns metrics to calculate on each validation batch at the beginning of the training.
@@ -358,9 +366,12 @@ class LitBaseFlow(pl.LightningModule):
             batch_size = len(outputs[0]['preds'][self._outputs_key])
             self.log_dict(to_log, batch_size=batch_size)
 
+    def forward(self, batch, *args, **kwargs) -> Any:
+        (frames, targets, meta, edge_index) = self._unwrap_batch(batch)
+        return self._inner_step(frames, targets, edge_index), meta
+
     def _step(self, batch, batch_idx, stage):
         (frames, targets, meta, edge_index) = self._unwrap_batch(batch)
-
         sliced = self._inner_step(frames, targets, edge_index)
 
         loss_dict = self._calculate_lossess(stage, len(frames), sliced, meta)
@@ -369,7 +380,7 @@ class LitBaseFlow(pl.LightningModule):
 
         return self._get_outputs(stage, len(frames), sliced, loss_dict)
 
-    def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor):
+    def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor) -> Dict[str, Union[Dict, torch.Tensor]]:
         raise NotImplementedError()
 
     def _get_outputs(self, stage, batch_size, sliced, loss_dict):

@@ -38,7 +38,7 @@ class JAADOpenPoseDataModule(PandasDataModuleMixin, BaseDataModule):
             extra_cols={'keypoints': 'object'},
             **{
                 **kwargs,
-                'data_nodes': kwargs.get('data_nodes', BODY_25_SKELETON),
+                'data_nodes': kwargs.get('data_nodes', BODY_25_SKELETON) or BODY_25_SKELETON,
             }
         )
 

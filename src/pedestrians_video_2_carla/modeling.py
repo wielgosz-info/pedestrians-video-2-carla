@@ -89,9 +89,9 @@ def add_program_args(data_modules, flow_modules, movements_models, trajectory_mo
         "-m",
         "--mode",
         dest="mode",
-        help="set mode to train or test",
+        help="set mode to train, test or predict",
         default="train",
-        choices=["train", "test"],
+        choices=["train", "test", "predict"],
     )
     parser.add_argument(
         "--flow",
@@ -151,7 +151,7 @@ def add_program_args(data_modules, flow_modules, movements_models, trajectory_mo
     )
     parser.add_argument(
         "--ckpt_path", dest="ckpt_path", type=str, default=None,
-        help="Path of the checkpoint to load to resume training / testing"
+        help="Path of the checkpoint to load to resume training / testing / prediction"
     )
     return parser
 
@@ -350,6 +350,19 @@ def main(args: List[str]):
         trainer.fit(model=model, datamodule=dm, ckpt_path=args.ckpt_path)
     elif args.mode == "test":
         trainer.test(model=model, datamodule=dm)
+    elif args.mode == "predict":
+        # we need to explicitly set the datamodule here
+        dm.setup(stage='predict')
+        run_id = args.ckpt_path.split(os.path.sep)[-3]
+        for set_name in args.predict_sets:
+            dm.choose_predict_set(set_name)
+            outputs = trainer.predict(
+                model=model,
+                datamodule=dm,
+                ckpt_path=args.ckpt_path,
+                return_predictions=True
+            )
+            dm.save_predictions(run_id, outputs, model.crucial_keys, model.outputs_key)
 
     if isinstance(logger, WandbLogger):
         wandb.finish()
