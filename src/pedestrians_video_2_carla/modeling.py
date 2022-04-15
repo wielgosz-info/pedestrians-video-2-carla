@@ -2,6 +2,7 @@ import argparse
 import logging
 import math
 import os
+import re
 import sys
 from typing import Dict, List, Type, Union
 
@@ -14,6 +15,7 @@ from pedestrians_video_2_carla.modules.flow.autoencoder import \
 from pedestrians_video_2_carla.modules.flow.base import LitBaseFlow
 from pedestrians_video_2_carla.modules.flow.pose_lifting import \
     LitPoseLiftingFlow
+from pedestrians_video_2_carla.utils.misc import get_run_id_from_checkpoint_path
 
 try:
     import wandb
@@ -117,7 +119,7 @@ def add_program_args(parser: argparse.ArgumentParser):
         "--data_module_name",
         dest="data_module_name",
         help="Data module class to use",
-        default="Carla2D3D",
+        default="CarlaRecorded",
         choices=list(data_modules.keys()),
         type=str,
     )
@@ -184,7 +186,12 @@ def setup_logging(loglevel):
     matplotlib_logger.setLevel(logging.INFO)
 
 
-def main(args: Union[List[str], argparse.Namespace], version: str = None, return_flow: bool = False):
+def main(
+    args: Union[List[str], argparse.Namespace],
+    version: str = None,
+    return_objects: bool = False,
+    standalone: bool = True,
+):
     """
     :param args: command line parameters as list of strings
           (for example  ``["--verbose"]``).
@@ -312,7 +319,7 @@ def main(args: Union[List[str], argparse.Namespace], version: str = None, return
     elif args.mode == "predict":
         # we need to explicitly set the datamodule here
         dm.setup(stage='predict')
-        run_id = args.ckpt_path.split(os.path.sep)[-3]
+        run_id = get_run_id_from_checkpoint_path(args.ckpt_path)
         for set_name in args.predict_sets:
             dm.choose_predict_set(set_name)
             outputs = trainer.predict(
@@ -323,11 +330,11 @@ def main(args: Union[List[str], argparse.Namespace], version: str = None, return
             )
             dm.save_predictions(run_id, outputs, model.crucial_keys, model.outputs_key)
 
-    if isinstance(logger, WandbLogger):
+    if standalone and isinstance(logger, WandbLogger):
         wandb.finish()
 
-    if return_flow:
-        return log_dir, dm.subsets_dir, model
+    if return_objects:
+        return log_dir, dm.subsets_dir, (model, dm, logger, pedestrian_logger)
 
     return log_dir, dm.subsets_dir
 

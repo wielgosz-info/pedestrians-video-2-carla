@@ -156,22 +156,25 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         :param idx: Clip index
         :type idx: int
         """
+        try:
+            raw_projection_2d, intermediate_outputs = self._get_raw_projection_2d(idx)
+            targets = self._get_targets(idx, raw_projection_2d, intermediate_outputs)
+            meta = self._get_meta(idx)
 
-        raw_projection_2d, intermediate_outputs = self._get_raw_projection_2d(idx)
-        targets = self._get_targets(idx, raw_projection_2d, intermediate_outputs)
-        meta = self._get_meta(idx)
+            projection_2d, projection_targets = self.process_projection_2d(
+                raw_projection_2d)
+            projection_2d = self.process_confidence(projection_2d)
 
-        projection_2d, projection_targets = self.process_projection_2d(
-            raw_projection_2d)
-        projection_2d = self.process_confidence(projection_2d)
+            if self.data_nodes != self.input_nodes:
+                projection_2d, projection_targets, targets = self._map_nodes(
+                    projection_2d, projection_targets, targets)
 
-        if self.data_nodes != self.input_nodes:
-            projection_2d, projection_targets, targets = self._map_nodes(
-                projection_2d, projection_targets, targets)
+            out = (projection_2d, {
+                **projection_targets,
+                **targets
+            }, meta)
 
-        out = (projection_2d, {
-            **projection_targets,
-            **targets
-        }, meta)
-
-        return self.process_graph(out)
+            return self.process_graph(out)
+        except IndexError as e:
+            raise IndexError(
+                'Index {} out of range for dataset of length {}'.format(idx, len(self))) from e
