@@ -65,6 +65,10 @@ class MixedDataModule(LightningDataModule):
         self.val_set = None
         self.test_set = None
 
+    @property
+    def subsets_dir(self) -> List[str]:
+        return [dm.subsets_dir for dm in self._data_modules]
+
     def _validate_proportions(self, proportions: Iterable[float]) -> None:
         assert len(proportions) == len(self._data_modules)
         assert (all(0 <= p <= 1 for p in proportions) and sum(proportions)

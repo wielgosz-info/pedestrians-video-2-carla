@@ -94,7 +94,7 @@ class LitBaseFlow(pl.LightningModule):
         self._crucial_keys = self._get_crucial_keys()
 
         # default metrics
-        self.metrics = MetricCollection(self._get_metrics())
+        self.metrics = MetricCollection(self.get_metrics())
 
         self.save_hyperparameters({
             'host': platform.node(),
@@ -117,14 +117,14 @@ class LitBaseFlow(pl.LightningModule):
     def crucial_keys(self) -> List[str]:
         return self._crucial_keys.copy()
 
-    def _get_initial_metrics(self) -> Dict[str, torchmetrics.Metric]:
+    def get_initial_metrics(self) -> Dict[str, torchmetrics.Metric]:
         """
         Returns metrics to calculate on each validation batch at the beginning of the training.
-        They will be added to the metrics returned by _get_metrics() method.
+        They will be added to the metrics returned by get_metrics() method.
         """
         return {}
 
-    def _get_metrics(self) -> Dict[str, torchmetrics.Metric]:
+    def get_metrics(self) -> Dict[str, torchmetrics.Metric]:
         """
         Returns metrics to calculate on each batch. They should take into account
         the self.mask_missing_joints flag.
@@ -239,8 +239,8 @@ class LitBaseFlow(pl.LightningModule):
             return {}
 
         initial_metrics = MetricCollection({
-            **self._get_metrics(),
-            **self._get_initial_metrics()
+            **self.get_metrics(),
+            **self.get_initial_metrics()
         }).to(self.device)
 
         if not len(initial_metrics):

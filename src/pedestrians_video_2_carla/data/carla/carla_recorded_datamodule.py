@@ -13,7 +13,7 @@ import ast
 from pytorch3d.transforms import euler_angles_to_matrix
 
 from pedestrians_video_2_carla.utils.tensors import get_bboxes
-from .constants import CARLA_RECORDED_DIR
+from .constants import CARLA_RECORDED_DIR, CARLA_RECORDED_DEFAULT_SET_NAME
 
 
 def convert_to_list(x):
@@ -26,7 +26,7 @@ def convert_to_list(x):
 
 class CarlaRecordedDataModule(PandasDataModuleMixin, BaseDataModule):
     def __init__(self,
-                 carla_rec_set_name: str = 'BasicPedestriansCrossing',
+                 carla_rec_set_name: str = CARLA_RECORDED_DEFAULT_SET_NAME,
                  **kwargs):
         self.set_name = carla_rec_set_name
 

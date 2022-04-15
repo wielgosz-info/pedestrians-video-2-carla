@@ -22,7 +22,7 @@ class LitPoseLiftingFlow(LitBaseFlow):
             trajectory_output_type=self.trajectory_model.output_type,
         )
 
-    def _get_metrics(self):
+    def get_metrics(self):
         return [
             MPJPE(
                 dist_sync_on_step=True,

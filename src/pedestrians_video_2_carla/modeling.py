@@ -3,7 +3,7 @@ import logging
 import math
 import os
 import sys
-from typing import Dict, List, Type
+from typing import Dict, List, Type, Union
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
@@ -35,35 +35,47 @@ from pedestrians_video_2_carla.modules.trajectory.trajectory import TrajectoryMo
 from pedestrians_video_2_carla.modules.movements import MOVEMENTS_MODELS
 from pedestrians_video_2_carla.modules.trajectory import TRAJECTORY_MODELS
 
+# global registry of available classes
+data_modules: Dict[str, Type[BaseDataModule]] = {}
+flow_modules: Dict[str, Type[LitBaseFlow]] = {}
+movements_models: Dict[str, Type[MovementsModel]] = {}
+trajectory_models: Dict[str, Type[MovementsModel]] = {}
+
 # ---- CLI ----
 # The functions defined in this section are wrappers around the main Python
 # API allowing them to be called directly from the terminal as a CLI
 # executable/script.
 
 
-def get_flow_module_cls(flow_models, model_name: str = 'pose_lifting') -> Type[LitBaseFlow]:
-    return flow_models[model_name]
+def get_flow_module_cls(model_name: str = 'pose_lifting') -> Type[LitBaseFlow]:
+    global flow_modules
+    return flow_modules[model_name]
 
 
-def get_movements_model_cls(movements_models: Dict, model_name: str = "Baseline3DPoseRot") -> Type[MovementsModel]:
+def get_movements_model_cls(model_name: str = "Baseline3DPoseRot") -> Type[MovementsModel]:
+    global movements_models
     return movements_models[model_name]
 
 
-def get_trajectory_model_cls(trajectory_models: Dict, model_name: str = "ZeroTrajectory") -> Type[TrajectoryModel]:
+def get_trajectory_model_cls(model_name: str = "ZeroTrajectory") -> Type[TrajectoryModel]:
+    global trajectory_models
     return trajectory_models[model_name]
 
 
-def get_data_module_cls(data_modules: Dict, data_module_name: str = "Carla2D3D") -> Type[BaseDataModule]:
+def get_data_module_cls(data_module_name: str = "CarlaRecorded") -> Type[BaseDataModule]:
+    global data_modules
     return data_modules[data_module_name]
 
 
-def add_program_args(data_modules, flow_modules, movements_models, trajectory_models):
+def add_program_args(parser: argparse.ArgumentParser):
     """
-    Add program-level command line parameters
+    Add program-level command line parameters. discover_available_classes needs to be called first.
     """
-    parser = argparse.ArgumentParser(
-        description="Map pedestrians movements from videos to CARLA"
-    )
+    global data_modules
+    global flow_modules
+    global movements_models
+    global trajectory_models
+
     parser.add_argument(
         "--version",
         action="version",
@@ -172,82 +184,30 @@ def setup_logging(loglevel):
     matplotlib_logger.setLevel(logging.INFO)
 
 
-def main(args: List[str]):
+def main(args: Union[List[str], argparse.Namespace], version: str = None, return_flow: bool = False):
     """
     :param args: command line parameters as list of strings
           (for example  ``["--verbose"]``).
     :type args: List[str]
     """
-
-    # TODO: handle movements & trajectory models similarly
-    data_modules = discover_datamodules()
-    flow_modules = {
-        'pose_lifting': LitPoseLiftingFlow,
-        'autoencoder': LitAutoencoderFlow,
-    }
-
-    parser = add_program_args(
-        data_modules,
-        flow_modules,
-        MOVEMENTS_MODELS,
-        TRAJECTORY_MODELS,
-    )
-    tmp_args = args[:]
-    try:
-        tmp_args.remove("-h")
-    except ValueError:
-        pass
-    try:
-        tmp_args.remove("--help")
-    except ValueError:
-        pass
-    program_args, _ = parser.parse_known_args(tmp_args)
-
     # get random version name before seeding
-    version = randomname.get_name()
+    if version is None:
+        version = randomname.get_name()
 
-    # seed everything as soon as we can if needed
-    deterministic = False
-    if program_args.seed:
-        pl.seed_everything(program_args.seed, workers=True)
-        # deterministic = True
+    discover_available_classes()
 
-    parser = pl.Trainer.add_argparse_args(parser)
+    if isinstance(args, argparse.Namespace):
+        (data_module_cls, flow_module_cls,
+         movements_model_cls, trajectory_model_cls) = setup_classes(args)
+    else:
+        parser = argparse.ArgumentParser(
+            description="Map pedestrians movements from videos to CARLA"
+        )
 
-    data_module_cls = get_data_module_cls(data_modules, program_args.data_module_name)
-    flow_module_cls = get_flow_module_cls(
-        flow_modules, program_args.flow)  # TODO: should this be subcommand?
-    movements_model_cls = get_movements_model_cls(
-        MOVEMENTS_MODELS, program_args.movements_model_name)
-    trajectory_model_cls = get_trajectory_model_cls(
-        TRAJECTORY_MODELS, program_args.trajectory_model_name)
-
-    parser = data_module_cls.add_data_specific_args(parser)
-    parser = flow_module_cls.add_model_specific_args(parser)
-    parser = movements_model_cls.add_model_specific_args(parser)
-    parser = trajectory_model_cls.add_model_specific_args(parser)
-
-    parser = PedestrianLogger.add_logger_specific_args(parser)
-
-    args = parser.parse_args(args)
-    setup_logging(args.loglevel)
-
-    # prevent accidental infinite training
-    if data_module_cls == Carla2D3DDataModule:
-        if args.limit_train_batches < 0:
-            args.limit_train_batches = 1.0
-        elif (
-            isinstance(args.limit_train_batches, float)
-            and args.limit_train_batches <= 1.0
-        ):
-            args.limit_train_batches = math.ceil(
-                (4 * args.val_set_size) / args.batch_size
-            )
-            rank_zero_warn(
-                f"""No limit on train batches was set or it was specified as a fraction (--limit_train_batches), this will result in infinite training (never-ending epoch 0).
-    If you really want to do this, set --limit_train_batches=-1.0 and I will not bother you anymore.
-    For now, I set it to `(4 * val_set_size) / batch_size = {args.limit_train_batches}` for you."""
-            )
+        args, (data_module_cls,
+               flow_module_cls,
+               movements_model_cls,
+               trajectory_model_cls) = setup_flow(args, parser)
 
     dict_args = vars(args)
 
@@ -341,7 +301,6 @@ def main(args: List[str]):
     # training
     trainer = pl.Trainer.from_argparse_args(
         args,
-        deterministic=deterministic,
         logger=[logger, pedestrian_logger],
         callbacks=[checkpoint_callback, lr_monitor],
     )
@@ -367,7 +326,98 @@ def main(args: List[str]):
     if isinstance(logger, WandbLogger):
         wandb.finish()
 
-    return log_dir
+    if return_flow:
+        return log_dir, dm.subsets_dir, model
+
+    return log_dir, dm.subsets_dir
+
+
+def discover_available_classes():
+    global data_modules
+    global flow_modules
+    global movements_models
+    global trajectory_models
+
+    data_modules = discover_datamodules()
+    flow_modules = {
+        'pose_lifting': LitPoseLiftingFlow,
+        'autoencoder': LitAutoencoderFlow,
+    }
+    # TODO: handle movements & trajectory models via discovery
+    movements_models = MOVEMENTS_MODELS
+    trajectory_models = TRAJECTORY_MODELS
+
+
+def setup_flow(args, parser: argparse.ArgumentParser):
+    """
+    Sets up the flow params. Needs discover_available_classes to be called first.
+    """
+
+    parser = add_program_args(parser)
+    tmp_args = args[:]
+    try:
+        tmp_args.remove("-h")
+    except ValueError:
+        pass
+    try:
+        tmp_args.remove("--help")
+    except ValueError:
+        pass
+    program_args, _ = parser.parse_known_args(tmp_args)
+
+    (data_module_cls,
+     flow_module_cls,
+     movements_model_cls,
+     trajectory_model_cls) = setup_classes(program_args)
+
+    # seed everything as soon as we can if needed
+    if program_args.seed:
+        pl.seed_everything(program_args.seed, workers=True)
+
+    parser = pl.Trainer.add_argparse_args(parser)
+
+    parser = data_module_cls.add_data_specific_args(parser)
+    parser = flow_module_cls.add_model_specific_args(parser)
+    parser = movements_model_cls.add_model_specific_args(parser)
+    parser = trajectory_model_cls.add_model_specific_args(parser)
+
+    parser = PedestrianLogger.add_logger_specific_args(parser)
+
+    args = parser.parse_args(args)
+    setup_logging(args.loglevel)
+
+    # prevent accidental infinite training
+    if data_module_cls == Carla2D3DDataModule:
+        if args.limit_train_batches < 0:
+            args.limit_train_batches = 1.0
+        elif (
+            isinstance(args.limit_train_batches, float)
+            and args.limit_train_batches <= 1.0
+        ):
+            args.limit_train_batches = math.ceil(
+                (4 * args.val_set_size) / args.batch_size
+            )
+            rank_zero_warn(
+                f"""No limit on train batches was set or it was specified as a fraction (--limit_train_batches), this will result in infinite training (never-ending epoch 0).
+    If you really want to do this, set --limit_train_batches=-1.0 and I will not bother you anymore.
+    For now, I set it to `(4 * val_set_size) / batch_size = {args.limit_train_batches}` for you."""
+            )
+
+    return args, (data_module_cls, flow_module_cls, movements_model_cls, trajectory_model_cls)
+
+
+def setup_classes(program_args: argparse.Namespace):
+    """
+    Extracts the classes from the program args. discover_available_classes needs to be called first.
+    """
+
+    data_module_cls = get_data_module_cls(program_args.data_module_name)
+    flow_module_cls = get_flow_module_cls(
+        program_args.flow)  # TODO: should this be subcommand?
+    movements_model_cls = get_movements_model_cls(program_args.movements_model_name)
+    trajectory_model_cls = get_trajectory_model_cls(program_args.trajectory_model_name)
+
+    return (data_module_cls, flow_module_cls, movements_model_cls, trajectory_model_cls)
 
 
 def run():

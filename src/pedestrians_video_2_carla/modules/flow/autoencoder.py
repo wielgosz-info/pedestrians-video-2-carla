@@ -10,7 +10,7 @@ from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 
 
 class LitAutoencoderFlow(LitBaseFlow):
-    def _get_initial_metrics(self) -> Dict[str, torchmetrics.Metric]:
+    def get_initial_metrics(self) -> Dict[str, torchmetrics.Metric]:
         return {
             'MJR': MissingJointsRatio(
                 dist_sync_on_step=True,
@@ -20,7 +20,7 @@ class LitAutoencoderFlow(LitBaseFlow):
             ),
         }
 
-    def _get_metrics(self) -> Dict[str, torchmetrics.Metric]:
+    def get_metrics(self) -> Dict[str, torchmetrics.Metric]:
         def get_normalization_tensor(x): return HipsNeckExtractor(
             input_nodes=self.movements_model.input_nodes
         ).get_shift_scale(x)[1]

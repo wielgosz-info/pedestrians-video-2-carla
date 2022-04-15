@@ -140,6 +140,10 @@ class BaseDataModule(LightningDataModule):
             **(Projection2DMixin.extract_hparams(self.kwargs) if self.uses_projection_mixin() else {})
         }
 
+    @property
+    def subsets_dir(self) -> str:
+        return self._subsets_dir
+
     def _calculate_settings_digest(self):
         return hashlib.md5('-'.join(['{}={}'.format(k, str(s))
                                      for k, s in self.settings.items()]).encode()).hexdigest()
