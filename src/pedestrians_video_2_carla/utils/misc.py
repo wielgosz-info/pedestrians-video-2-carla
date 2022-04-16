@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 
@@ -6,7 +7,7 @@ def get_run_id_from_log_dir(log_dir):
     """
     Get the run id from a log directory.
     """
-    run_re = re.compile(r"^.*?([a-z]+-[a-z]+)$")
+    run_re = re.compile(r"^.*?(([a-z]+-?)?[a-z0-9]+)$")
     run_id = run_re.match(log_dir.split(os.path.sep)[-1]).group(1)
     return run_id
 

@@ -97,7 +97,7 @@ def main(args: List[str]):
 
     # setup the second model training
     pred_jaad_subsets_dir = os.path.join(gt_jaad_subsets_dir.replace(
-        'DataModule', 'DataModulePredictions'), model_one_train_version)
+        'DataModule', 'DataModulePredictions'), get_run_id_from_log_dir(model_one_log_dir))
 
     model_two_train_args = copy.deepcopy(args)
     model_two_train_args.mode = 'train'
