@@ -62,7 +62,7 @@ class CarlaRecordedDataModule(PandasDataModuleMixin, BaseDataModule):
     def add_subclass_specific_args(cls, parent_parser):
         parser = parent_parser.add_argument_group('Carla Recorded Data Module')
         parser.add_argument('--carla_rec_set_name', type=str,
-                            default='BasicPedestriansCrossing')
+                            default=CARLA_RECORDED_DEFAULT_SET_NAME)
         return parent_parser
 
     def _clean_filter_sort_data(self, df: pd.DataFrame) -> pd.DataFrame:
