@@ -4,7 +4,7 @@ import math
 import os
 import re
 import sys
-from typing import Dict, List, Type, Union
+from typing import Dict, List, Tuple, Type, Union
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
@@ -189,9 +189,9 @@ def setup_logging(loglevel):
 def main(
     args: Union[List[str], argparse.Namespace],
     version: str = None,
-    return_objects: bool = False,
+    return_trainer: bool = False,
     standalone: bool = True,
-):
+) -> Union[Tuple[str, str], Tuple[str, str, pl.Trainer]]:
     """
     :param args: command line parameters as list of strings
           (for example  ``["--verbose"]``).
@@ -333,8 +333,8 @@ def main(
     if standalone and isinstance(logger, WandbLogger):
         wandb.finish()
 
-    if return_objects:
-        return log_dir, dm.subsets_dir, (model, dm, logger, pedestrian_logger)
+    if return_trainer:
+        return log_dir, dm.subsets_dir, trainer
 
     return log_dir, dm.subsets_dir
 
@@ -353,6 +353,8 @@ def discover_available_classes():
     # TODO: handle movements & trajectory models via discovery
     movements_models = MOVEMENTS_MODELS
     trajectory_models = TRAJECTORY_MODELS
+
+    return data_modules, flow_modules, movements_models, trajectory_models
 
 
 def setup_flow(args, parser: argparse.ArgumentParser):

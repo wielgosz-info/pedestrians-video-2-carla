@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterable, List, Optional, Type
+from typing import Any, Dict, Iterable, List, Optional, Type, Union
 from pytorch_lightning import LightningDataModule
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
 from pedestrians_video_2_carla.data.mixed.mixed_dataset import MixedDataset
@@ -20,6 +20,7 @@ class MixedDataModule(LightningDataModule):
         train_proportions: List[float] = None,
         val_proportions: List[float] = None,
         test_proportions: List[float] = None,
+        subsets_dir: Union[List[str], str] = None,
         **kwargs
     ):
         all_data_modules = self.data_modules + (data_modules or [])
@@ -36,13 +37,21 @@ class MixedDataModule(LightningDataModule):
 
         self._skip_metadata = kwargs.get('skip_metadata', False)
 
+        subsets_dirs = [None] * len(all_data_modules)
+        if isinstance(subsets_dir, str):
+            subsets_dirs[0] = subsets_dir
+        elif isinstance(subsets_dir, list):
+            assert len(subsets_dir) == len(all_data_modules)
+            subsets_dirs = subsets_dir
+
         self._data_modules: List[BaseDataModule] = [
             dm_cls(
                 **{
                     **kwargs,
                     **data_modules_kwargs.get(dm_cls, {}),
+                    'subsets_dir': subsets_dir
                 }
-            ) for dm_cls in all_data_modules
+            ) for dm_cls, subsets_dir in zip(all_data_modules, subsets_dirs)
         ]
 
         for dm in self._data_modules:

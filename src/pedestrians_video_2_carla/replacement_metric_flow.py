@@ -8,6 +8,7 @@ import sys
 from typing import Dict, List, Type
 
 import randomname
+import pytorch_lightning as pl
 from torchmetrics import MetricCollection
 from tqdm.auto import tqdm
 
@@ -46,16 +47,8 @@ def main(args: List[str]):
     model_two_predict_version_a = randomname.get_name()
     model_two_predict_version_b = randomname.get_name()
 
-    parser = argparse.ArgumentParser(
-        description="Replacement metrics flow for JAAD dataset",
-    )
-    parser.add_argument(
-        '--keep_predictions',
-        action='store_true',
-        help='Keep the prediction datasets. By default they are deleted at the end of the script.',
-    )
+    parser = setup_args()
 
-    discover_available_classes()
     args, _ = setup_flow(args, parser)
 
     # force some common parameters in case they are missing
@@ -70,13 +63,23 @@ def main(args: List[str]):
     # setup the first model
     model_one_train_args = copy.deepcopy(args)
     model_one_train_args.mode = 'train'
-    model_one_train_args.data_module_name = 'CarlaRecAMASS'
+    model_one_train_args.data_module_name = args.model_one_data_module_name
     model_one_train_args.skip_metadata = True
+    model_one_train_args.train_proportions = args.model_one_train_proportions
+    model_one_train_args.val_proportions = args.model_one_val_proportions
 
     # train the first model
-    model_one_log_dir, _ = modeling_main(model_one_train_args,
-                                         model_one_train_version,
-                                         standalone=False)
+    model_one_log_dir, _, model_one_trainer = modeling_main(model_one_train_args,
+                                                            model_one_train_version,
+                                                            return_trainer=True,
+                                                            standalone=False)
+
+    # save the final metrics
+    model_one_trainer: pl.Trainer
+    model_one_results = {k.replace('hp', 'model_one'): v for k,
+                         v in model_one_trainer.logged_metrics.items() if k.startswith('hp')}
+    model_one_trainer.logger[0].log_metrics(model_one_results)
+    del model_one_trainer
 
     # setup to get the first model predictions on JAAD
     model_one_checkpoint = glob.glob(os.path.join(
@@ -101,14 +104,24 @@ def main(args: List[str]):
 
     model_two_train_args = copy.deepcopy(args)
     model_two_train_args.mode = 'train'
-    model_two_train_args.data_module_name = 'JAADOpenPose'
+    model_two_train_args.data_module_name = args.model_two_data_module_name
     model_two_train_args.subsets_dir = pred_jaad_subsets_dir
     model_two_train_args.skip_metadata = True
+    model_two_train_args.train_proportions = args.model_two_train_proportions
+    model_two_train_args.val_proportions = args.model_two_val_proportions
 
     # train the second model
-    model_two_log_dir, _ = modeling_main(
+    model_two_log_dir, _, model_two_trainer = modeling_main(
         model_two_train_args, model_two_train_version,
+        return_trainer=True,
         standalone=False)
+
+    # save the final metrics
+    model_two_trainer: pl.Trainer
+    model_two_results = {k.replace('hp', 'model_two'): v for k,
+                         v in model_two_trainer.logged_metrics.items() if k.startswith('hp')}
+    model_two_trainer.logger[0].log_metrics(model_two_results)
+    del model_two_trainer
 
     # setup to get the second model predictions on CarlaRec
     all_checkpoints = glob.glob(os.path.join(model_two_log_dir, 'checkpoints', '*.*'))
@@ -134,19 +147,15 @@ def main(args: List[str]):
     model_two_predict_args_b.data_module_name = 'AMASS'
 
     # gather AMASS predictions from the second model
-    _, gt_amass_subsets_dir, (
-        flow_model,
-        _,
-        logger,
-        _
-    ) = modeling_main(
-        model_two_predict_args_b, model_two_predict_version_b,
-        return_objects=True,
+    _, gt_amass_subsets_dir, final_trainer = modeling_main(
+        model_two_predict_args_b,
+        model_two_predict_version_b,
+        return_trainer=True,
         standalone=False)
 
-    # gather the metrics
-    # this can be different from model_two_train_version when wandb is used
+    # run_id can be different from model_two_train_version when wandb is used
     model_two_run_id = get_run_id_from_log_dir(model_two_log_dir)
+    # gather the metrics
     pred_carla_rec_subsets_dir = os.path.join(gt_carla_rec_subsets_dir.replace(
         'DataModule', 'DataModulePredictions'), model_two_run_id)
     pred_amass_subsets_dir = os.path.join(gt_amass_subsets_dir.replace(
@@ -183,7 +192,7 @@ def main(args: List[str]):
         **common_kwargs
     )
 
-    metrics_collection = MetricCollection(flow_model.get_metrics())
+    metrics_collection = MetricCollection(final_trainer.model.get_metrics())
 
     for gt_item, pred_item in tqdm(
         zip(itertools.chain(gt_carla_rec, gt_amass),
@@ -193,16 +202,14 @@ def main(args: List[str]):
         metrics_collection.update(gt_item[1], pred_item[1])
 
     results = metrics_collection.compute()
+    final_trainer.logger[0].log_metrics(
+        {f'replacement/{k}': v for k, v in results.items()})
 
-    print('------------------------------------------------------')
-    print('Replacement metrics:')
-    print('------------------------------------------------------')
-    for k, v in results.items():
-        print(f'{k}: {v}')
-    print('------------------------------------------------------')
+    print_metrics(model_one_results, 'Model one metrics:')
+    print_metrics(model_two_results, 'Model two metrics:')
+    print_metrics(results, 'Final (replacement) metrics:')
 
-    if isinstance(logger, WandbLogger):
-        logger.log_metrics({f'replacement/{k}': v for k, v in results.items()})
+    if isinstance(final_trainer.logger[0], WandbLogger):
         wandb.finish()
 
     if not args.keep_predictions:
@@ -211,6 +218,62 @@ def main(args: List[str]):
         shutil.rmtree(pred_amass_subsets_dir)
 
     return results
+
+
+def setup_args() -> argparse.ArgumentParser:
+    """
+    Setup the argument parser with some common arguments.
+
+    :return: the argument parser
+    :rtype: argparse.ArgumentParser
+    """
+    (data_modules, _, _, _) = discover_available_classes()
+
+    parser = argparse.ArgumentParser(
+        description="Replacement metrics flow for JAAD dataset",
+    )
+    parser.add_argument(
+        '--keep_predictions',
+        action='store_true',
+        help='Keep the prediction datasets. By default they are deleted at the end of the script.',
+    )
+
+    # TODO: can the following be handled by some kind of prefixing system?
+    for prefix in ['model_one', 'model_two']:
+        parser.add_argument(
+            f"--{prefix}_data_module_name",
+            dest=f"{prefix}_data_module_name",
+            help="Data module class to use for first model",
+            default="CarlaRecAMASS" if prefix == 'model_one' else "JAADOpenPose",
+            choices=list(data_modules.keys()),
+            type=str,
+        )
+        parser.add_argument(
+            f'--{prefix}_train_proportions',
+            type=float,
+            nargs='+',
+            default=[]
+        )
+        parser.add_argument(
+            f'--{prefix}_val_proportions',
+            type=float,
+            nargs='+',
+            default=[]
+        )
+    return parser
+
+
+def print_metrics(model_one_results, header):
+    """
+    Prints the human-readable metrics.
+    """
+
+    print('------------------------------------------------------')
+    print(header)
+    print('------------------------------------------------------')
+    for k, v in model_one_results.items():
+        print(f'{k}: {v}')
+    print('------------------------------------------------------\n')
 
 
 def run():
