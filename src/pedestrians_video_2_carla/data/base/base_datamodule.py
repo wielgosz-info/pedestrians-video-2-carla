@@ -48,7 +48,7 @@ class BaseDataModule(LightningDataModule):
                  root_dir: Optional[str] = DEFAULT_ROOT,
                  clip_length: Optional[int] = 30,
                  batch_size: Optional[int] = 64,
-                 num_workers: Optional[int] = os.cpu_count(),
+                 num_workers: Optional[int] = os.cpu_count() // 4,
                  transform: Optional[Union[BaseTransforms, Callable]
                                      ] = BaseTransforms.hips_neck,
                  return_graph: bool = False,
@@ -208,7 +208,7 @@ class BaseDataModule(LightningDataModule):
         parser.add_argument(
             "--num_workers",
             type=int,
-            default=os.cpu_count(),
+            default=os.cpu_count() // 4,
             help="Number of workers for the data loader."
         )
         parser.add_argument(

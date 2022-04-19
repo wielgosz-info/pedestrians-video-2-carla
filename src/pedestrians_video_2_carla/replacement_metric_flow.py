@@ -213,9 +213,9 @@ def main(args: List[str]):
         wandb.finish()
 
     if not args.keep_predictions:
-        shutil.rmtree(pred_jaad_subsets_dir)
-        shutil.rmtree(pred_carla_rec_subsets_dir)
-        shutil.rmtree(pred_amass_subsets_dir)
+        shutil.rmtree(pred_jaad_subsets_dir, ignore_errors=True)
+        shutil.rmtree(pred_carla_rec_subsets_dir, ignore_errors=True)
+        shutil.rmtree(pred_amass_subsets_dir, ignore_errors=True)
 
     return results
 
