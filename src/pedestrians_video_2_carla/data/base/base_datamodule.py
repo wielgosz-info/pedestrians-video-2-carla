@@ -359,6 +359,10 @@ class BaseDataModule(LightningDataModule):
             if 'classification_labels' in settings:
                 self._classification_labels = settings['classification_labels']
 
+    @property
+    def classification_labels(self):
+        return self._classification_labels
+
     def prepare_data(self) -> None:
         # this is only called on one GPU, do not use self.something assignments
 

@@ -56,9 +56,5 @@ class MultiinputWrapper(Metric):
     def compute(self):
         return self.base_metric.compute()
 
-    # @torch.jit.unused
-    # def forward(self, predictions: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor], *args: Any, **kwargs: Any) -> Any:
-    #     return self.base_metric(predictions[self.pred_key], targets[self.target_key], *args, **kwargs)
-
     def reset(self) -> None:
         self.base_metric.reset()

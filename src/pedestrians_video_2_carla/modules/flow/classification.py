@@ -4,6 +4,7 @@ import pytorch_lightning as pl
 import platform
 from torch_geometric.data import Batch
 import torch
+from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from torchmetrics import AUROC, ConfusionMatrix, F1Score, MetricCollection, Accuracy
 from pedestrians_video_2_carla.data.base.skeleton import get_skeleton_name_by_type, get_skeleton_type_by_name
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
@@ -14,6 +15,11 @@ from pedestrians_video_2_carla.modules.classification.gnn.gconv_gru import GConv
 from pedestrians_video_2_carla.modules.classification.gnn.gconv_lstm import GConvLSTMModel
 from pedestrians_video_2_carla.modules.classification.gnn.rnn import RNNModel
 from pedestrians_video_2_carla.modules.classification.gnn.tgcn import TGCNModel
+
+try:
+    import wandb
+except ImportError:
+    pass
 
 
 class LitClassificationFlow(pl.LightningModule):
@@ -43,7 +49,7 @@ class LitClassificationFlow(pl.LightningModule):
                 input_nodes=None, output_nodes=None,
             ),
             'ConfusionMatrix': MultiinputWrapper(
-                ConfusionMatrix(dist_sync_on_step=True, num_classes=num_classes),
+                ConfusionMatrix(dist_sync_on_step=True, num_classes=num_classes, normalize=None),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
@@ -127,14 +133,53 @@ class LitClassificationFlow(pl.LightningModule):
     def test_step_end(self, outputs):
         self._eval_step_end(outputs, 'test')
 
-    def _eval_step_end(self, outputs, stage):
-        # calculate and log metrics
-        m = self.metrics(outputs['preds'], outputs['targets'])
-        batch_size = len(outputs['preds'])
+    def _log_confusion_matrix(self, k, v):
+        # copied part of code from W&B, since we already have confusion matrix
+        # but not raw data to calculate it
 
-        unwrapped_m = self._unwrap_nested_metrics(m, ['hp'])
+        class_names = self.trainer.datamodule.classification_labels[self._targets_key]
+        n_classes = len(class_names)
+        data = []
+        for i in range(n_classes):
+            for j in range(n_classes):
+                data.append([class_names[i], class_names[j], v[i, j]])
+
+        fields = {
+            "Actual": "Actual",
+            "Predicted": "Predicted",
+            "nPredictions": "nPredictions",
+        }
+
+        self.logger[0].experiment.log({
+            k: wandb.plot_table(
+                "wandb/confusion_matrix/v1",
+                wandb.Table(columns=["Actual", "Predicted", "nPredictions"], data=data),
+                fields,
+                {"title": k},
+            ),
+            "trainer/global_step": self.trainer.global_step,
+        })
+
+    def _eval_step_end(self, outputs, stage):
+        # update metrics
+        self.metrics.update(outputs['preds'], outputs['targets'])
+
+    def _on_eval_epoch_end(self):
+        unwrapped_m = self._unwrap_nested_metrics(self.metrics.compute(), ['hp'])
         for k, v in unwrapped_m.items():
-            self.log(k, v, batch_size=batch_size)
+            # special confusion matrix handling for W&B
+            if k.endswith('ConfusionMatrix') and not isinstance(self.logger[0], TensorBoardLogger):
+                self._log_confusion_matrix(k, v)
+            else:
+                self.log(k, v)
+
+        self.metrics.reset()
+
+    def on_validation_epoch_end(self) -> None:
+        return self._on_eval_epoch_end()
+
+    def on_test_epoch_end(self) -> None:
+        return self._on_eval_epoch_end()
 
     def _unwrap_nested_metrics(self, items: Union[Dict, float], keys: List[str], zeros: bool = False, nans: bool = False):
         r = {}

@@ -445,7 +445,7 @@ class LitBaseFlow(pl.LightningModule):
 
         unwrapped_m = self._unwrap_nested_metrics(m, ['hp'])
         for k, v in unwrapped_m.items():
-            self.log(k, v, batch_size=batch_size)
+            self.log(k, v, batch_size=batch_size, on_step=False, on_epoch=True)
 
     def _video_to_logger(self, vid, vid_idx, fps, stage, meta):
         if isinstance(self.logger[0], TensorBoardLogger):
