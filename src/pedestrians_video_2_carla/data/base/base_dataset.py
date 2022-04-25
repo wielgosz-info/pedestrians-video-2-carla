@@ -61,7 +61,7 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         )
         self.num_input_joints = len(self.input_nodes)
         self.num_data_joints = len(self.data_nodes)
-        self.classification_labels = classification_labels
+        self.classification_labels = classification_labels or {}
 
         # cache cross classification labels
         # this needs to be done on labels that are already decoded in meta

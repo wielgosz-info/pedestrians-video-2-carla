@@ -4,7 +4,7 @@ import pytorch_lightning as pl
 import platform
 from torch_geometric.data import Batch
 import torch
-from torchmetrics import MetricCollection, Accuracy
+from torchmetrics import AUROC, ConfusionMatrix, F1Score, MetricCollection, Accuracy
 from pedestrians_video_2_carla.data.base.skeleton import get_skeleton_name_by_type, get_skeleton_type_by_name
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.metrics.multiinput_wrapper import MultiinputWrapper
@@ -27,10 +27,28 @@ class LitClassificationFlow(pl.LightningModule):
         self._outputs_key = 'cross_logits'
         self._targets_key = 'cross'
 
+        # TODO: get it from somewhere
+        num_classes = 2
+
         self.criterion = torch.nn.CrossEntropyLoss()
         self.metrics = MetricCollection({
-            'Acc': MultiinputWrapper(
-                Accuracy(dist_sync_on_step=True),
+            'Accuracy': MultiinputWrapper(
+                Accuracy(dist_sync_on_step=True, num_classes=num_classes),
+                self._outputs_key, self._targets_key,
+                input_nodes=None, output_nodes=None,
+            ),
+            'F1Score': MultiinputWrapper(
+                F1Score(dist_sync_on_step=True, num_classes=num_classes),
+                self._outputs_key, self._targets_key,
+                input_nodes=None, output_nodes=None,
+            ),
+            'ConfusionMatrix': MultiinputWrapper(
+                ConfusionMatrix(dist_sync_on_step=True, num_classes=num_classes),
+                self._outputs_key, self._targets_key,
+                input_nodes=None, output_nodes=None,
+            ),
+            'AUROC': MultiinputWrapper(
+                AUROC(dist_sync_on_step=True, num_classes=num_classes),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),

@@ -145,6 +145,7 @@ class BaseDataModule(LightningDataModule):
             'num_workers': self.num_workers,
             'transform': self.transform,
             'settings_digest': self._settings_digest,
+            'subsets_dir': self._subsets_dir,
             **(Projection2DMixin.extract_hparams(self.kwargs) if self.uses_projection_mixin() else {})
         }
 
