@@ -22,15 +22,26 @@ class MultiinputWrapper(Metric):
         self.pred_key = pred_key
         self.target_key = target_key
 
-        self._output_indices, self._input_indices = get_common_indices(
-            input_nodes, output_nodes)
-
-        self._mask_missing_joints = mask_missing_joints
-        self._input_hips = input_nodes.get_hips_point()
-        if isinstance(self._input_hips, (list, tuple)):
+        if input_nodes is None and output_nodes is None:
+            # this metric is not calculated on joints
+            self._input_indices = None
+            self._output_indices = None
             self._input_hips = None
+            self._mask_missing_joints = False
+        else:
+            self._output_indices, self._input_indices = get_common_indices(
+                input_nodes, output_nodes)
+
+            self._mask_missing_joints = mask_missing_joints
+            self._input_hips = input_nodes.get_hips_point()
+            if isinstance(self._input_hips, (list, tuple)):
+                self._input_hips = None
 
     def update(self, predictions: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]):
+        if self._input_indices is None and self._output_indices is None:
+            # this metric is not calculated on joints
+            return self.base_metric.update(predictions[self.pred_key], targets[self.target_key])
+
         common_pred = predictions[self.pred_key][..., self._output_indices, :]
         common_gt = targets[self.target_key][..., self._input_indices, :]
 

@@ -10,6 +10,10 @@ from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 
 
 class LitAutoencoderFlow(LitBaseFlow):
+    @property
+    def needs_graph(self):
+        return self.movements_model.needs_graph
+
     def get_initial_metrics(self) -> Dict[str, torchmetrics.Metric]:
         return {
             'MJR': MissingJointsRatio(
@@ -53,13 +57,13 @@ class LitAutoencoderFlow(LitBaseFlow):
             ),
         }
 
-    def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor):
-        edge_index = self.movements_model.input_nodes.get_edge_index()
-
+    def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor, batch_vector: torch.Tensor):
         pose_inputs = self.movements_model(
             frames,
             targets=targets if self.training and self.movements_model.needs_targets else None,
             edge_index=edge_index.to(
+                self.device) if self.movements_model.needs_graph else None,
+            batch_vector=batch_vector.to(
                 self.device) if self.movements_model.needs_graph else None
         )
 
@@ -82,6 +86,6 @@ class LitAutoencoderFlow(LitBaseFlow):
 
         sliced['inputs'] = self._fix_dimensions(frames)[eval_slice]
         sliced['targets'] = {k: self._fix_dimensions(
-            v)[eval_slice] for k, v in targets.items()}
+            v)[eval_slice[:v.ndim]] for k, v in targets.items()}
 
         return sliced

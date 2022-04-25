@@ -1,10 +1,10 @@
+import copy
 import hashlib
 import os
 import shutil
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 
 import h5py
-from matplotlib import projections
 import numpy as np
 import torch.multiprocessing
 import yaml
@@ -28,9 +28,9 @@ import itertools
 from .base_transforms import BaseTransforms
 
 try:
-    from yaml import CDumper as Dumper
+    from yaml import CDumper as Dumper, CLoader as Loader
 except ImportError:
-    from yaml import Dumper
+    from yaml import Dumper, Loader
 
 
 sharing_strategy = "file_system"
@@ -107,11 +107,19 @@ class BaseDataModule(LightningDataModule):
 
         print('Subsets dir: {}'.format(self._subsets_dir))
 
+        # each dataset may provide its own classification labels
+        # they are saved in a settings file during the subsets creation
+        self._classification_labels = None
+
         self._needs_preparation = False
-        # only try to generate subsets if dir was not provided
-        if subsets_dir is None and (not os.path.exists(self._subsets_dir) or len(os.listdir(self._subsets_dir)) == 0):
+        # only try to generate subsets if dir doesn't exist or is empty
+        if (not os.path.exists(self._subsets_dir) or len(os.listdir(self._subsets_dir)) == 0):
             self._needs_preparation = True
             os.makedirs(self._subsets_dir, exist_ok=True)
+        else:
+            # we already have datasset prepared for this combination of settings
+            # so only retrieve and store classification labels info
+            self._load_classification_labels()
 
         self.save_hyperparameters({
             **self.settings,
@@ -153,7 +161,11 @@ class BaseDataModule(LightningDataModule):
         Saves the subset settings to file.
         """
         with open(os.path.join(self._subsets_dir, 'dparams.yaml'), 'w') as f:
-            yaml.dump(self.settings, f, Dumper=Dumper)
+            settings = copy.deepcopy(self.settings)
+            if self._classification_labels is not None:
+                settings['classification_labels'] = self._classification_labels
+
+            yaml.dump(settings, f, Dumper=Dumper)
 
     def _setup_data_transform(self, transform: Union[BaseTransforms, Callable]):
         return (transform, {
@@ -268,8 +280,9 @@ class BaseDataModule(LightningDataModule):
 
     def get_dataloader(self, dataset, shuffle=False, persistent_workers=False):
         pin_memory = self.kwargs.get('gpus', None) is not None
-        if self.return_graph and self.clip_length == 1:
-            # for spatial GNNs we need to use the torch_geometric DataLoader
+        persistent_workers = persistent_workers if self.num_workers > 1 else False
+        if self.return_graph:
+            # for GNNs we need to use the torch_geometric DataLoader
             return GraphDataLoader(
                 dataset=dataset,
                 batch_size=self.batch_size,
@@ -284,7 +297,7 @@ class BaseDataModule(LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=pin_memory,
-            persistent_workers=persistent_workers if self.num_workers > 1 else False,
+            persistent_workers=persistent_workers,
             shuffle=shuffle,
             worker_init_fn=set_worker_sharing_strategy
         )
@@ -317,6 +330,10 @@ class BaseDataModule(LightningDataModule):
         return clips
 
     def _clean_filter_sort_clips(self, clips: Iterable[Any]) -> Iterable[Any]:
+        """
+        Handles the filtering and sorting of the clips. This is also where the
+        self._classification_labels dict should be set if dataset provides them.
+        """
         return clips
 
     def _split_and_save_clips(self, clips: Iterable[Any]) -> Dict[str, int]:
@@ -335,11 +352,16 @@ class BaseDataModule(LightningDataModule):
         """
         raise NotImplementedError()
 
+    def _load_classification_labels(self):
+        with open(os.path.join(self._subsets_dir, 'dparams.yaml'), 'r') as f:
+            settings = yaml.load(f, Loader=Loader)
+            if 'classification_labels' in settings:
+                self._classification_labels = settings['classification_labels']
+
     def prepare_data(self) -> None:
         # this is only called on one GPU, do not use self.something assignments
 
         if not self._needs_preparation:
-            # we already have datasset prepared for this combination of settings
             return
 
         # initial preparation
@@ -413,6 +435,7 @@ class BaseDataModule(LightningDataModule):
             'transform': self.transform_callable,
             'return_graph': self.return_graph,
             'clip_length': self.clip_length,
+            'classification_labels': self._classification_labels,
             **self.kwargs
         }
 
@@ -454,8 +477,8 @@ class BaseDataModule(LightningDataModule):
 
         if not os.path.exists(predictions_output_dir):
             os.makedirs(predictions_output_dir)
-            shutil.copy(os.path.join(self._subsets_dir, "dparams.yaml"),
-                        predictions_output_dir)
+        shutil.copy(os.path.join(self._subsets_dir, "dparams.yaml"),
+                    predictions_output_dir)
 
         print(f"Saving {self.predict_set_name} predictions to {predictions_output_dir}.")
 

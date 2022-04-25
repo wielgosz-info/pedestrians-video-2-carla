@@ -26,7 +26,8 @@ from pedestrians_video_2_carla.modules.movements.movements import \
 from pedestrians_video_2_carla.transforms.hips_neck_bbox_fallback import \
     HipsNeckBBoxFallbackExtractor
 from pedestrians_video_2_carla.transforms.normalization import Normalizer
-from pedestrians_video_2_carla.utils.misc import get_run_id_from_log_dir
+from pedestrians_video_2_carla.utils.paths import get_run_id_from_log_dir
+from pedestrians_video_2_carla.utils.printing import print_metrics
 
 try:
     import wandb
@@ -261,19 +262,6 @@ def setup_args() -> argparse.ArgumentParser:
             default=[]
         )
     return parser
-
-
-def print_metrics(model_one_results, header):
-    """
-    Prints the human-readable metrics.
-    """
-
-    print('------------------------------------------------------')
-    print(header)
-    print('------------------------------------------------------')
-    for k, v in model_one_results.items():
-        print(f'{k}: {v}')
-    print('------------------------------------------------------\n')
 
 
 def run():

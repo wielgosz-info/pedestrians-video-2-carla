@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Tuple, Type
+from typing import Any, Dict, Iterable, Tuple, Type
 import numpy as np
 from pedestrians_scenarios.karma.pose.skeleton import Skeleton
 from torch.utils.data import Dataset, IterableDataset
@@ -31,6 +31,7 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         input_nodes: Type[Skeleton],
         data_nodes: Type[Skeleton] = None,
         skip_metadata: bool = False,
+        classification_labels: Dict[str, Iterable[str]] = None,
         **kwargs
     ) -> None:
         """
@@ -44,6 +45,8 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         :type data_nodes: Type[Skeleton]
         :param skip_metadata: Whether to skip the metadata (default: False). Skipping metadata loading speeds up the dataset creation.
         :type skip_metadata: bool
+        :param classification_labels: Labels for classification tasks
+        :type classification_labels: Dict[str, Iterable[str]]
         """
         super().__init__(**kwargs)
 
@@ -58,6 +61,17 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         )
         self.num_input_joints = len(self.input_nodes)
         self.num_data_joints = len(self.data_nodes)
+        self.classification_labels = classification_labels
+
+        # cache cross classification labels
+        # this needs to be done on labels that are already decoded in meta
+        # since encoded meta can differ between train/val/test depending
+        # on what kind of sample is first in the subset
+        self.classification_ints = {}
+        for key in self.classification_labels.keys():
+            if key in self.meta[0]:
+                self.classification_ints[key] = self._encode_labels(
+                    key, [self.meta[i][key] for i in range(len(self.meta))])
 
     def _load_data(self, set_filepath: str, skip_metadata: bool) -> None:
         self.set_file = h5py.File(set_filepath, 'r', driver='core')
@@ -69,7 +83,7 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         else:
             self.meta = self._decode_meta(self.set_file['meta'])
 
-    def _decode_meta_value(self, value: Any, meta_item: Any) -> Any:
+    def _decode_meta_value(self, value: Any, meta_item: Any, key: str) -> Any:
         if 'labels' in meta_item.attrs:
             return meta_item.attrs['labels'][value].decode("latin-1")
 
@@ -86,7 +100,7 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
             'Decoding meta for {}...'.format(self.set_file.filename))
 
         out = [{
-            k: self._decode_meta_value(v[idx], meta[k])
+            k: self._decode_meta_value(v[idx], meta[k], k)
             for k, v in meta.items()
         } for idx in range(len(self))]
 
@@ -107,7 +121,9 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         return torch.from_numpy(self.projection_2d[idx]), {}
 
     def _get_targets(self, idx: int, raw_projection_2d: torch.Tensor, intermediate_outputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        return {}
+        return {
+            k: v[idx:idx+1] for k, v in self.classification_ints.items()
+        }
 
     def _get_meta(self, idx: int) -> Dict[str, Any]:
         return self.meta[idx]
@@ -148,6 +164,19 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
                 for k, v in targets.items()
             }
         )
+
+    def _encode_labels(self, key: str, labels: Iterable[str]) -> torch.Tensor:
+        """
+        Helper method to convert string labels into numeric classes.
+
+        :param key: field name
+        :type key: str
+        :param labels: list/tuple/etc. of labels
+        :type labels: Iterable[str]
+        :return: Labels as integers
+        :rtype: torch.Tensor
+        """
+        return torch.Tensor([self.classification_labels[key].index(label) for label in labels]).long()
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, Any]]:
         """

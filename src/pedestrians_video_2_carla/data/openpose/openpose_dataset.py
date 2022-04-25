@@ -8,12 +8,14 @@ class OpenPoseDataset(BaseDataset):
     def __init__(self,
                  set_filepath,
                  data_nodes: Union[Type[BODY_25_SKELETON],
-                                    Type[COCO_SKELETON]] = BODY_25_SKELETON,
+                                   Type[COCO_SKELETON]] = BODY_25_SKELETON,
                  **kwargs
                  ) -> None:
         super().__init__(set_filepath=set_filepath, data_nodes=data_nodes, **kwargs)
 
     def _get_targets(self, idx: int, *args, **kwargs) -> Dict[str, torch.Tensor]:
-        return {
-            'bboxes': torch.from_numpy(self.set_file['targets/bboxes'][idx])
-        }
+        targets = super()._get_targets(idx, *args, **kwargs)
+
+        targets['bboxes'] = torch.from_numpy(self.set_file['targets/bboxes'][idx])
+
+        return targets

@@ -13,9 +13,10 @@ from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from pedestrians_video_2_carla.modules.flow.autoencoder import \
     LitAutoencoderFlow
 from pedestrians_video_2_carla.modules.flow.base import LitBaseFlow
+from pedestrians_video_2_carla.modules.flow.classification import LitClassificationFlow
 from pedestrians_video_2_carla.modules.flow.pose_lifting import \
     LitPoseLiftingFlow
-from pedestrians_video_2_carla.utils.misc import get_run_id_from_checkpoint_path
+from pedestrians_video_2_carla.utils.paths import get_run_id_from_checkpoint_path, resolve_ckpt_path
 
 try:
     import wandb
@@ -222,9 +223,6 @@ def main(
     movements_model = movements_model_cls(**dict_args)
     trajectory_model = trajectory_model_cls(**dict_args)
 
-    # data
-    dm = data_module_cls(**dict_args, return_graph=movements_model.needs_graph)
-
     # loggers - try to use WandbLogger or fallback to TensorBoardLogger
     # the primary logger log dir is used as default for all loggers & checkpoints
     if os.path.isabs(args.logs_dir):
@@ -249,7 +247,8 @@ def main(
         logger = TensorBoardLogger(
             save_dir=abs_logs_dir,
             name=os.path.join(
-                dm.__class__.__name__,
+                args.flow,
+                data_module_cls.__name__,
                 trajectory_model.__class__.__name__,
                 movements_model.__class__.__name__,
             ),
@@ -281,29 +280,25 @@ def main(
 
     # flow model
     if args.ckpt_path is not None:
-        # is this a W&B artifact?
-        if isinstance(logger, WandbLogger) and args.ckpt_path.startswith("wandb://"):
-            artifact_path = args.ckpt_path.lstrip("wandb://")
-            artifact = wandb.run.use_artifact(artifact_path, type='model')
-            artifact_dir = artifact.download()
-            args.ckpt_path = os.path.join(artifact_dir, "model.ckpt")
-        elif args.ckpt_path.startswith("file://"):
-            args.ckpt_path = args.ckpt_path.lstrip("file://")
+        args.ckpt_path = resolve_ckpt_path(args.ckpt_path)
 
         if not os.path.isfile(args.ckpt_path):
             raise ValueError(f"Checkpoint {args.ckpt_path} does not exist")
 
-        model = flow_module_cls.load_from_checkpoint(
+        flow_module = flow_module_cls.load_from_checkpoint(
             checkpoint_path=args.ckpt_path,
             movements_model=movements_model,
             trajectory_model=trajectory_model
         )
     else:
-        model = flow_module_cls(
+        flow_module = flow_module_cls(
             movements_model=movements_model,
             trajectory_model=trajectory_model,
             **dict_args
         )
+
+    # data
+    dm = data_module_cls(**dict_args, return_graph=flow_module.needs_graph)
 
     # training
     trainer = pl.Trainer.from_argparse_args(
@@ -313,9 +308,9 @@ def main(
     )
 
     if args.mode == "train":
-        trainer.fit(model=model, datamodule=dm, ckpt_path=args.ckpt_path)
+        trainer.fit(model=flow_module, datamodule=dm, ckpt_path=args.ckpt_path)
     elif args.mode == "test":
-        trainer.test(model=model, datamodule=dm)
+        trainer.test(model=flow_module, datamodule=dm)
     elif args.mode == "predict":
         # we need to explicitly set the datamodule here
         dm.setup(stage='predict')
@@ -323,12 +318,13 @@ def main(
         for set_name in args.predict_sets:
             dm.choose_predict_set(set_name)
             outputs = trainer.predict(
-                model=model,
+                model=flow_module,
                 datamodule=dm,
                 ckpt_path=args.ckpt_path,
                 return_predictions=True
             )
-            dm.save_predictions(run_id, outputs, model.crucial_keys, model.outputs_key)
+            dm.save_predictions(
+                run_id, outputs, flow_module.crucial_keys, flow_module.outputs_key)
 
     if standalone and isinstance(logger, WandbLogger):
         wandb.finish()
@@ -349,6 +345,7 @@ def discover_available_classes():
     flow_modules = {
         'pose_lifting': LitPoseLiftingFlow,
         'autoencoder': LitAutoencoderFlow,
+        'classification': LitClassificationFlow,
     }
     # TODO: handle movements & trajectory models via discovery
     movements_models = MOVEMENTS_MODELS

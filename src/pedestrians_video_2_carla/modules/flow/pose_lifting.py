@@ -22,6 +22,10 @@ class LitPoseLiftingFlow(LitBaseFlow):
             trajectory_output_type=self.trajectory_model.output_type,
         )
 
+    @property
+    def needs_graph(self):
+        return self.movements_model.needs_graph
+
     def get_metrics(self):
         return [
             MPJPE(
@@ -55,11 +59,13 @@ class LitPoseLiftingFlow(LitBaseFlow):
     def _on_batch_start(self, batch, batch_idx):
         self.projection.on_batch_start(batch, batch_idx)
 
-    def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor = None):
+    def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor = None, batch_vector: torch.Tensor = None):
         pose_inputs = self.movements_model(
             frames,
             targets if self.training and self.movements_model.needs_targets else None,
             edge_index=edge_index.to(
+                self.device) if self.movements_model.needs_graph else None,
+            batch_vector=batch_vector.to(
                 self.device) if self.movements_model.needs_graph else None
         )
 

@@ -25,6 +25,7 @@ from torch import Tensor
 from torch_geometric.data import Batch
 from torchmetrics import MetricCollection
 from pedestrians_video_2_carla.utils.argparse import boolean
+from pedestrians_video_2_carla.utils.printing import print_metrics
 
 
 class LitBaseFlow(pl.LightningModule):
@@ -143,16 +144,16 @@ class LitBaseFlow(pl.LightningModule):
 
         return [opt for opt in [movements_optimizers, trajectory_optimizers] if opt is not None]
 
-    @ staticmethod
+    @staticmethod
     def add_model_specific_args(parent_parser):
         """
-        Add model specific commandline arguments.
+        Add model specific commandline arguments. 
 
         By default, this method adds parameters for projection layer and loss modes.
         If overriding, remember to call super().
         """
 
-        parser = parent_parser.add_argument_group("BaseMapper Module")
+        parser = parent_parser.add_argument_group("BaseFlow Module")
         parser.add_argument(
             '--input_nodes',
             type=get_skeleton_type_by_name,
@@ -200,6 +201,10 @@ class LitBaseFlow(pl.LightningModule):
 
         return parent_parser
 
+    @property
+    def needs_graph(self):
+        return False
+
     @rank_zero_only
     def on_fit_start(self) -> None:
         initial_metrics = self._calculate_initial_metrics()
@@ -207,7 +212,7 @@ class LitBaseFlow(pl.LightningModule):
 
     def _unwrap_batch(self, batch):
         if isinstance(batch, (Tuple, List)):
-            return (*batch, None)
+            return (*batch, None, None)
 
         if isinstance(batch, Batch):
             return (
@@ -219,6 +224,7 @@ class LitBaseFlow(pl.LightningModule):
                 },
                 batch.meta,
                 batch.edge_index,
+                batch.batch
             )
 
         # TODO: deal with TemporalSignal
@@ -271,12 +277,7 @@ class LitBaseFlow(pl.LightningModule):
         }
 
         if len(unwrapped) > 0:
-            print('------------------------------------------------------')
-            print('Initial metrics:')
-            print('------------------------------------------------------')
-            for k, v in unwrapped.items():
-                print(f'{k}: {v}')
-            print('------------------------------------------------------')
+            print_metrics(unwrapped, prefix='Initial metrics:')
 
         return unwrapped
 
@@ -367,12 +368,12 @@ class LitBaseFlow(pl.LightningModule):
             self.log_dict(to_log, batch_size=batch_size)
 
     def forward(self, batch, *args, **kwargs) -> Any:
-        (frames, targets, meta, edge_index) = self._unwrap_batch(batch)
-        return self._inner_step(frames, targets, edge_index), meta
+        (frames, targets, meta, edge_index, batch_vector) = self._unwrap_batch(batch)
+        return self._inner_step(frames, targets, edge_index, batch_vector), meta
 
     def _step(self, batch, batch_idx, stage):
-        (frames, targets, meta, edge_index) = self._unwrap_batch(batch)
-        sliced = self._inner_step(frames, targets, edge_index)
+        (frames, targets, meta, edge_index, batch_vector) = self._unwrap_batch(batch)
+        sliced = self._inner_step(frames, targets, edge_index, batch_vector)
 
         loss_dict = self._calculate_lossess(stage, len(frames), sliced, meta)
 
@@ -380,7 +381,7 @@ class LitBaseFlow(pl.LightningModule):
 
         return self._get_outputs(stage, len(frames), sliced, loss_dict)
 
-    def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor) -> Dict[str, Union[Dict, torch.Tensor]]:
+    def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor, batch_vector: torch.Tensor) -> Dict[str, Union[Dict, torch.Tensor]]:
         raise NotImplementedError()
 
     def _get_outputs(self, stage, batch_size, sliced, loss_dict):

@@ -99,6 +99,13 @@ class PandasDataModuleMixin(object):
 
         return df
 
+    def _set_classification_labels(self, df: pandas.DataFrame) -> None:
+        """
+        Helper function to set the classification labels.
+        Should set self._classification_labels dict if required.
+        """
+        pass
+
     def _clean_filter_sort_data(self, df: pandas.DataFrame) -> pandas.DataFrame:
         if self.df_filters is None:
             return df.sort_index()
@@ -108,6 +115,8 @@ class PandasDataModuleMixin(object):
 
         df = df[filtering_results]
         sorted_df = df.sort_index()
+
+        self._set_classification_labels(sorted_df)
 
         return sorted_df
 

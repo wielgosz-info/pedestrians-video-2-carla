@@ -1,4 +1,7 @@
-OPENPOSE_DIR = 'openpose'
+import os
+
+JAAD_DIR = 'JAAD'
+OPENPOSE_DIR = os.path.join(JAAD_DIR, 'openpose')
 DF_ISIN = {
     # 'action': ['walking'],
     # 'speed': ['stopped'],
@@ -16,5 +19,6 @@ DF_USECOLS = [
     'gender',
     'age',
     'speed',
-    'group_size'
+    'group_size',
+    'cross'
 ]

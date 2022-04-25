@@ -43,18 +43,18 @@ class SMPLDataset(BaseDataset):
         # how to convert axis vales when converting from SMPL to CARLA - CARLA has negative X axis when compared to SMPL
         self.reference_axes_dir = torch.tensor((-1, 1, 1), device=self.device)
 
-    def _get_targets(self, idx: int, raw_projection_2d: torch.Tensor, intermediate_outputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        bboxes = get_bboxes(raw_projection_2d)
+    def _get_targets(self, idx: int, raw_projection_2d: torch.Tensor, *args, **kwargs) -> Dict[str, torch.Tensor]:
+        targets = super()._get_targets(idx, raw_projection_2d, *args, **kwargs)
 
-        targets = {
-            'bboxes': bboxes,
+        targets.update({
+            'bboxes': get_bboxes(raw_projection_2d),
 
             'world_rot': torch.from_numpy(self.set_file['targets/world_rot'][idx]),
 
             # 'relative_pose_rot': torch.from_numpy(self.set_file['targets/relative_pose_rot'][idx]),
             # 'absolute_pose_rot': torch.from_numpy(self.set_file['targets/absolute_pose_rot'][idx]),
             # 'absolute_pose_loc': torch.from_numpy(self.set_file['targets/absolute_pose_loc'][idx]),
-        }
+        })
 
         # if self.input_nodes == CARLA_SKELETON:
         #     m = self.meta[idx]
