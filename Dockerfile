@@ -117,11 +117,11 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     scikit-learn==1.0.2 \
     scipy==1.7.2 \
     timm==0.4.12 \
-    torchmetrics==0.6.0 \
+    torchmetrics==0.7.2 \
     tqdm==4.62.3 \
     transforms3d==0.3.1 \
     trimesh==3.9.36 \
-    wandb==0.12.14 \
+    wandb==0.12.15 \
     xmltodict==0.12.0 \
     git+https://github.com/nghorbani/human_body_prior.git@0278cb45180992e4d39ba1a11601f5ecc53ee148#egg=human-body-prior \
     git+https://github.com/nghorbani/body_visualizer@be9cf756f8d1daed870d4c7ad1aa5cc3478a546c#egg=body-visualizer \

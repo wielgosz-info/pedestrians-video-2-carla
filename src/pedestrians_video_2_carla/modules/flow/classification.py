@@ -1,12 +1,13 @@
 
-from typing import Any, Dict, List, Tuple, Union
+from functools import cached_property
+from typing import Any, Dict, List, Tuple, Type, Union
 import pytorch_lightning as pl
 import platform
 from torch_geometric.data import Batch
 import torch
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
-from torchmetrics import AUROC, ConfusionMatrix, F1Score, MetricCollection, Accuracy
-from pedestrians_video_2_carla.data.base.skeleton import get_skeleton_name_by_type, get_skeleton_type_by_name
+from torchmetrics import AUROC, ROC, ConfusionMatrix, F1Score, MetricCollection, Accuracy, Precision, PrecisionRecallCurve, Recall
+from pedestrians_video_2_carla.data.base.skeleton import get_skeleton_name_by_type, get_skeleton_type_by_name, Skeleton
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.metrics.multiinput_wrapper import MultiinputWrapper
 
@@ -25,36 +26,70 @@ except ImportError:
 class LitClassificationFlow(pl.LightningModule):
     # TODO: potentially update to re-use base flow when feasible
 
-    def __init__(self, classification_model_name, input_nodes, lr=0.0001, **kwargs: Any) -> None:
+    def __init__(self,
+                 classification_model_name,
+                 classification_targets_key: str,
+                 classification_average: str = 'weighted',
+                 input_nodes: Type[Skeleton] = CARLA_SKELETON,
+                 lr: float = 0.0001,
+                 **kwargs: Any) -> None:
         super().__init__()
 
         self.learning_rate = lr or 0.0001
         self.input_nodes = input_nodes
-        self._outputs_key = 'cross_logits'
-        self._targets_key = 'cross'
+        self._targets_key = classification_targets_key
+        self._outputs_key = classification_targets_key + '_logits'
 
-        # TODO: get it from somewhere
-        num_classes = 2
+        # TODO: get it from somewhere - datamodule only knows this after setup has been called
+        self._num_classes = 2
+        self._average = classification_average
 
         self.criterion = torch.nn.CrossEntropyLoss()
         self.metrics = MetricCollection({
             'Accuracy': MultiinputWrapper(
-                Accuracy(dist_sync_on_step=True, num_classes=num_classes),
+                Accuracy(dist_sync_on_step=True,
+                         num_classes=self._num_classes, average=self._average),
+                self._outputs_key, self._targets_key,
+                input_nodes=None, output_nodes=None,
+            ),
+            'Precision': MultiinputWrapper(
+                Precision(dist_sync_on_step=True,
+                          num_classes=self._num_classes, average=self._average),
+                self._outputs_key, self._targets_key,
+                input_nodes=None, output_nodes=None,
+            ),
+            'Recall': MultiinputWrapper(
+                Recall(dist_sync_on_step=True,
+                       num_classes=self._num_classes, average=self._average),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'F1Score': MultiinputWrapper(
-                F1Score(dist_sync_on_step=True, num_classes=num_classes),
+                F1Score(dist_sync_on_step=True,
+                        num_classes=self._num_classes, average=self._average),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'ConfusionMatrix': MultiinputWrapper(
-                ConfusionMatrix(dist_sync_on_step=True, num_classes=num_classes, normalize=None),
+                ConfusionMatrix(dist_sync_on_step=True,
+                                num_classes=self._num_classes, normalize=None),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'AUROC': MultiinputWrapper(
-                AUROC(dist_sync_on_step=True, num_classes=num_classes),
+                AUROC(dist_sync_on_step=True,
+                      num_classes=self._num_classes, average=self._average),
+                self._outputs_key, self._targets_key,
+                input_nodes=None, output_nodes=None,
+            ),
+            'ROCCurve': MultiinputWrapper(
+                ROC(dist_sync_on_step=True, num_classes=self._num_classes),
+                self._outputs_key, self._targets_key,
+                input_nodes=None, output_nodes=None,
+            ),
+            'PRCurve': MultiinputWrapper(
+                PrecisionRecallCurve(dist_sync_on_step=True,
+                                     num_classes=self._num_classes),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
@@ -73,12 +108,18 @@ class LitClassificationFlow(pl.LightningModule):
             'lr': self.learning_rate,
             'input_nodes': get_skeleton_name_by_type(self.input_nodes),
             'classification_model': classification_model_name,
+            'classification_targets_key': self._targets_key,
+            'classification_average': self._average,
             **self.classification_model.hparams,
         })
 
     @property
     def needs_graph(self):
         return self.classification_model.needs_graph
+
+    @cached_property
+    def class_labels(self):
+        return self.trainer.datamodule.classification_labels[self._targets_key]
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -99,6 +140,17 @@ class LitClassificationFlow(pl.LightningModule):
             type=str,
             choices=['GConvLSTM', 'DCRNN', 'TGCN', 'GConvGRU'],
             default='DCRNN',
+        )
+        parser.add_argument(
+            '--classification_targets_key',
+            type=str,
+            default='cross',
+        )
+        parser.add_argument(
+            '--classification_average',
+            type=str,
+            choices=['micro', 'macro', 'weighted', 'none'],
+            default='weighted',
         )
         # parser.add_argument(
         #     '--lr',
@@ -133,16 +185,75 @@ class LitClassificationFlow(pl.LightningModule):
     def test_step_end(self, outputs):
         self._eval_step_end(outputs, 'test')
 
+    def _log_curve(self, key: str, title: str, col_names: List[str], x: Tuple[torch.Tensor], y: Tuple[torch.Tensor], axis_names: List[str] = None):
+        # copied part of code from W&B, since we already have curve(s)
+        # but not raw data to calculate it
+
+        curves = {}
+
+        if axis_names is None:
+            axis_names = col_names
+
+        for i, class_name in enumerate(self.class_labels):
+            x_class = x[i]
+            y_class = y[i]
+
+            samples = min(20, len(y_class))
+            sample_y = []
+            sample_x = []
+            for k in range(samples):
+                sample_x.append(x_class[int(len(x_class) * k / samples)].item())
+                sample_y.append(
+                    y_class[int(len(y_class) * k / samples)].item()
+                )
+
+            curves[class_name] = (sample_x, sample_y)
+
+        data = [
+            [class_name, round(x_s, 3), round(y_s, 3)]
+            for class_name, vals in curves.items()
+            for x_s, y_s in zip(*vals)
+        ]
+
+        self.logger[0].experiment.log({
+            key: wandb.plot_table(
+                "wandb/area-under-curve/v0",
+                wandb.Table(columns=["class"] + col_names, data=data),
+                {"x": col_names[0], "y": col_names[1], "class": "class"},
+                {
+                    "title": title,
+                    "x-axis-title": axis_names[0],
+                    "y-axis-title": axis_names[1],
+                },
+            ),
+            "trainer/global_step": self.trainer.global_step,
+        })
+
+    def _log_pr_curve(self, k, v):
+        return self._log_curve(
+            k,
+            "Precision v. Recall",
+            ["recall", "precision"],
+            v[1], v[0],
+            axis_names=["Recall", "Precision"],
+        )
+
+    def _log_roc_curve(self, k, v):
+        return self._log_curve(
+            k,
+            "ROC",
+            ["fpr", "tpr"],
+            v[0], v[1],
+            axis_names=["False Positive Rate", "True Positive Rate"],
+        )
+
     def _log_confusion_matrix(self, k, v):
         # copied part of code from W&B, since we already have confusion matrix
         # but not raw data to calculate it
-
-        class_names = self.trainer.datamodule.classification_labels[self._targets_key]
-        n_classes = len(class_names)
         data = []
-        for i in range(n_classes):
-            for j in range(n_classes):
-                data.append([class_names[i], class_names[j], v[i, j]])
+        for i in range(self._num_classes):
+            for j in range(self._num_classes):
+                data.append([self.class_labels[i], self.class_labels[j], v[i, j]])
 
         fields = {
             "Actual": "Actual",
@@ -165,13 +276,24 @@ class LitClassificationFlow(pl.LightningModule):
         self.metrics.update(outputs['preds'], outputs['targets'])
 
     def _on_eval_epoch_end(self):
-        unwrapped_m = self._unwrap_nested_metrics(self.metrics.compute(), ['hp'])
-        for k, v in unwrapped_m.items():
-            # special confusion matrix handling for W&B
-            if k.endswith('ConfusionMatrix') and not isinstance(self.logger[0], TensorBoardLogger):
-                self._log_confusion_matrix(k, v)
-            else:
-                self.log(k, v)
+        try:
+            unwrapped_m = self._unwrap_nested_metrics(self.metrics.compute(), ['hp'])
+            for k, v in unwrapped_m.items():
+                # special W&B plots
+                if not isinstance(self.logger[0], TensorBoardLogger):
+                    if k.endswith('ConfusionMatrix'):
+                        self._log_confusion_matrix(k, v)
+                    elif k.endswith('ROCCurve'):
+                        self._log_roc_curve(k, v)
+                    elif k.endswith('PRCurve'):
+                        self._log_pr_curve(k, v)
+                    else:
+                        self.log(k, v)
+                else:
+                    self.log(k, v)
+        except ValueError as e:
+            # cannot compute metrics for this epoch (e.g. only one class is present in validation sanity check)
+            pass
 
         self.metrics.reset()
 
