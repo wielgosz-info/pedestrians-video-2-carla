@@ -7,6 +7,7 @@ from torch_geometric.data import Batch
 import torch
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from torchmetrics import AUROC, ROC, ConfusionMatrix, F1Score, MetricCollection, Accuracy, Precision, PrecisionRecallCurve, Recall
+import torchmetrics
 from pedestrians_video_2_carla.data.base.skeleton import get_skeleton_name_by_type, get_skeleton_type_by_name, Skeleton
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.metrics.multiinput_wrapper import MultiinputWrapper
@@ -16,6 +17,8 @@ from pedestrians_video_2_carla.modules.classification.gnn.gconv_gru import GConv
 from pedestrians_video_2_carla.modules.classification.gnn.gconv_lstm import GConvLSTMModel
 from pedestrians_video_2_carla.modules.classification.gnn.rnn import RNNModel
 from pedestrians_video_2_carla.modules.classification.gnn.tgcn import TGCNModel
+from pedestrians_video_2_carla.utils.printing import print_metrics
+from pytorch_lightning.utilities import rank_zero_only
 
 try:
     import wandb
@@ -45,7 +48,35 @@ class LitClassificationFlow(pl.LightningModule):
         self._average = classification_average
 
         self.criterion = torch.nn.CrossEntropyLoss()
-        self.metrics = MetricCollection({
+        self.metrics = MetricCollection(self.get_metrics())
+
+        # TODO: this cannot stay, we need to be able to parse model-specific args
+        self.classification_model: RNNModel = {
+            "GConvLSTM": GConvLSTMModel,
+            "DCRNN": DCRNNModel,
+            "TGCN": TGCNModel,
+            "GConvGRU": GConvGRUModel,
+        }[classification_model_name](**kwargs)
+
+        self.save_hyperparameters({
+            'host': platform.node(),
+            'lr': self.learning_rate,
+            'input_nodes': get_skeleton_name_by_type(self.input_nodes),
+            'classification_model': classification_model_name,
+            'classification_targets_key': self._targets_key,
+            'classification_average': self._average,
+            **self.classification_model.hparams,
+        })
+
+    def get_initial_metrics(self) -> Dict[str, torchmetrics.Metric]:
+        """
+        Returns metrics to calculate on each validation batch at the beginning of the training.
+        They will be added to the metrics returned by get_metrics() method.
+        """
+        return {}
+
+    def get_metrics(self) -> Dict[str, torchmetrics.Metric]:
+        return {
             'Accuracy': MultiinputWrapper(
                 Accuracy(dist_sync_on_step=True,
                          num_classes=self._num_classes, average=self._average),
@@ -93,25 +124,7 @@ class LitClassificationFlow(pl.LightningModule):
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
-        })
-
-        # TODO: this cannot stay, we need to be able to parse model-specific args
-        self.classification_model: RNNModel = {
-            "GConvLSTM": GConvLSTMModel,
-            "DCRNN": DCRNNModel,
-            "TGCN": TGCNModel,
-            "GConvGRU": GConvGRUModel,
-        }[classification_model_name](**kwargs)
-
-        self.save_hyperparameters({
-            'host': platform.node(),
-            'lr': self.learning_rate,
-            'input_nodes': get_skeleton_name_by_type(self.input_nodes),
-            'classification_model': classification_model_name,
-            'classification_targets_key': self._targets_key,
-            'classification_average': self._average,
-            **self.classification_model.hparams,
-        })
+        }
 
     @property
     def needs_graph(self):
@@ -119,7 +132,7 @@ class LitClassificationFlow(pl.LightningModule):
 
     @cached_property
     def class_labels(self):
-        return self.trainer.datamodule.classification_labels[self._targets_key]
+        return self.trainer.datamodule.class_labels[self._targets_key]
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -169,6 +182,89 @@ class LitClassificationFlow(pl.LightningModule):
         }
 
         return config
+
+    @rank_zero_only
+    def on_fit_start(self) -> None:
+        initial_metrics = self._calculate_initial_metrics()
+        self._update_hparams(initial_metrics)
+
+    def _update_hparams(self, initial_metrics: Dict[str, float] = None):
+        # We need to manually add the datamodule hparams,
+        # because the merge is automatically handled only for initial_hparams
+        # additionally, store info on train set size for easy access
+        additional_config = {
+            **self.trainer.datamodule.hparams,
+            'train_set_size': getattr(
+                self.trainer.datamodule.train_set,
+                '__len__',
+                lambda: self.trainer.limit_train_batches*self.trainer.datamodule.batch_size
+            )(),
+            'val_set_size': getattr(
+                self.trainer.datamodule.val_set,
+                '__len__',
+                lambda: self.trainer.limit_val_batches*self.trainer.datamodule.batch_size
+            )(),
+            **(initial_metrics or {}),
+        }
+
+        if not isinstance(self.logger[0], TensorBoardLogger):
+            try:
+                self.logger[0].experiment.config.update(additional_config)
+            except:
+                pass
+            return
+
+        self.hparams.update(additional_config)
+
+        self.logger[0].log_hyperparams(
+            self.hparams,
+            self._unwrap_nested_metrics(self.metrics, ['hp'], nans=True)
+        )
+
+    def _calculate_initial_metrics(self) -> Dict[str, float]:
+        dl = self.trainer.datamodule.val_dataloader()
+        if dl is None:
+            return {}
+
+        # get class counts
+        class_counts = self.trainer.datamodule.class_counts
+        prevalent_class = torch.argmax(
+            torch.Tensor(list(class_counts['train'][self._targets_key].values()))).item()
+
+        initial_metrics = MetricCollection({
+            **self.get_metrics(),
+            **self.get_initial_metrics()
+        }).to(self.device)
+
+        if not len(initial_metrics):
+            return {}
+
+        for batch in dl:
+            (inputs, targets, *_) = self._unwrap_batch(batch)
+            d_targets = {k: v.to(self.device) for k, v in targets.items()}
+
+            initial_metrics.update({
+                self._outputs_key: torch.nn.functional.one_hot(
+                    torch.ones_like(d_targets[self._targets_key]) * prevalent_class,
+                    num_classes=self._num_classes
+                ).float(),
+            }, d_targets)
+
+        results = initial_metrics.compute()
+        unwrapped = {
+            k: v.item()
+            for k, v in self._unwrap_nested_metrics(results, ['initial']).items()
+            if isinstance(v, torch.Tensor) and v.numel() == 1
+        }
+        unwrapped.update({
+            k: v
+            for k, v in self._unwrap_nested_metrics(class_counts, ['counts']).items()
+        })
+
+        if len(unwrapped) > 0:
+            print_metrics(unwrapped, 'Initial metrics:')
+
+        return unwrapped
 
     def training_step(self, batch, batch_idx):
         return self._step(batch, batch_idx, 'train')

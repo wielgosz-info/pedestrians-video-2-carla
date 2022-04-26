@@ -31,7 +31,7 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         input_nodes: Type[Skeleton],
         data_nodes: Type[Skeleton] = None,
         skip_metadata: bool = False,
-        classification_labels: Dict[str, Iterable[str]] = None,
+        class_labels: Dict[str, Iterable[str]] = None,
         **kwargs
     ) -> None:
         """
@@ -45,8 +45,8 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         :type data_nodes: Type[Skeleton]
         :param skip_metadata: Whether to skip the metadata (default: False). Skipping metadata loading speeds up the dataset creation.
         :type skip_metadata: bool
-        :param classification_labels: Labels for classification tasks
-        :type classification_labels: Dict[str, Iterable[str]]
+        :param class_labels: Labels for classification tasks
+        :type class_labels: Dict[str, Iterable[str]]
         """
         super().__init__(**kwargs)
 
@@ -61,16 +61,16 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         )
         self.num_input_joints = len(self.input_nodes)
         self.num_data_joints = len(self.data_nodes)
-        self.classification_labels = classification_labels or {}
+        self.class_labels = class_labels or {}
 
         # cache cross classification labels
         # this needs to be done on labels that are already decoded in meta
         # since encoded meta can differ between train/val/test depending
         # on what kind of sample is first in the subset
-        self.classification_ints = {}
-        for key in self.classification_labels.keys():
+        self.class_ints = {}
+        for key in self.class_labels.keys():
             if key in self.meta[0]:
-                self.classification_ints[key] = self._encode_labels(
+                self.class_ints[key] = self._encode_labels(
                     key, [self.meta[i][key] for i in range(len(self.meta))])
 
     def _load_data(self, set_filepath: str, skip_metadata: bool) -> None:
@@ -122,7 +122,7 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
 
     def _get_targets(self, idx: int, raw_projection_2d: torch.Tensor, intermediate_outputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         return {
-            k: v[idx:idx+1] for k, v in self.classification_ints.items()
+            k: v[idx:idx+1] for k, v in self.class_ints.items()
         }
 
     def _get_meta(self, idx: int) -> Dict[str, Any]:
@@ -176,7 +176,7 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         :return: Labels as integers
         :rtype: torch.Tensor
         """
-        return torch.Tensor([self.classification_labels[key].index(label) for label in labels]).long()
+        return torch.Tensor([self.class_labels[key].index(label) for label in labels]).long()
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, Any]]:
         """

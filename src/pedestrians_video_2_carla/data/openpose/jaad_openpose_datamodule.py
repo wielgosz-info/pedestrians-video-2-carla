@@ -224,14 +224,14 @@ class JAADOpenPoseDataModule(PandasDataModuleMixin, BaseDataModule):
 
         return candidates[best_iou_idx]
 
-    def _set_classification_labels(self, df: pandas.DataFrame) -> None:
+    def _set_class_labels(self, df: pandas.DataFrame) -> None:
         """
         Sets classification labels for 'action' and 'cross' columns.
 
         :param df: DataFrame with labels
         :type df: pandas.DataFrame
         """
-        self._classification_labels = {
+        self._class_labels = {
             'action': sorted(df.loc[:, 'action'].unique().tolist()),
             'cross': sorted(df.loc[:, 'cross'].unique().tolist()),
         }

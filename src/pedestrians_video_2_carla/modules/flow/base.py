@@ -203,7 +203,7 @@ class LitBaseFlow(pl.LightningModule):
 
     @property
     def needs_graph(self):
-        return False
+        return self.movements_model.needs_graph
 
     @rank_zero_only
     def on_fit_start(self) -> None:
@@ -227,10 +227,8 @@ class LitBaseFlow(pl.LightningModule):
                 batch.batch
             )
 
-        # TODO: deal with TemporalSignal
-
     def _fix_dimensions(self, data: torch.Tensor):
-        if self.movements_model.needs_graph:
+        if self.needs_graph:
             s = data.shape
             cl = self.trainer.datamodule.clip_length
             if len(s) < 2 or s[1] != cl:

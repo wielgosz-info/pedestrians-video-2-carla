@@ -2,7 +2,7 @@ import copy
 import hashlib
 import os
 import shutil
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, Iterable, List, Literal, Optional, Tuple, Type, Union
 
 import h5py
 import numpy as np
@@ -109,7 +109,12 @@ class BaseDataModule(LightningDataModule):
 
         # each dataset may provide its own classification labels
         # they are saved in a settings file during the subsets creation
-        self._classification_labels = None
+        self._class_labels = None
+        self._class_counts = {
+            'train': {},
+            'val': {},
+            'test': {},
+        }
 
         self._needs_preparation = False
         # only try to generate subsets if dir doesn't exist or is empty
@@ -118,8 +123,8 @@ class BaseDataModule(LightningDataModule):
             os.makedirs(self._subsets_dir, exist_ok=True)
         else:
             # we already have datasset prepared for this combination of settings
-            # so only retrieve and store classification labels info
-            self._load_classification_labels()
+            # so only retrieve and store classification labels info/counts
+            self._load_class_info()
 
         self.save_hyperparameters({
             **self.settings,
@@ -163,8 +168,10 @@ class BaseDataModule(LightningDataModule):
         """
         with open(os.path.join(self._subsets_dir, 'dparams.yaml'), 'w') as f:
             settings = copy.deepcopy(self.settings)
-            if self._classification_labels is not None:
-                settings['classification_labels'] = self._classification_labels
+            if self._class_labels is not None:
+                settings['class_labels'] = self._class_labels
+            if self._class_counts is not None:
+                settings['class_counts'] = self._class_counts
 
             yaml.dump(settings, f, Dumper=Dumper)
 
@@ -333,7 +340,7 @@ class BaseDataModule(LightningDataModule):
     def _clean_filter_sort_clips(self, clips: Iterable[Any]) -> Iterable[Any]:
         """
         Handles the filtering and sorting of the clips. This is also where the
-        self._classification_labels dict should be set if dataset provides them.
+        self._class_labels & self._class_counts dicts should be set if dataset provides them.
         """
         return clips
 
@@ -353,15 +360,21 @@ class BaseDataModule(LightningDataModule):
         """
         raise NotImplementedError()
 
-    def _load_classification_labels(self):
+    def _load_class_info(self):
         with open(os.path.join(self._subsets_dir, 'dparams.yaml'), 'r') as f:
             settings = yaml.load(f, Loader=Loader)
-            if 'classification_labels' in settings:
-                self._classification_labels = settings['classification_labels']
+            if 'class_labels' in settings:
+                self._class_labels = settings['class_labels']
+            if 'class_counts' in settings:
+                self._class_counts = settings['class_counts']
 
     @property
-    def classification_labels(self):
-        return self._classification_labels
+    def class_labels(self) -> Dict[str, List[str]]:
+        return self._class_labels
+
+    @property
+    def class_counts(self) -> Dict[Literal['train', 'val', 'test'], Dict[str, Dict[str, int]]]:
+        return self._class_counts
 
     def prepare_data(self) -> None:
         # this is only called on one GPU, do not use self.something assignments
@@ -440,7 +453,7 @@ class BaseDataModule(LightningDataModule):
             'transform': self.transform_callable,
             'return_graph': self.return_graph,
             'clip_length': self.clip_length,
-            'classification_labels': self._classification_labels,
+            'class_labels': self._class_labels,
             **self.kwargs
         }
 

@@ -99,12 +99,29 @@ class PandasDataModuleMixin(object):
 
         return df
 
-    def _set_classification_labels(self, df: pandas.DataFrame) -> None:
+    def _set_class_labels(self, df: pandas.DataFrame) -> None:
         """
         Helper function to set the classification labels.
-        Should set self._classification_labels dict if required.
+        Should set self._class_labels dict if required.
         """
         pass
+
+    def _set_class_counts(self, set_name: str, grouped: 'pandas.DataFrameGroupBy') -> None:
+        """
+        Helper function to set the class counts.
+        Should set self._class_counts dict if required.
+        By default it extracts one class per clip
+        for each type of class in self._class_labels.keys().
+
+        :param set_name: Name of the set
+        :type set_name: str
+        :param grouped: Grouped data
+        :type grouped: pandas.DataFrameGroupBy
+        """
+        grouped_tail = grouped.tail(1).reset_index(drop=False)
+        for class_key in self._class_labels.keys():
+            self._class_counts[set_name][class_key] = grouped_tail[class_key].value_counts(
+            ).to_dict()
 
     def _clean_filter_sort_data(self, df: pandas.DataFrame) -> pandas.DataFrame:
         if self.df_filters is None:
@@ -116,7 +133,7 @@ class PandasDataModuleMixin(object):
         df = df[filtering_results]
         sorted_df = df.sort_index()
 
-        self._set_classification_labels(sorted_df)
+        self._set_class_labels(sorted_df)
 
         return sorted_df
 
@@ -255,6 +272,7 @@ class PandasDataModuleMixin(object):
             shuffled_clips = clips_set.loc[index.values, :]
             grouped = shuffled_clips.groupby(level=list(
                 range(len(self.full_index) - 1)), sort=False)
+            self._set_class_counts(name, grouped)
             projection_2d, targets, meta = self._get_raw_data(grouped)
             set_size[name] = self._save_subset(name, projection_2d, targets, meta)
 
