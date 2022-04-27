@@ -109,9 +109,15 @@ def main(args: List[str]):
         classifier_train_args.ckpt_path = None
         classifier_train_args.flow = 'classification'
         classifier_train_args.mode = 'train'
-        classifier_train_args.batch_size = 1
+        # if recurrent GNNs are used, batch_size should be 1; TODO: make this smarter instead of listing all possible models here
+        if flow_args.classification_model_name in ['GConvLSTM', 'DCRNN', 'TGCN', 'GConvGRU']:
+            classifier_train_args.log_every_n_steps = classifier_train_args.batch_size * classifier_train_args.log_every_n_steps
+            classifier_train_args.batch_size = 1
         classifier_train_args.data_module_name = 'JAADOpenPose'
         classifier_train_args.subsets_dir = subsets_dir
+        classifier_train_args.hidden_size = 64
+        classifier_train_args.num_layers = 1
+        classifier_train_args.dropout = 0.35
 
         _, _, trainer = modeling_main(
             classifier_train_args,

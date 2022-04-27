@@ -17,6 +17,8 @@ from pedestrians_video_2_carla.modules.classification.gnn.gconv_gru import GConv
 from pedestrians_video_2_carla.modules.classification.gnn.gconv_lstm import GConvLSTMModel
 from pedestrians_video_2_carla.modules.classification.gnn.rnn import RNNModel
 from pedestrians_video_2_carla.modules.classification.gnn.tgcn import TGCNModel
+from pedestrians_video_2_carla.modules.classification.lstm import LSTM
+
 from pedestrians_video_2_carla.utils.printing import print_metrics
 from pytorch_lightning.utilities import rank_zero_only
 
@@ -56,6 +58,7 @@ class LitClassificationFlow(pl.LightningModule):
             "DCRNN": DCRNNModel,
             "TGCN": TGCNModel,
             "GConvGRU": GConvGRUModel,
+            "LSTM": LSTM,
         }[classification_model_name](**kwargs)
 
         self.save_hyperparameters({
@@ -151,7 +154,7 @@ class LitClassificationFlow(pl.LightningModule):
         parser.add_argument(
             '--classification_model_name',
             type=str,
-            choices=['GConvLSTM', 'DCRNN', 'TGCN', 'GConvGRU'],
+            choices=['GConvLSTM', 'DCRNN', 'TGCN', 'GConvGRU', 'LSTM'],
             default='DCRNN',
         )
         parser.add_argument(
@@ -243,11 +246,16 @@ class LitClassificationFlow(pl.LightningModule):
             (inputs, targets, *_) = self._unwrap_batch(batch)
             d_targets = {k: v.to(self.device) for k, v in targets.items()}
 
+            one_hot = torch.nn.functional.one_hot(
+                torch.ones_like(d_targets[self._targets_key]) * prevalent_class,
+                num_classes=self._num_classes
+            )
+
+            if one_hot.ndim > 2:
+                one_hot = one_hot.transpose(one_hot.ndim-2, one_hot.ndim-1)
+
             initial_metrics.update({
-                self._outputs_key: torch.nn.functional.one_hot(
-                    torch.ones_like(d_targets[self._targets_key]) * prevalent_class,
-                    num_classes=self._num_classes
-                ).float(),
+                self._outputs_key: one_hot.float(),
             }, d_targets)
 
         results = initial_metrics.compute()
@@ -422,12 +430,18 @@ class LitClassificationFlow(pl.LightningModule):
         out_slice = slice(None, None, None)
         if self.needs_graph and frames.shape[0] != out.shape[0]:
             out_slice = slice(-1, None, None)
+        
+        out = out[out_slice]
+        target = targets[self._targets_key][out_slice]
+
+        if out.ndim - 1 != target.ndim:
+            target = target.squeeze(-1)
 
         return {
-            self._outputs_key: out[out_slice],
+            self._outputs_key: out,
             'targets': {
                 **targets,
-                self._targets_key: targets[self._targets_key][out_slice],
+                self._targets_key: target,
             },
         }
 
