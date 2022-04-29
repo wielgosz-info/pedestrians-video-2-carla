@@ -117,7 +117,7 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     scikit-learn==1.0.2 \
     scipy==1.7.2 \
     timm==0.4.12 \
-    torchmetrics==0.7.2 \
+    torchmetrics==0.8.1 \
     tqdm==4.62.3 \
     transforms3d==0.3.1 \
     trimesh==3.9.36 \

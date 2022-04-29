@@ -125,7 +125,7 @@ class CarlaRecordedDataModule(PandasDataModuleMixin, BaseDataModule):
             'world_pose_rot': world_pose_rot,
             'world_loc': world_loc,
             'world_rot': world_rot,
-            'velocity': velocity
+            'velocity': velocity,
         }
 
         # meta
@@ -141,6 +141,11 @@ class CarlaRecordedDataModule(PandasDataModuleMixin, BaseDataModule):
             'end_frame': grouped_tail.loc[:, 'frame.idx'].to_numpy().astype(np.int32) + 1,
         }
 
+        if 'frame.pedestrian.is_crossing' in grouped_tail.columns:
+            meta['frame.pedestrian.is_crossing'] = np.choose(
+                grouped_tail.loc[:, 'frame.pedestrian.is_crossing'].to_numpy(),
+                self.class_labels['frame.pedestrian.is_crossing']
+            ).tolist()
         return projection_2d, targets, meta
 
     def _extract_transform(self, grouped, column_name):
@@ -152,3 +157,15 @@ class CarlaRecordedDataModule(PandasDataModuleMixin, BaseDataModule):
 
     def _get_dataset_creator(self) -> Callable:
         return CarlaRecordedDataset
+
+    def _set_class_labels(self, df: pd.DataFrame) -> None:
+        """
+        Sets classification labels for 'cross' column.
+
+        :param df: DataFrame with labels
+        :type df: pandas.DataFrame
+        """
+        self._class_labels = {
+            # explicitly set crossing to be 1, so it potentially can be used in a binary classifier
+            'frame.pedestrian.is_crossing': ['not-crossing', 'crossing'],
+        }

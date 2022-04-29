@@ -313,6 +313,7 @@ def main(
         trainer.test(model=flow_module, datamodule=dm)
     elif args.mode == "predict":
         # we need to explicitly set the datamodule here
+        dm.prepare_data()
         dm.setup(stage='predict')
         run_id = get_run_id_from_checkpoint_path(args.ckpt_path)
         for set_name in args.predict_sets:

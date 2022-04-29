@@ -233,5 +233,7 @@ class JAADOpenPoseDataModule(PandasDataModuleMixin, BaseDataModule):
         """
         self._class_labels = {
             'action': sorted(df.loc[:, 'action'].unique().tolist()),
-            'cross': sorted(df.loc[:, 'cross'].unique().tolist()),
+
+            # explicitly set crossing to be 1, so it potentially can be used in a binary classifier
+            'cross': ['not-crossing', 'crossing'],
         }

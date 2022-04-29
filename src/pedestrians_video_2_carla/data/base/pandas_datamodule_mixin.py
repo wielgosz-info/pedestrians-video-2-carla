@@ -111,7 +111,7 @@ class PandasDataModuleMixin(object):
         Helper function to set the class counts.
         Should set self._class_counts dict if required.
         By default it extracts one class per clip
-        for each type of class in self._class_labels.keys().
+        for each type of class in self.class_labels.keys().
 
         :param set_name: Name of the set
         :type set_name: str
@@ -119,20 +119,19 @@ class PandasDataModuleMixin(object):
         :type grouped: pandas.DataFrameGroupBy
         """
         grouped_tail = grouped.tail(1).reset_index(drop=False)
-        for class_key in self._class_labels.keys():
-            self._class_counts[set_name][class_key] = grouped_tail[class_key].value_counts(
-            ).to_dict()
+        for class_key, class_labels in self.class_labels.items():
+            counts = grouped_tail[class_key].value_counts().to_dict()
+            self._class_counts[set_name][class_key] = {
+                label: counts.get(label, counts.get(i, 0)) for i, label in enumerate(class_labels)
+            }
 
     def _clean_filter_sort_data(self, df: pandas.DataFrame) -> pandas.DataFrame:
-        if self.df_filters is None:
-            return df.sort_index()
+        if self.df_filters is not None:
+            filtering_results = df.isin(self.df_filters)[
+                list(self.df_filters.keys())].all(axis=1)
+            df = df[filtering_results]
 
-        filtering_results = df.isin(self.df_filters)[
-            list(self.df_filters.keys())].all(axis=1)
-
-        df = df[filtering_results]
         sorted_df = df.sort_index()
-
         self._set_class_labels(sorted_df)
 
         return sorted_df

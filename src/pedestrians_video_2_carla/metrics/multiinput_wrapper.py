@@ -19,6 +19,12 @@ class MultiinputWrapper(Metric):
     ):
         super().__init__(**kwargs)
         self.base_metric = base_metric
+
+        # workaround so that MetricCollection is not merging the computing groups
+        # TODO: can it be done in a better way?
+        self.add_state(base_metric.__class__.__name__,
+                       default=torch.tensor(0.0), dist_reduce_fx="sum")
+
         self.pred_key = pred_key
         self.target_key = target_key
 

@@ -168,8 +168,8 @@ class BaseDataModule(LightningDataModule):
         """
         with open(os.path.join(self._subsets_dir, 'dparams.yaml'), 'w') as f:
             settings = copy.deepcopy(self.settings)
-            if self._class_labels is not None:
-                settings['class_labels'] = self._class_labels
+            if self.class_labels is not None:
+                settings['class_labels'] = self.class_labels
             if self._class_counts is not None:
                 settings['class_counts'] = self._class_counts
 
@@ -453,7 +453,7 @@ class BaseDataModule(LightningDataModule):
             'transform': self.transform_callable,
             'return_graph': self.return_graph,
             'clip_length': self.clip_length,
-            'class_labels': self._class_labels,
+            'class_labels': self.class_labels,
             **self.kwargs
         }
 
