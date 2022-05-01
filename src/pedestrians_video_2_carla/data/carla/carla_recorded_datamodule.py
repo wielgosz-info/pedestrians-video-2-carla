@@ -18,7 +18,7 @@ from .constants import CARLA_RECORDED_DIR, CARLA_RECORDED_DEFAULT_SET_NAME
 
 def convert_to_list(x):
     try:
-        return ast.literal_eval(x)
+        return ast.literal_eval(x.replace('nan', '"nan"'))
     except ValueError:
         # for some reason pandas tries to convert the column name too...
         return str(x)
