@@ -1,3 +1,4 @@
+import copy
 import logging
 from typing import Any, Dict, Iterable, Tuple, Type
 import numpy as np
@@ -53,7 +54,10 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         self.input_nodes = input_nodes
         self.data_nodes = data_nodes if data_nodes is not None else input_nodes
 
-        self._load_data(set_filepath, skip_metadata)
+        self._set_filepath = set_filepath
+        self._skip_metadata = skip_metadata
+
+        self._load_data()
 
         self.input_indices, self.data_indices = get_common_indices(
             input_nodes=self.data_nodes,
@@ -73,15 +77,31 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
                 self.class_ints[key] = self._encode_labels(
                     key, [self.meta[i][key] for i in range(len(self.meta))])
 
-    def _load_data(self, set_filepath: str, skip_metadata: bool) -> None:
-        self.set_file = h5py.File(set_filepath, 'r', driver='core')
+    def _load_data(self, ignore_metadata=False) -> None:
+        self.set_file = h5py.File(self._set_filepath, 'r', driver='core')
 
         self.projection_2d = self.set_file['projection_2d']
 
-        if skip_metadata:
-            self.meta = [{}] * len(self)
-        else:
-            self.meta = self._decode_meta(self.set_file['meta'])
+        if not ignore_metadata:
+            if self._skip_metadata:
+                self.meta = [{}] * len(self)
+            else:
+                self.meta = self._decode_meta(self.set_file['meta'])
+
+    def __deepcopy__(self, memo):
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if k in ['set_file', 'projection_2d']:
+                setattr(result, k, None)
+            else:
+                setattr(result, k, copy.deepcopy(v, memo))
+
+        # get a new h5df file handle
+        result._load_data(ignore_metadata=True)
+
+        return result
 
     def _decode_meta_value(self, value: Any, meta_item: Any, key: str) -> Any:
         if 'labels' in meta_item.attrs:

@@ -287,6 +287,9 @@ class BaseDataModule(LightningDataModule):
         return parent_parser
 
     def get_dataloader(self, dataset, shuffle=False, persistent_workers=False):
+        if dataset is None:  # needed for overfit_batches
+            return None
+
         pin_memory = self.kwargs.get('gpus', None) is not None
         persistent_workers = persistent_workers if self.num_workers > 1 else False
         if self.return_graph:

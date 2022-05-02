@@ -7,7 +7,7 @@ import sys
 from typing import Dict, List, Tuple, Type, Union
 
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, ModelSummary
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 
 from pedestrians_video_2_carla.modules.flow.autoencoder import \
@@ -240,7 +240,7 @@ def main(
             version=version,
             project=args.flow,
             entity="carla-pedestrians",
-            log_model=True,  # this will log models created by ModelCheckpoint
+            log_model=True,  # this will log models created by ModelCheckpoint,
         )
         log_dir = os.path.realpath(os.path.join(str(logger.experiment.dir), ".."))
     else:
@@ -277,6 +277,7 @@ def main(
         save_top_k=1,
     )
     lr_monitor = LearningRateMonitor(logging_interval="step")
+    model_summary = ModelSummary(max_depth=2)
 
     # flow model
     if args.ckpt_path is not None:
@@ -304,7 +305,7 @@ def main(
     trainer = pl.Trainer.from_argparse_args(
         args,
         logger=[logger, pedestrian_logger],
-        callbacks=[checkpoint_callback, lr_monitor],
+        callbacks=[checkpoint_callback, lr_monitor, model_summary],
     )
 
     if args.mode == "train":
