@@ -192,6 +192,7 @@ def main(
     version: str = None,
     return_trainer: bool = False,
     standalone: bool = True,
+    tags: List[str] = None,
 ) -> Union[Tuple[str, str], Tuple[str, str, pl.Trainer]]:
     """
     :param args: command line parameters as list of strings
@@ -241,6 +242,7 @@ def main(
             project=args.flow,
             entity="carla-pedestrians",
             log_model=True,  # this will log models created by ModelCheckpoint,
+            tags=tags,
         )
         log_dir = os.path.realpath(os.path.join(str(logger.experiment.dir), ".."))
     else:
