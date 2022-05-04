@@ -10,7 +10,8 @@ from typing import List
 
 from pedestrians_video_2_carla.loggers.pedestrian.enums import PedestrianRenderers
 from pedestrians_video_2_carla.modeling import discover_available_classes, main as modeling_main, setup_flow
-from pedestrians_video_2_carla.utils.paths import get_run_id_from_checkpoint_path, resolve_ckpt_path
+from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
+from pedestrians_video_2_carla.utils.paths import get_run_id_from_checkpoint_path, get_run_id_from_log_dir, resolve_ckpt_path
 from pedestrians_video_2_carla.utils.printing import print_metrics
 
 import randomname
@@ -37,6 +38,7 @@ def setup_args() -> argparse.ArgumentParser:
 
 def main(args: List[str]):
     # generate required version names before seeding
+    data_prep_version = randomname.get_name()
     ae_train_version = randomname.get_name()
     ae_predict_version = randomname.get_name()
     classifier_version_a = randomname.get_name()
@@ -50,6 +52,33 @@ def main(args: List[str]):
 
     # store metrics to display at the end of the script
     metrics = {}
+
+    # Gather input data (add artificial noise)
+    data_prep_args = copy.deepcopy(flow_args)
+    data_prep_args.flow = 'autoencoder'
+    data_prep_args.mode = 'predict'
+    data_prep_args.movements_output_type = MovementsModelOutputType.pose_2d
+    data_prep_args.movements_model_name = 'ZeroMovements'
+    data_prep_args.predict_sets = ['train', 'val']
+    data_prep_args.data_module_name = 'CarlaRecorded'
+    data_prep_args.carla_rec_set_name = 'VaryingCrossing'
+    data_prep_args.renderers = [PedestrianRenderers.none]
+    data_prep_args.overfit_batches = False
+    data_prep_args.missing_point_probability = 0.3
+    data_prep_args.noise = 'gaussian'
+    data_prep_args.noise_param = 5.0
+    data_prep_args.skip_metadata = False
+
+    prep_log_dir, gt_jaad_subsets_dir = modeling_main(
+        data_prep_args,
+        version=data_prep_version,
+        standalone=True,
+    )
+
+    prep_run_id = get_run_id_from_log_dir(prep_log_dir)
+    prep_jaad_subsets_dir = os.path.join(gt_jaad_subsets_dir.replace(
+        'DataModule', 'DataModulePredictions'), prep_run_id)
+    logging.getLogger(__name__).info(f'Prepared data saved in {prep_jaad_subsets_dir}')
 
     if known_args.ae_ckpt_path is None:
         logging.getLogger(__name__).info("Training AE from scratch.")
@@ -80,10 +109,14 @@ def main(args: List[str]):
     ae_pred_args.flow = 'autoencoder'
     ae_pred_args.mode = 'predict'
     ae_pred_args.predict_sets = ['train', 'val']
-    ae_pred_args.data_module_name = 'JAADOpenPose'
+    ae_pred_args.data_module_name = 'CarlaRecorded'
+    ae_pred_args.carla_rec_set_name = 'VaryingCrossing'
+    ae_pred_args.subsets_dir = prep_jaad_subsets_dir
     ae_pred_args.renderers = [PedestrianRenderers.none]
+    ae_pred_args.overfit_batches = False
+    ae_pred_args.skip_metadata = False
 
-    _, gt_jaad_subsets_dir = modeling_main(
+    modeling_main(
         ae_pred_args,
         version=ae_predict_version,
         standalone=False,
@@ -99,9 +132,10 @@ def main(args: List[str]):
 
     ae_jaad_subsets_dir = os.path.join(gt_jaad_subsets_dir.replace(
         'DataModule', 'DataModulePredictions'), ae_run_id)
+    logging.getLogger(__name__).info(f'Data after autoencoder saved in {ae_jaad_subsets_dir}')
 
     # Train the same classifier twice: once with denoising AE and once without
-    for version, subsets_dir in [(classifier_version_a, gt_jaad_subsets_dir), (classifier_version_b, ae_jaad_subsets_dir)]:
+    for version, subsets_dir in [(classifier_version_a, prep_jaad_subsets_dir), (classifier_version_b, ae_jaad_subsets_dir)]:
         logging.getLogger(__name__).info(f"Training classifier on {subsets_dir}.")
 
         classifier_train_args = copy.deepcopy(flow_args)
@@ -113,7 +147,8 @@ def main(args: List[str]):
         if flow_args.classification_model_name in ['GConvLSTM', 'DCRNN', 'TGCN', 'GConvGRU']:
             classifier_train_args.log_every_n_steps = classifier_train_args.batch_size * classifier_train_args.log_every_n_steps
             classifier_train_args.batch_size = 1
-        classifier_train_args.data_module_name = 'JAADOpenPose'
+        classifier_train_args.data_module_name = 'CarlaRecorded'
+        classifier_train_args.carla_rec_set_name = 'VaryingCrossing'
         classifier_train_args.subsets_dir = subsets_dir
         classifier_train_args.hidden_size = 64
         classifier_train_args.num_layers = 1

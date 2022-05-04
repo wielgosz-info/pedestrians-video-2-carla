@@ -1,5 +1,3 @@
-from pytorch3d.transforms.rotation_conversions import rotation_6d_to_matrix
-import torch
 from torch import nn
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModel, MovementsModelOutputTypeMixin
 
@@ -15,7 +13,7 @@ class LSTM(MovementsModelOutputTypeMixin, MovementsModel):
                  embeddings_size: int = None,
                  **kwargs
                  ):
-        super().__init__(**kwargs,)
+        super().__init__(**kwargs)
 
         self.__input_nodes_len = len(self.input_nodes)
         self.__input_features = 2  # (x, y) points

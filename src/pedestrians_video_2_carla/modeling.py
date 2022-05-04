@@ -16,7 +16,7 @@ from pedestrians_video_2_carla.modules.flow.base import LitBaseFlow
 from pedestrians_video_2_carla.modules.flow.classification import LitClassificationFlow
 from pedestrians_video_2_carla.modules.flow.pose_lifting import \
     LitPoseLiftingFlow
-from pedestrians_video_2_carla.utils.paths import get_run_id_from_checkpoint_path, resolve_ckpt_path
+from pedestrians_video_2_carla.utils.paths import get_run_id_from_checkpoint_path, get_run_id_from_log_dir, resolve_ckpt_path
 
 try:
     import wandb
@@ -316,7 +316,7 @@ def main(
         # we need to explicitly set the datamodule here
         dm.prepare_data()
         dm.setup(stage='predict')
-        run_id = get_run_id_from_checkpoint_path(args.ckpt_path)
+        run_id = get_run_id_from_checkpoint_path(args.ckpt_path) if args.ckpt_path else version
         for set_name in args.predict_sets:
             dm.choose_predict_set(set_name)
             outputs = trainer.predict(

@@ -1,30 +1,11 @@
-from enum import Enum
 from typing import Dict, List, Tuple, Type
+from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
 import torch
 from torch import nn
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton, get_skeleton_name_by_type
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from pytorch3d.transforms.rotation_conversions import rotation_6d_to_matrix
-
-
-class MovementsModelOutputType(Enum):
-    """
-    Enum for the different model types.
-    """
-    pose_changes = 0  # default, prefferred
-
-    # undesired, but possible; it will most likely deform the skeleton; incompatible with some loss functions
-    absolute_loc_rot = 1
-
-    # undesired, but possible; it will most likely deform the skeleton and results in broken rotations; incompatible with some loss functions
-    absolute_loc = 2
-
-    # somewhat ok
-    relative_rot = 3
-
-    # 2D pose to 2D pose; used in autoencoder flow
-    pose_2d = 4
 
 
 class MovementsModel(nn.Module):
@@ -125,7 +106,7 @@ class MovementsModel(nn.Module):
         raise NotImplementedError()
 
 
-class MovementsModelOutputTypeMixin(object):
+class MovementsModelOutputTypeMixin:
     """
     Mixin for the movements model that support different output types.
     """

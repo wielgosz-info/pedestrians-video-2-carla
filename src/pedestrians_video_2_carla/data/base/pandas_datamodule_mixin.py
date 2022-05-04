@@ -12,7 +12,7 @@ from tqdm.auto import tqdm
 # pandas.options.mode.chained_assignment = 'raise'
 
 
-class PandasDataModuleMixin(object):
+class PandasDataModuleMixin:
     def __init__(
         self,
         data_filepath: str,
