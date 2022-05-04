@@ -232,7 +232,10 @@ class LitClassificationFlow(pl.LightningModule):
         # get class counts
         class_counts = self.trainer.datamodule.class_counts
         prevalent_class = torch.argmax(
-            torch.Tensor(list(class_counts['train'][self._targets_key].values()))).item()
+            torch.Tensor([
+                class_counts['train'][self._targets_key][n]
+                for n in self.class_labels
+            ])).item()
 
         initial_metrics = MetricCollection({
             **self.get_metrics(),
