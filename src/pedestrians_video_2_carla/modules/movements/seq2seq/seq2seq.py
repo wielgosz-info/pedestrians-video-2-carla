@@ -163,7 +163,7 @@ class Seq2Seq(MovementsModelOutputTypeMixin, MovementsModel):
 
         self.invert_sequence = invert_sequence
 
-        self._hparams = {
+        self._hparams.update({
             'hidden_size': hidden_size,
             'num_layers': num_layers,
             'p_dropout': p_dropout,
@@ -172,7 +172,7 @@ class Seq2Seq(MovementsModelOutputTypeMixin, MovementsModel):
             'teacher_force_drop': self.teacher_force_drop,
             'invert_sequence': self.invert_sequence,
             'bidirectional': bidirectional,
-        }
+        })
 
     @property
     def needs_targets(self) -> bool:

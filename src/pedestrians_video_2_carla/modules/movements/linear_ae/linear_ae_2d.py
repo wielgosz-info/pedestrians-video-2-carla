@@ -47,9 +47,9 @@ class LinearAE2D(MovementsModel):
             nn.Linear(1024 // model_scaling_factor, self.__output_size),
         )
 
-        self._hparams = {
+        self._hparams.update({
             'model_scaling_factor': model_scaling_factor,
-        }
+        })
 
     @property
     def output_type(self) -> MovementsModelOutputType:

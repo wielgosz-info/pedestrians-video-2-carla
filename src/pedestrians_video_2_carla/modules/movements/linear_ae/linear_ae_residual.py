@@ -63,9 +63,9 @@ class LinearAEResidual(MovementsModel):
             nn.Linear(linear_size, self._output_size),
         )
 
-        self._hparams = {
+        self._hparams.update({
             'linear_size': linear_size,
-        }
+        })
 
         self.apply(self.init_weights)
 

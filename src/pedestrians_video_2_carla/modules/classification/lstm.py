@@ -1,11 +1,12 @@
 from typing import Type
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
-import torch
+from .classification import ClassificationModel
+
 from torch import nn
 
 
-class LSTM(torch.nn.Module):
+class LSTM(ClassificationModel):
     """
     Very basic Linear + LSTM + Linear model.
     """
@@ -45,15 +46,15 @@ class LSTM(torch.nn.Module):
             batch_first=True
         )
         self.linear_2 = nn.Linear(hidden_size, self.__output_size)
+        self.dropout = nn.Dropout(self.__dropout)
 
-        self._hparams = {
+        self._hparams.update({
             'hidden_size': hidden_size,
             'num_layers': num_layers,
             'embeddings_size': embeddings_size,
             'dropout': self.__dropout
-        }
-        self.dropout = nn.Dropout(self.__dropout)
-
+        })
+        
     @property
     def hparams(self):
         return self._hparams

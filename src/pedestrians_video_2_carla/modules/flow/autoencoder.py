@@ -8,11 +8,56 @@ from pedestrians_video_2_carla.metrics.pck import PCK
 from pedestrians_video_2_carla.modules.flow.base import LitBaseFlow
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 
+# available models
+from pedestrians_video_2_carla.modules.movements.zero import ZeroMovements
+from pedestrians_video_2_carla.modules.movements.linear import Linear
+from pedestrians_video_2_carla.modules.movements.lstm import LSTM
+from pedestrians_video_2_carla.modules.movements.linear_ae import LinearAE, LinearAE2D
+from pedestrians_video_2_carla.modules.movements.seq2seq import Seq2Seq, Seq2SeqEmbeddings, Seq2SeqFlatEmbeddings, Seq2SeqResidualA, Seq2SeqResidualB, Seq2SeqResidualC
+
 
 class LitAutoencoderFlow(LitBaseFlow):
     @property
     def needs_graph(self):
         return self.movements_model.needs_graph
+
+    @classmethod
+    def get_available_models(cls) -> Dict[str, Dict[str, torch.nn.Module]]:
+        """
+        Returns a dictionary with available/required models.
+        """
+        return {
+            'movements': {
+                m.__name__: m
+                for m in [
+                    # For testing
+                    ZeroMovements,
+                    Linear,
+
+                    # Universal (support MovementsModelOutputType param)
+                    LinearAE,
+                    LSTM,
+                    Seq2Seq,
+                    Seq2SeqEmbeddings,
+                    Seq2SeqFlatEmbeddings,
+                    Seq2SeqResidualA,
+                    Seq2SeqResidualB,
+                    Seq2SeqResidualC,
+
+                    # For 2D pose autoencoding
+                    LinearAE2D,
+                ]
+            }
+        }
+
+    @classmethod
+    def get_default_models(cls) -> Dict[str, torch.nn.Module]:
+        """
+        Returns a dictionary with default models.
+        """
+        return {
+            'movements': LSTM,
+        }
 
     def get_initial_metrics(self) -> Dict[str, torchmetrics.Metric]:
         return {

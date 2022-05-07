@@ -55,10 +55,9 @@ class Seq2SeqFlatEmbeddings(Seq2Seq):
         ]
         self.embeddings = nn.Sequential(*[l for la in layers for l in la])
 
-        self._hparams = {
-            **self._hparams,
+        self._hparams.update({
             'embeddings_size': self.embeddings_size,
-        }
+        })
 
     @staticmethod
     def add_model_specific_args(parent_parser):

@@ -1,4 +1,5 @@
 from typing import Dict
+from pedestrians_video_2_carla.modules.trajectory.zero import ZeroTrajectory
 import torch
 from torchmetrics import MetricCollection
 from pedestrians_video_2_carla.metrics.fb.fb_mpjpe import FB_MPJPE
@@ -11,6 +12,15 @@ from pedestrians_video_2_carla.metrics.mrpe import MRPE
 from pedestrians_video_2_carla.modules.flow.base import LitBaseFlow
 from pedestrians_video_2_carla.modules.layers.projection import ProjectionModule
 from pedestrians_video_2_carla.utils.world import calculate_world_from_changes
+
+# available models
+from pedestrians_video_2_carla.modules.movements.zero import ZeroMovements
+from pedestrians_video_2_carla.modules.movements.linear import Linear
+from pedestrians_video_2_carla.modules.movements.lstm import LSTM
+from pedestrians_video_2_carla.modules.movements.linear_ae import LinearAE, LinearAEResidual, LinearAEResidualLeaky
+from pedestrians_video_2_carla.modules.movements.baseline_3d_pose import Baseline3DPose, Baseline3DPoseRot
+from pedestrians_video_2_carla.modules.movements.seq2seq import Seq2Seq, Seq2SeqEmbeddings, Seq2SeqFlatEmbeddings, Seq2SeqResidualA, Seq2SeqResidualB, Seq2SeqResidualC
+from pedestrians_video_2_carla.modules.movements.pose_former import PoseFormer, PoseFormerRot
 
 
 class LitPoseLiftingFlow(LitBaseFlow):
@@ -25,6 +35,56 @@ class LitPoseLiftingFlow(LitBaseFlow):
     @property
     def needs_graph(self):
         return self.movements_model.needs_graph
+
+    @classmethod
+    def get_available_models(cls) -> Dict[str, Dict[str, torch.nn.Module]]:
+        """
+        Returns a dictionary with available/required models.
+        """
+        return {
+            'movements': {
+                m.__name__: m
+                for m in [
+                    # For testing
+                    ZeroMovements,
+                    Linear,
+
+                    # Universal (support MovementsModelOutputType param)
+                    LinearAE,
+                    LSTM,
+                    Seq2Seq,
+                    Seq2SeqEmbeddings,
+                    Seq2SeqFlatEmbeddings,
+                    Seq2SeqResidualA,
+                    Seq2SeqResidualB,
+                    Seq2SeqResidualC,
+
+                    # For pose lifting
+                    Baseline3DPose,
+                    Baseline3DPoseRot,
+                    LinearAEResidual,
+                    LinearAEResidualLeaky,
+                    PoseFormer,
+                    PoseFormerRot,
+                ]
+            },
+            'trajectory': {
+                m.__name__: m
+                for m in [
+                    ZeroTrajectory
+                ]
+            }
+        }
+
+    @classmethod
+    def get_default_models(cls) -> Dict[str, torch.nn.Module]:
+        """
+        Returns a dictionary with default models.
+        """
+        return {
+            'trajectory': ZeroTrajectory,
+            'movements': LSTM,
+        }
 
     def get_metrics(self):
         return [

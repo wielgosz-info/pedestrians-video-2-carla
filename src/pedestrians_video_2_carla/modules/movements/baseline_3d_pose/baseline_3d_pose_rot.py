@@ -51,11 +51,11 @@ class Baseline3DPoseRot(MovementsModel):
         self.baseline.w1 = nn.Linear(self.__input_size, linear_size)
         self.baseline.w2 = nn.Linear(linear_size, self.__output_size)
 
-        self._hparams = {
+        self._hparams.update({
             'linear_size': linear_size,
             'num_stage': num_stage,
             'p_dropout': p_dropout
-        }
+        })
 
         self.apply(self.init_weights)
 

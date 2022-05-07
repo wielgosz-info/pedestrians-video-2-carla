@@ -75,7 +75,7 @@ class PoseFormer(MovementsModel):
             norm_layer=None
         )
 
-        self._hparams = {
+        self._hparams.update({
             'receptive_frames': receptive_frames,
             'single_joint_embeddings_size': single_joint_embeddings_size,
             'depth': depth,
@@ -86,7 +86,7 @@ class PoseFormer(MovementsModel):
             'drop_rate': drop_rate,
             'attn_drop_rate': attn_drop_rate,
             'drop_path_rate': drop_path_rate,
-        }
+        })
 
     @staticmethod
     def add_model_specific_args(parent_parser):

@@ -228,7 +228,7 @@ def setup_args() -> argparse.ArgumentParser:
     :return: the argument parser
     :rtype: argparse.ArgumentParser
     """
-    (data_modules, _, _, _) = discover_available_classes()
+    (data_modules, _) = discover_available_classes()
 
     parser = argparse.ArgumentParser(
         description="Replacement metrics flow for JAAD dataset",

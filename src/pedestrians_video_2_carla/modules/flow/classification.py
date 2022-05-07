@@ -1,6 +1,7 @@
 
 from functools import cached_property
 from typing import Any, Dict, List, Tuple, Type, Union
+from pedestrians_video_2_carla.modules.classification.classification import ClassificationModel
 import pytorch_lightning as pl
 import platform
 from torch_geometric.data import Batch
@@ -32,15 +33,13 @@ class LitClassificationFlow(pl.LightningModule):
     # TODO: potentially update to re-use base flow when feasible
 
     def __init__(self,
-                 classification_model_name,
+                 classification_model: ClassificationModel,
                  classification_targets_key: str,
-                 classification_average: str = 'weighted',
+                 classification_average: str = 'macro',
                  input_nodes: Type[Skeleton] = CARLA_SKELETON,
-                 lr: float = 0.0001,
                  **kwargs: Any) -> None:
         super().__init__()
 
-        self.learning_rate = lr or 0.0001
         self.input_nodes = input_nodes
         self._targets_key = classification_targets_key
         self._outputs_key = classification_targets_key + '_logits'
@@ -53,19 +52,11 @@ class LitClassificationFlow(pl.LightningModule):
         self.metrics = MetricCollection(self.get_metrics())
 
         # TODO: this cannot stay, we need to be able to parse model-specific args
-        self.classification_model: RNNModel = {
-            "GConvLSTM": GConvLSTMModel,
-            "DCRNN": DCRNNModel,
-            "TGCN": TGCNModel,
-            "GConvGRU": GConvGRUModel,
-            "LSTM": LSTM,
-        }[classification_model_name](**kwargs)
+        self.classification_model = classification_model
 
         self.save_hyperparameters({
             'host': platform.node(),
-            'lr': self.learning_rate,
             'input_nodes': get_skeleton_name_by_type(self.input_nodes),
-            'classification_model': classification_model_name,
             'classification_targets_key': self._targets_key,
             'classification_average': self._average,
             **self.classification_model.hparams,
@@ -137,6 +128,30 @@ class LitClassificationFlow(pl.LightningModule):
     def class_labels(self):
         return self.trainer.datamodule.class_labels[self._targets_key]
 
+    @classmethod
+    def get_available_models(cls) -> Dict[str, Dict[str, torch.nn.Module]]:
+        """
+        Returns a dictionary with available/required models.
+        """
+        return {
+            'classification': {
+                "GConvLSTM": GConvLSTMModel,
+                "DCRNN": DCRNNModel,
+                "TGCN": TGCNModel,
+                "GConvGRU": GConvGRUModel,
+                "LSTM": LSTM,
+            }
+        }
+
+    @classmethod
+    def get_default_models(cls) -> Dict[str, torch.nn.Module]:
+        """
+        Returns a dictionary with default models.
+        """
+        return {
+            'classification': LSTM,
+        }
+
     @staticmethod
     def add_model_specific_args(parent_parser):
         """
@@ -152,12 +167,6 @@ class LitClassificationFlow(pl.LightningModule):
             default=CARLA_SKELETON
         )
         parser.add_argument(
-            '--classification_model_name',
-            type=str,
-            choices=['GConvLSTM', 'DCRNN', 'TGCN', 'GConvGRU', 'LSTM'],
-            default='DCRNN',
-        )
-        parser.add_argument(
             '--classification_targets_key',
             type=str,
             default='cross',
@@ -166,25 +175,13 @@ class LitClassificationFlow(pl.LightningModule):
             '--classification_average',
             type=str,
             choices=['micro', 'macro', 'weighted', 'none'],
-            default='weighted',
+            default='macro',
         )
-        # parser.add_argument(
-        #     '--lr',
-        #     default=None,
-        #     type=float,
-        # )
 
         return parent_parser
 
-    def configure_optimizers(self) -> Tuple[List[torch.optim.Optimizer], List[Dict[str, '_LRScheduler']]]:
-        optimizer = torch.optim.AdamW(
-            self.parameters(), lr=self.learning_rate, weight_decay=0.01)
-
-        config = {
-            'optimizer': optimizer,
-        }
-
-        return config
+    def configure_optimizers(self) -> Dict[str, Union[torch.optim.Optimizer, '_LRScheduler']]:
+        return self.classification_model.configure_optimizers()
 
     @rank_zero_only
     def on_fit_start(self) -> None:

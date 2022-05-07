@@ -35,10 +35,9 @@ class Seq2SeqEmbeddings(Seq2Seq):
         self.embeddings = nn.ModuleList([nn.Linear(2, self.single_joint_embeddings_size)
                                          for _ in range(len(self.input_nodes))])
 
-        self._hparams = {
-            **self._hparams,
+        self._hparams.update({
             'single_joint_embeddings_size': self.single_joint_embeddings_size,
-        }
+        })
 
     @staticmethod
     def add_model_specific_args(parent_parser):

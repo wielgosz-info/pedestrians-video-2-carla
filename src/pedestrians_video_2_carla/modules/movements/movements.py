@@ -1,14 +1,14 @@
 from typing import Dict, List, Tuple, Type
+from pedestrians_video_2_carla.modules.flow.base_model import BaseModel
 from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
 import torch
-from torch import nn
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton, get_skeleton_name_by_type
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from pytorch3d.transforms.rotation_conversions import rotation_6d_to_matrix
 
 
-class MovementsModel(nn.Module):
+class MovementsModel(BaseModel):
     """
     Base interface for movement models.
     """
@@ -16,35 +16,18 @@ class MovementsModel(nn.Module):
     def __init__(self,
                  input_nodes: Type[Skeleton] = CARLA_SKELETON,
                  output_nodes: Type[Skeleton] = CARLA_SKELETON,
-                 disable_lr_scheduler: bool = False,
-                 lr: float = None,
                  *args,
                  **kwargs
                  ):
-        super().__init__()
+        super().__init__(prefix='movements', *args, **kwargs)
 
         self.input_nodes = input_nodes
         self.output_nodes = output_nodes
-        self.disable_lr_scheduler = disable_lr_scheduler
 
-        if lr is None:
-            self.learning_rate = 1e-2 if self.disable_lr_scheduler else 5e-2
-        else:
-            self.learning_rate = lr
-
-        self._hparams = {}
-
-    @property
-    def hparams(self):
-        return {
-            'movements_model_name': self.__class__.__name__,
-            'movements_output_type': self.output_type.name,
+        self._hparams.update({
             'input_nodes': get_skeleton_name_by_type(self.input_nodes),
             'output_nodes': get_skeleton_name_by_type(self.output_nodes),
-            'disable_lr_scheduler': self.disable_lr_scheduler,
-            'lr': self.learning_rate,
-            **self._hparams
-        }
+        })
 
     @property
     def output_type(self) -> MovementsModelOutputType:

@@ -2,9 +2,9 @@ import argparse
 import logging
 import math
 import os
-import re
 import sys
 from typing import Dict, List, Tuple, Type, Union
+from pedestrians_video_2_carla.modules.flow.base_model import BaseModel
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, ModelSummary
@@ -16,7 +16,7 @@ from pedestrians_video_2_carla.modules.flow.base import LitBaseFlow
 from pedestrians_video_2_carla.modules.flow.classification import LitClassificationFlow
 from pedestrians_video_2_carla.modules.flow.pose_lifting import \
     LitPoseLiftingFlow
-from pedestrians_video_2_carla.utils.paths import get_run_id_from_checkpoint_path, get_run_id_from_log_dir, resolve_ckpt_path
+from pedestrians_video_2_carla.utils.paths import get_run_id_from_checkpoint_path, resolve_ckpt_path
 
 try:
     import wandb
@@ -33,41 +33,15 @@ from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
 from pedestrians_video_2_carla.data.carla.carla_2d3d_datamodule import \
     Carla2D3DDataModule
 from pedestrians_video_2_carla.loggers.pedestrian import PedestrianLogger
-from pedestrians_video_2_carla.modules.movements.movements import MovementsModel
-from pedestrians_video_2_carla.modules.trajectory.trajectory import TrajectoryModel
-from pedestrians_video_2_carla.modules.movements import MOVEMENTS_MODELS
-from pedestrians_video_2_carla.modules.trajectory import TRAJECTORY_MODELS
 
 # global registry of available classes
 data_modules: Dict[str, Type[BaseDataModule]] = {}
 flow_modules: Dict[str, Type[LitBaseFlow]] = {}
-movements_models: Dict[str, Type[MovementsModel]] = {}
-trajectory_models: Dict[str, Type[MovementsModel]] = {}
 
 # ---- CLI ----
 # The functions defined in this section are wrappers around the main Python
 # API allowing them to be called directly from the terminal as a CLI
 # executable/script.
-
-
-def get_flow_module_cls(model_name: str = 'pose_lifting') -> Type[LitBaseFlow]:
-    global flow_modules
-    return flow_modules[model_name]
-
-
-def get_movements_model_cls(model_name: str = "Baseline3DPoseRot") -> Type[MovementsModel]:
-    global movements_models
-    return movements_models[model_name]
-
-
-def get_trajectory_model_cls(model_name: str = "ZeroTrajectory") -> Type[TrajectoryModel]:
-    global trajectory_models
-    return trajectory_models[model_name]
-
-
-def get_data_module_cls(data_module_name: str = "CarlaRecorded") -> Type[BaseDataModule]:
-    global data_modules
-    return data_modules[data_module_name]
 
 
 def add_program_args(parser: argparse.ArgumentParser):
@@ -76,8 +50,6 @@ def add_program_args(parser: argparse.ArgumentParser):
     """
     global data_modules
     global flow_modules
-    global movements_models
-    global trajectory_models
 
     parser.add_argument(
         "--version",
@@ -122,22 +94,6 @@ def add_program_args(parser: argparse.ArgumentParser):
         help="Data module class to use",
         default="CarlaRecorded",
         choices=list(data_modules.keys()),
-        type=str,
-    )
-    parser.add_argument(
-        "--movements_model_name",
-        dest="movements_model_name",
-        help="Movements model class to use",
-        default="Baseline3DPoseRot",
-        choices=list(movements_models.keys()),
-        type=str,
-    )
-    parser.add_argument(
-        "--trajectory_model_name",
-        dest="trajectory_model_name",
-        help="Trajectory model class to use",
-        default="ZeroTrajectory",
-        choices=list(trajectory_models.keys()),
         type=str,
     )
     parser.add_argument(
@@ -206,8 +162,7 @@ def main(
     discover_available_classes()
 
     if isinstance(args, argparse.Namespace):
-        (data_module_cls, flow_module_cls,
-         movements_model_cls, trajectory_model_cls) = setup_classes(args)
+        (data_module_cls, flow_module_cls, models_cls), _ = setup_classes(args)
     else:
         parser = argparse.ArgumentParser(
             description="Map pedestrians movements from videos to CARLA"
@@ -215,14 +170,15 @@ def main(
 
         args, (data_module_cls,
                flow_module_cls,
-               movements_model_cls,
-               trajectory_model_cls) = setup_flow(args, parser)
+               models_cls) = setup_flow(args, parser)
 
     dict_args = vars(args)
 
-    # model
-    movements_model = movements_model_cls(**dict_args)
-    trajectory_model = trajectory_model_cls(**dict_args)
+    # models
+    models = {
+        f"{model_type}_model": model_cls(**dict_args)
+        for model_type, model_cls in models_cls.items()
+    }
 
     # loggers - try to use WandbLogger or fallback to TensorBoardLogger
     # the primary logger log dir is used as default for all loggers & checkpoints
@@ -251,8 +207,10 @@ def main(
             name=os.path.join(
                 args.flow,
                 data_module_cls.__name__,
-                trajectory_model.__class__.__name__,
-                movements_model.__class__.__name__,
+                *[
+                    model.__class__.__name__
+                    for model in models.values()
+                ]
             ),
             version=version,
             default_hp_metric=False,
@@ -263,7 +221,8 @@ def main(
 
     # some models support this as a CLI option
     # so we only add it if it's not already set
-    dict_args.setdefault("movements_output_type", movements_model.output_type)
+    if "movements_model" in models:
+        dict_args.setdefault("movements_output_type", models["movements_model"].output_type)
 
     pedestrian_logger = PedestrianLogger(
         save_dir=os.path.join(log_dir, "videos"),
@@ -290,13 +249,11 @@ def main(
 
         flow_module = flow_module_cls.load_from_checkpoint(
             checkpoint_path=args.ckpt_path,
-            movements_model=movements_model,
-            trajectory_model=trajectory_model
+            **models
         )
     else:
         flow_module = flow_module_cls(
-            movements_model=movements_model,
-            trajectory_model=trajectory_model,
+            **models,
             **dict_args
         )
 
@@ -339,11 +296,9 @@ def main(
     return log_dir, dm.subsets_dir
 
 
-def discover_available_classes():
+def discover_available_classes() -> Tuple[Dict[str, Type[BaseDataModule]], Dict[str, Type[LitBaseFlow]]]:
     global data_modules
     global flow_modules
-    global movements_models
-    global trajectory_models
 
     data_modules = discover_datamodules()
     flow_modules = {
@@ -351,11 +306,8 @@ def discover_available_classes():
         'autoencoder': LitAutoencoderFlow,
         'classification': LitClassificationFlow,
     }
-    # TODO: handle movements & trajectory models via discovery
-    movements_models = MOVEMENTS_MODELS
-    trajectory_models = TRAJECTORY_MODELS
 
-    return data_modules, flow_modules, movements_models, trajectory_models
+    return data_modules, flow_modules
 
 
 def setup_flow(args, parser: argparse.ArgumentParser):
@@ -377,8 +329,7 @@ def setup_flow(args, parser: argparse.ArgumentParser):
 
     (data_module_cls,
      flow_module_cls,
-     movements_model_cls,
-     trajectory_model_cls) = setup_classes(program_args)
+     models_cls), parser = setup_classes(program_args, parser, tmp_args)
 
     # seed everything as soon as we can if needed
     if program_args.seed:
@@ -388,8 +339,9 @@ def setup_flow(args, parser: argparse.ArgumentParser):
 
     parser = data_module_cls.add_data_specific_args(parser)
     parser = flow_module_cls.add_model_specific_args(parser)
-    parser = movements_model_cls.add_model_specific_args(parser)
-    parser = trajectory_model_cls.add_model_specific_args(parser)
+
+    for model_cls in models_cls.values():
+        parser = model_cls.add_model_specific_args(parser)
 
     parser = PedestrianLogger.add_logger_specific_args(parser)
 
@@ -413,21 +365,47 @@ def setup_flow(args, parser: argparse.ArgumentParser):
     For now, I set it to `(4 * val_set_size) / batch_size = {args.limit_train_batches}` for you."""
             )
 
-    return args, (data_module_cls, flow_module_cls, movements_model_cls, trajectory_model_cls)
+    return args, (data_module_cls, flow_module_cls, models_cls)
 
 
-def setup_classes(program_args: argparse.Namespace):
+def setup_classes(program_args: argparse.Namespace, parser: argparse.ArgumentParser=None, args: List[str]=None) -> Tuple[BaseDataModule, LitBaseFlow, Dict[str, BaseModel]]:
     """
-    Extracts the classes from the program args. discover_available_classes needs to be called first.
+    Extracts the classes from the program args. discover_available_classes needs to be called first
+    to get supported DataModule and FlowModule classes.
     """
+    global flow_modules
+    flow_module_cls = flow_modules[program_args.flow]  # TODO: should this be subcommand?
 
-    data_module_cls = get_data_module_cls(program_args.data_module_name)
-    flow_module_cls = get_flow_module_cls(
-        program_args.flow)  # TODO: should this be subcommand?
-    movements_model_cls = get_movements_model_cls(program_args.movements_model_name)
-    trajectory_model_cls = get_trajectory_model_cls(program_args.trajectory_model_name)
+    global data_modules
+    data_module_cls = data_modules[program_args.data_module_name]
 
-    return (data_module_cls, flow_module_cls, movements_model_cls, trajectory_model_cls)
+    available_models = flow_module_cls.get_available_models()
+    default_models = flow_module_cls.get_default_models()
+    selected_models: Dict[str, BaseModel] = {}
+
+    # we either have 'hand-crafted' args or need to dynamically create & parse them
+    if parser is not None:
+        # dynamically create & parse args
+        for model_type, model_choices in available_models.items():
+            parser.add_argument(
+                f"--{model_type}_model_name",
+                dest=f"{model_type}_model_name",
+                help=f"{model_type.capitalize()} model class to use",
+                default=default_models[model_type],
+                choices=list(model_choices.values()),
+                type=lambda x: model_choices[x],
+            )
+
+        program_args, _ = parser.parse_known_args(args)
+
+    for model_type, model_choices in available_models.items():
+        model_name = getattr(program_args, f'{model_type}_model_name', None)
+        if model_name is not None and model_name in model_choices:
+            selected_models[model_type] = model_choices[model_name]
+        else:
+            selected_models[model_type] = default_models[model_type]
+
+    return (data_module_cls, flow_module_cls, selected_models), parser
 
 
 def run():

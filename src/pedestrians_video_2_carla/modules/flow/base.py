@@ -118,6 +118,20 @@ class LitBaseFlow(pl.LightningModule):
     def crucial_keys(self) -> List[str]:
         return self._crucial_keys.copy()
 
+    @classmethod
+    def get_available_models(cls) -> Dict[str, Dict[str, torch.nn.Module]]:
+        """
+        Returns a dictionary with available/required models.
+        """
+        return {}
+
+    @classmethod
+    def get_default_models(cls) -> Dict[str, torch.nn.Module]:
+        """
+        Returns a dictionary with default models.
+        """
+        return {}
+
     def get_initial_metrics(self) -> Dict[str, torchmetrics.Metric]:
         """
         Returns metrics to calculate on each validation batch at the beginning of the training.

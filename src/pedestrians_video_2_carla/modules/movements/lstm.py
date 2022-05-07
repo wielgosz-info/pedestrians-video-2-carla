@@ -41,11 +41,11 @@ class LSTM(MovementsModelOutputTypeMixin, MovementsModel):
         )
         self.linear_2 = nn.Linear(hidden_size, self.__output_size)
 
-        self._hparams = {
+        self._hparams.update({
             'hidden_size': hidden_size,
             'num_layers': num_layers,
             'embeddings_size': embeddings_size
-        }
+        })
 
     @staticmethod
     def add_model_specific_args(parent_parser):
