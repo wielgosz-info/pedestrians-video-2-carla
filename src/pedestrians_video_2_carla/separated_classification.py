@@ -164,6 +164,11 @@ def main(args: List[str]):
         classifier_train_args.subsets_dir = subsets_dir
         classifier_train_args.renderers = [PedestrianRenderers.none]
 
+        # forcefully disable artificial noise - it was already applied to the data
+        classifier_train_args.missing_point_probability = 0
+        classifier_train_args.noise = 'zero'
+        classifier_train_args.noise_param = 0
+
         # if recurrent GNNs are used, batch_size should be 1; TODO: make this smarter instead of listing all possible models here
         if flow_args.classification_model_name in ['GConvLSTM', 'DCRNN', 'TGCN', 'GConvGRU']:
             classifier_train_args.log_every_n_steps = classifier_train_args.batch_size * classifier_train_args.log_every_n_steps
