@@ -51,7 +51,6 @@ class LitClassificationFlow(pl.LightningModule):
         self.criterion = torch.nn.CrossEntropyLoss()
         self.metrics = MetricCollection(self.get_metrics())
 
-        # TODO: this cannot stay, we need to be able to parse model-specific args
         self.classification_model = classification_model
 
         self.save_hyperparameters({

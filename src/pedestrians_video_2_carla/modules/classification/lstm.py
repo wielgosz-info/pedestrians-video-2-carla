@@ -54,10 +54,6 @@ class LSTM(ClassificationModel):
             'embeddings_size': embeddings_size,
             'dropout': self.__dropout
         })
-        
-    @property
-    def hparams(self):
-        return self._hparams
 
     @property
     def needs_graph(self) -> bool:

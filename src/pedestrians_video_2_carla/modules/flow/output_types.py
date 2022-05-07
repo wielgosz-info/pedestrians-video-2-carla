@@ -26,3 +26,10 @@ class TrajectoryModelOutputType(Enum):
     """
     changes = 0  # default
     loc_rot = 1
+
+
+class ClassificationModelOutputType(Enum):
+    """
+    Enum for the different model types.
+    """
+    multiclass = 0  # default
