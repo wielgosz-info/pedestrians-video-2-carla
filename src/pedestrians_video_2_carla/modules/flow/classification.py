@@ -275,11 +275,6 @@ class LitClassificationFlow(pl.LightningModule):
         return unwrapped
 
     def training_step(self, batch, batch_idx):
-        # temporary
-        (frames, *_) = self._unwrap_batch(batch)
-        if batch_idx == 0:
-            print(frames[0][0])
-
         return self._step(batch, batch_idx, 'train')
 
     def validation_step(self, batch, batch_idx):

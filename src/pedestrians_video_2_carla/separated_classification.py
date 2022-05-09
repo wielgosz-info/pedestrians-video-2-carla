@@ -61,6 +61,7 @@ def main(args: List[str]):
         'logs_dir': flow_args.logs_dir,
         'prefer_tensorboard': flow_args.prefer_tensorboard,
         'batch_size': flow_args.batch_size,
+        'seed': flow_args.seed,
         #
         'data_module_name': flow_args.data_module_name,
         'clip_length': flow_args.clip_length,
@@ -184,7 +185,7 @@ def main(args: List[str]):
             tags=[experiment_tag, tag],
         )
 
-        if len(after_run_params) > 0:
+        if len(after_run_params) > 0 and hasattr(trainer.logger[0].experiment.config, 'update'):
             # store the data about the artificial noise applied to the data
             trainer.logger[0].experiment.config.update(after_run_params)
 

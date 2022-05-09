@@ -163,6 +163,10 @@ def main(
 
     if isinstance(args, argparse.Namespace):
         (data_module_cls, flow_module_cls, models_cls), _ = setup_classes(args)
+
+        # seed everything as soon as we can if needed
+        if args.seed:
+            pl.seed_everything(args.seed, workers=True)
     else:
         parser = argparse.ArgumentParser(
             description="Map pedestrians movements from videos to CARLA"
@@ -170,7 +174,7 @@ def main(
 
         args, (data_module_cls,
                flow_module_cls,
-               models_cls) = setup_flow(args, parser)
+               models_cls) = setup_flow(args, parser) # this also seeds everything
 
     dict_args = vars(args)
 
