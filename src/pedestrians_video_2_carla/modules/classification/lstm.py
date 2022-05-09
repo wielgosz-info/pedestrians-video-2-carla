@@ -17,7 +17,7 @@ class LSTM(ClassificationModel):
                  num_layers: int = 2,
                  embeddings_size: int = None,
                  num_classes: int = 2,
-                 dropout: float = 0.25,
+                 p_dropout: float = 0.25,
                  **kwargs
                  ):
         super().__init__()
@@ -27,7 +27,7 @@ class LSTM(ClassificationModel):
 
         self.__input_size = self.__input_nodes_len * self.__input_features
         self.__output_size = num_classes
-        self.__dropout = dropout
+        self.__p_dropout = p_dropout
 
         if embeddings_size:
             self.__embeddings_size = embeddings_size
@@ -46,13 +46,13 @@ class LSTM(ClassificationModel):
             batch_first=True
         )
         self.linear_2 = nn.Linear(hidden_size, self.__output_size)
-        self.dropout = nn.Dropout(self.__dropout)
+        self.dropout = nn.Dropout(self.__p_dropout)
 
         self._hparams.update({
             'hidden_size': hidden_size,
             'num_layers': num_layers,
             'embeddings_size': embeddings_size,
-            'dropout': self.__dropout
+            'p_dropout': self.__p_dropout
         })
 
     @property
@@ -78,7 +78,7 @@ class LSTM(ClassificationModel):
             type=int,
         )
         parser.add_argument(
-            '--dropout',
+            '--p_dropout',
             default=0.25,
             type=float,
         )

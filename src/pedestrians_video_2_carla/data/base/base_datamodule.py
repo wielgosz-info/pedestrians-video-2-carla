@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Iterable, List, Literal, Optional, Tuple
 
 import h5py
 import numpy as np
+from pedestrians_video_2_carla.data.base.cross_datamodule_mixin import CrossDataModuleMixin
 import torch.multiprocessing
 import yaml
 from pedestrians_video_2_carla.data import (DATASETS_BASE, DEFAULT_ROOT,
@@ -190,7 +191,11 @@ class BaseDataModule(LightningDataModule):
 
     @classmethod
     def uses_projection_mixin(cls):
-        return True
+        return False
+
+    @classmethod
+    def uses_cross_mixin(cls):
+        return False
 
     @classmethod
     def add_data_specific_args(cls, parent_parser):
@@ -252,6 +257,8 @@ class BaseDataModule(LightningDataModule):
         )
         if cls.uses_projection_mixin():
             Projection2DMixin.add_cli_args(parser)
+        if cls.uses_cross_mixin():
+            CrossDataModuleMixin.add_cli_args(parser)
 
         parent_parser = cls.add_subclass_specific_args(parent_parser)
 

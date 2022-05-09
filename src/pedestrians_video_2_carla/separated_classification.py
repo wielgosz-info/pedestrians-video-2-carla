@@ -20,7 +20,7 @@ import randomname
 
 def setup_args() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Classification flow for JAAD dataset with & without denoising AE.",
+        description="Classification flow for data with & without denoising AE.",
     )
     parser.add_argument(
         '--keep_predictions',
@@ -60,18 +60,27 @@ def main(args: List[str]):
         'root_dir': flow_args.root_dir,
         'logs_dir': flow_args.logs_dir,
         'prefer_tensorboard': flow_args.prefer_tensorboard,
+        'batch_size': flow_args.batch_size,
         #
         'data_module_name': flow_args.data_module_name,
         'clip_length': flow_args.clip_length,
         'clip_offset': flow_args.clip_offset,
         'input_nodes': flow_args.input_nodes,
+        'label_frames': flow_args.label_frames,
         #
         'fast_dev_run': flow_args.fast_dev_run,
     }
 
     if flow_args.data_module_name == 'CarlaRecorded':
         common_predict_args['carla_rec_set_name'] = flow_args.carla_rec_set_name
-        common_predict_args['carla_rec_label_frames'] = flow_args.carla_rec_label_frames
+    elif flow_args.data_module_name == 'dataOpenPose':
+        common_predict_args['strong_points'] = flow_args.strong_points
+
+    noise_args = {
+        'missing_point_probability': flow_args.missing_point_probability,
+        'noise': flow_args.noise,
+        'noise_param': flow_args.noise_param,
+    }
 
     # Gather input data (add artificial noise)
     data_prep_args = argparse.Namespace(**{
@@ -83,18 +92,11 @@ def main(args: List[str]):
         'ckpt_path': None,
 
         # experiment-dependent args
-        'missing_point_probability': flow_args.missing_point_probability,
-        'noise': flow_args.noise,
-        'noise_param': flow_args.noise_param,
+        **noise_args,
         'transform': BaseTransforms.none,  # do not deform data in any way,
     })
 
-    # TODO: get it via prefixing?
-    if flow_args.data_module_name == 'CarlaRecorded':
-        data_prep_args.carla_rec_set_name = flow_args.carla_rec_set_name
-        data_prep_args.carla_rec_label_frames = flow_args.carla_rec_label_frames
-
-    prep_log_dir, gt_jaad_subsets_dir = modeling_main(
+    prep_log_dir, gt_data_subsets_dir = modeling_main(
         data_prep_args,
         version=data_prep_version,
         standalone=True,
@@ -102,15 +104,15 @@ def main(args: List[str]):
     )
 
     prep_run_id = get_run_id_from_log_dir(prep_log_dir)
-    prep_jaad_subsets_dir = os.path.join(gt_jaad_subsets_dir.replace(
+    prep_data_subsets_dir = os.path.join(gt_data_subsets_dir.replace(
         'DataModule', 'DataModulePredictions'), prep_run_id)
-    logging.getLogger(__name__).info(f'Prepared data saved in {prep_jaad_subsets_dir}')
+    logging.getLogger(__name__).info(f'Prepared data saved in {prep_data_subsets_dir}')
 
     # Gather predictions from the AE
     ae_pred_args = argparse.Namespace(**{
         **common_predict_args,
 
-        'subsets_dir': prep_jaad_subsets_dir,
+        'subsets_dir': prep_data_subsets_dir,
 
         # AE args
         # TODO: get this from cmd line instead of hardcoding - implement args prefixing
@@ -137,22 +139,22 @@ def main(args: List[str]):
     except ImportError:
         pass
 
-    orig_ae_jaad_subsets_dir = os.path.join(gt_jaad_subsets_dir.replace(
+    orig_ae_data_subsets_dir = os.path.join(gt_data_subsets_dir.replace(
         'DataModule', 'DataModulePredictions'), ae_run_id)
-    ae_jaad_subsets_dir = os.path.join(gt_jaad_subsets_dir.replace(
+    ae_data_subsets_dir = os.path.join(gt_data_subsets_dir.replace(
         'DataModule', 'DataModulePredictions'), ae_predict_version)
 
     # rename the directory from ae checkpoint to ae predictions run id to avoid confusion/clash when multiple runs
     # are done with the same AE checkpoint
-    os.rename(orig_ae_jaad_subsets_dir, ae_jaad_subsets_dir)
+    os.rename(orig_ae_data_subsets_dir, ae_data_subsets_dir)
 
-    logging.getLogger(__name__).info(f'Data after autoencoder saved in {ae_jaad_subsets_dir}')
+    logging.getLogger(__name__).info(f'Data after autoencoder saved in {ae_data_subsets_dir}')
 
     # Train the same classifier three times: on clean data (for baseline), once on noisy data and once with denoising AE
-    for version, subsets_dir, tag in [
-        (classifier_version_a, gt_jaad_subsets_dir, 'clean'),
-        (classifier_version_b, prep_jaad_subsets_dir, 'noisy'),
-        (classifier_version_c, ae_jaad_subsets_dir, 'noisy_ae'),
+    for version, subsets_dir, tag, after_run_params in [
+        (classifier_version_a, gt_data_subsets_dir, 'clean', { 'ae': False }),
+        (classifier_version_b, prep_data_subsets_dir, 'noisy', { **noise_args, 'ae': False }),
+        (classifier_version_c, ae_data_subsets_dir, 'noisy_ae', { **noise_args, 'ae': True }),
     ]:
         logging.getLogger(__name__).info(f"Training classifier on {subsets_dir}.")
 
@@ -177,10 +179,21 @@ def main(args: List[str]):
         _, _, trainer = modeling_main(
             classifier_train_args,
             version=version,
-            standalone=True,  # save it as a separate run for simplicity
+            standalone=False,
             return_trainer=True,
             tags=[experiment_tag, tag],
         )
+
+        if len(after_run_params) > 0:
+            # store the data about the artificial noise applied to the data
+            trainer.logger[0].experiment.config.update(after_run_params)
+
+        try:
+            import wandb
+            wandb.finish()
+        except ImportError:
+            pass
+
         metrics[version] = {k: v for k,
                             v in trainer.logged_metrics.items() if k.startswith('hp')}
 
@@ -188,8 +201,8 @@ def main(args: List[str]):
         print_metrics(results, f'{name} metrics:')
 
     if not flow_args.keep_predictions:
-        shutil.rmtree(ae_jaad_subsets_dir, ignore_errors=True)
-        shutil.rmtree(prep_jaad_subsets_dir, ignore_errors=True)
+        shutil.rmtree(ae_data_subsets_dir, ignore_errors=True)
+        shutil.rmtree(prep_data_subsets_dir, ignore_errors=True)
 
 
 def run():

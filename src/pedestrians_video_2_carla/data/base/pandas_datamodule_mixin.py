@@ -63,6 +63,10 @@ class PandasDataModuleMixin:
             'fast_dev_run': self._fast_dev_run
         }
 
+    @classmethod
+    def uses_projection_mixin(cls):
+        return True
+
     def _get_raw_data(self, clips: pandas.DataFrame) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, Any]]:
         """
         Helper function to get the raw data from the clips. They are already shuffled.

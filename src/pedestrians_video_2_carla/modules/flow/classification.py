@@ -58,6 +58,7 @@ class LitClassificationFlow(pl.LightningModule):
             'input_nodes': get_skeleton_name_by_type(self.input_nodes),
             'classification_targets_key': self._targets_key,
             'classification_average': self._average,
+            'num_classes': self._num_classes,
             **self.classification_model.hparams,
         })
 
@@ -206,14 +207,14 @@ class LitClassificationFlow(pl.LightningModule):
             **(initial_metrics or {}),
         }
 
+        self.hparams.update(additional_config)
+
         if not isinstance(self.logger[0], TensorBoardLogger):
             try:
                 self.logger[0].experiment.config.update(additional_config)
             except:
                 pass
             return
-
-        self.hparams.update(additional_config)
 
         self.logger[0].log_hyperparams(
             self.hparams,
@@ -274,6 +275,11 @@ class LitClassificationFlow(pl.LightningModule):
         return unwrapped
 
     def training_step(self, batch, batch_idx):
+        # temporary
+        (frames, *_) = self._unwrap_batch(batch)
+        if batch_idx == 0:
+            print(frames[0][0])
+
         return self._step(batch, batch_idx, 'train')
 
     def validation_step(self, batch, batch_idx):

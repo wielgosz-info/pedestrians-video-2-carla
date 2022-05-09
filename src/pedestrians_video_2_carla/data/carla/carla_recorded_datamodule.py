@@ -2,6 +2,7 @@ from typing import Any, Callable, Dict, List, Tuple
 import os
 import numpy as np
 import pandas as pd
+from pedestrians_video_2_carla.data.base.cross_datamodule_mixin import CrossDataModuleMixin
 
 import torch
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
@@ -24,17 +25,14 @@ def convert_to_list(x):
         return str(x)
 
 
-class CarlaRecordedDataModule(PandasDataModuleMixin, BaseDataModule):
+class CarlaRecordedDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseDataModule):
     def __init__(self,
                  carla_rec_set_name: str = CARLA_RECORDED_DEFAULT_SET_NAME,
-                 carla_rec_label_frames: float = -1,
                  **kwargs):
         self.set_name = carla_rec_set_name
-        self.label_frames = carla_rec_label_frames
-
-        self.__cross_label = 'frame.pedestrian.is_crossing'
 
         super().__init__(
+            cross_label = 'frame.pedestrian.is_crossing',
             data_filepath=os.path.join(
                 CARLA_RECORDED_DIR, self.set_name, 'data.csv'),
             primary_index=['id', 'camera.idx', 'pedestrian.idx'],
@@ -60,17 +58,13 @@ class CarlaRecordedDataModule(PandasDataModuleMixin, BaseDataModule):
         return {
             **super().settings,
             'carla_rec_set_name': self.set_name,
-            'carla_rec_label_frames': self.label_frames,
         }
 
     @classmethod
     def add_subclass_specific_args(cls, parent_parser):
-        parser = parent_parser.add_argument_group('Carla Recorded Data Module')
+        parser = parent_parser.add_argument_group('CarlaRec Data Module')
         parser.add_argument('--carla_rec_set_name', type=str,
                             default=CARLA_RECORDED_DEFAULT_SET_NAME)
-        parser.add_argument('--carla_rec_label_frames', type=float,
-                            default=-1,
-                            help='Fraction of last frames to search for "positive" labels. -1 means to check only the last frame.')
         return parent_parser
 
     def _clean_filter_sort_data(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -149,22 +143,8 @@ class CarlaRecordedDataModule(PandasDataModuleMixin, BaseDataModule):
             'end_frame': grouped_tail.loc[:, 'frame.idx'].to_numpy().astype(np.int32) + 1,
         }
 
-        if self.__cross_label in grouped_tail.columns:
-            if self.label_frames < 0:
-                cross_values = grouped_tail.loc[:, self.__cross_label].to_numpy()
-            else:
-                cutoffs = np.ceil(grouped.size().to_numpy() *
-                                  self.label_frames).astype(np.int) * -1
-                cross_values = []
-                for cutoff, (idx, rows) in zip(cutoffs, grouped):
-                    cross_values.append(
-                        np.any(rows.loc[:, self.__cross_label].iloc[cutoff:].to_numpy())
-                    )
+        self._add_cross_to_meta(grouped, grouped_tail, meta)
 
-            meta[self.__cross_label] = np.choose(
-                cross_values,
-                self.class_labels[self.__cross_label]
-            ).tolist()
         return projection_2d, targets, meta
 
     def _extract_transform(self, grouped, column_name):
@@ -186,5 +166,5 @@ class CarlaRecordedDataModule(PandasDataModuleMixin, BaseDataModule):
         """
         self._class_labels = {
             # explicitly set crossing to be 1, so it potentially can be used in a binary classifier
-            self.__cross_label: ['not-crossing', 'crossing'],
+            self._cross_label: ['not-crossing', 'crossing'],
         }
