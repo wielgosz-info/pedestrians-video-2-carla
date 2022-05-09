@@ -39,6 +39,9 @@ class JAADOpenPoseDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseDa
             df_usecols=df_usecols,
             df_filters=df_filters,
             extra_cols={'keypoints': 'object'},
+            converters={
+                'cross': lambda x: x == 'crossing',
+            },
             **{
                 **kwargs,
                 'data_nodes': kwargs.get('data_nodes', BODY_25_SKELETON) or BODY_25_SKELETON,
