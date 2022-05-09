@@ -64,6 +64,7 @@ def main(args: List[str]):
         'prefer_tensorboard': flow_args.prefer_tensorboard,
         'batch_size': flow_args.batch_size,
         'seed': flow_args.seed,
+        'num_workers': flow_args.num_workers,
         #
         'data_module_name': flow_args.data_module_name,
         'clip_length': flow_args.clip_length,
