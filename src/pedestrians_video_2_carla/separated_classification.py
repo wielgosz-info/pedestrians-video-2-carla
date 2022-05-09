@@ -14,6 +14,8 @@ from pedestrians_video_2_carla.modeling import discover_available_classes, main 
 from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
 from pedestrians_video_2_carla.utils.paths import get_run_id_from_checkpoint_path, get_run_id_from_log_dir, resolve_ckpt_path
 from pedestrians_video_2_carla.utils.printing import print_metrics
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
+from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON
 
 import randomname
 
@@ -66,7 +68,6 @@ def main(args: List[str]):
         'data_module_name': flow_args.data_module_name,
         'clip_length': flow_args.clip_length,
         'clip_offset': flow_args.clip_offset,
-        'input_nodes': flow_args.input_nodes,
         'label_frames': flow_args.label_frames,
         #
         'fast_dev_run': flow_args.fast_dev_run,
@@ -74,7 +75,7 @@ def main(args: List[str]):
 
     if flow_args.data_module_name == 'CarlaRecorded':
         common_predict_args['carla_rec_set_name'] = flow_args.carla_rec_set_name
-    elif flow_args.data_module_name == 'dataOpenPose':
+    elif flow_args.data_module_name == 'JAADOpenPose':
         common_predict_args['strong_points'] = flow_args.strong_points
 
     noise_args = {
@@ -96,6 +97,13 @@ def main(args: List[str]):
         **noise_args,
         'transform': BaseTransforms.none,  # do not deform data in any way,
     })
+
+    if flow_args.data_module_name == 'CarlaRecorded':
+        data_prep_args.input_nodes = CARLA_SKELETON
+        data_prep_args.output_nodes = CARLA_SKELETON
+    elif flow_args.data_module_name == 'JAADOpenPose':
+        data_prep_args.input_nodes = BODY_25_SKELETON
+        data_prep_args.output_nodes = BODY_25_SKELETON
 
     prep_log_dir, gt_data_subsets_dir = modeling_main(
         data_prep_args,
@@ -123,16 +131,20 @@ def main(args: List[str]):
         'transform': BaseTransforms.hips_neck_bbox,  # fixed, since the important thing is what AE was trained with
         'movements_model_name': 'LSTM',
         'movements_output_type': MovementsModelOutputType.pose_2d,
+        'input_nodes': CARLA_SKELETON,
+        'output_nodes': CARLA_SKELETON,
     })
 
-    modeling_main(
+    (_, _, ae_trainer) = modeling_main(
         ae_pred_args,
         version=ae_predict_version,
         standalone=False,
+        return_trainer=True,
         tags=[experiment_tag, 'ae_predict'],
     )
 
     ae_run_id = 'model-b2jfm4qg'  # get_run_id_from_checkpoint_path(resolve_ckpt_path(ae_ckpt_path))
+    ae_output_nodes = ae_trainer.model.movements_model.output_nodes
 
     try:
         import wandb
@@ -172,6 +184,12 @@ def main(args: List[str]):
         classifier_train_args.noise = 'zero'
         classifier_train_args.noise_param = 0
 
+        # if tag is 'noisy_ae', then data_nodes fromat is determined by AE output
+        if tag == 'noisy_ae':
+            classifier_train_args.data_nodes = ae_output_nodes
+        else:
+            classifier_train_args.data_nodes = data_prep_args.input_nodes
+
         # if recurrent GNNs are used, batch_size should be 1; TODO: make this smarter instead of listing all possible models here
         if flow_args.classification_model_name in ['GConvLSTM', 'DCRNN', 'TGCN', 'GConvGRU']:
             classifier_train_args.log_every_n_steps = classifier_train_args.batch_size * classifier_train_args.log_every_n_steps
@@ -186,8 +204,8 @@ def main(args: List[str]):
         )
 
         if len(after_run_params) > 0 and hasattr(trainer.logger[0].experiment.config, 'update'):
-            # store the data about the artificial noise applied to the data
-            trainer.logger[0].experiment.config.update(after_run_params)
+            # store the info about the artificial noise applied to the data
+            trainer.logger[0].experiment.config.update(after_run_params, allow_val_change=True)
 
         try:
             import wandb
