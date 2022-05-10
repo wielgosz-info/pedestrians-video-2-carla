@@ -253,7 +253,8 @@ def main(
 
         flow_module = flow_module_cls.load_from_checkpoint(
             checkpoint_path=args.ckpt_path,
-            **models
+            **models,
+            **dict_args
         )
     else:
         flow_module = flow_module_cls(

@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple, Union
+from typing import Dict, Union
 import torch
 
 
@@ -55,7 +55,7 @@ class BaseModel(torch.nn.Module):
             type=float,
         )
         parser.add_argument(
-            '--disable_lr_scheduler',
+            '--enable_lr_scheduler',
             default=False,
             action='store_true',
         )

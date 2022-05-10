@@ -16,7 +16,7 @@ from pedestrians_video_2_carla.metrics.multiinput_wrapper import MultiinputWrapp
 from pedestrians_video_2_carla.modules.classification.gnn.dcrnn import DCRNNModel
 from pedestrians_video_2_carla.modules.classification.gnn.gconv_gru import GConvGRUModel
 from pedestrians_video_2_carla.modules.classification.gnn.gconv_lstm import GConvLSTMModel
-from pedestrians_video_2_carla.modules.classification.gnn.rnn import RNNModel
+from pedestrians_video_2_carla.modules.classification.gnn.rnn import GRNNModel
 from pedestrians_video_2_carla.modules.classification.gnn.tgcn import TGCNModel
 from pedestrians_video_2_carla.modules.classification.lstm import LSTM
 
@@ -36,11 +36,11 @@ class LitClassificationFlow(pl.LightningModule):
                  classification_model: ClassificationModel,
                  classification_targets_key: str,
                  classification_average: str = 'macro',
-                 input_nodes: Type[Skeleton] = CARLA_SKELETON,
+                 input_nodes: Union[Type[Skeleton], str] = CARLA_SKELETON,
                  **kwargs: Any) -> None:
         super().__init__()
 
-        self.input_nodes = input_nodes
+        self.input_nodes = get_skeleton_type_by_name(input_nodes) if isinstance(input_nodes, str) else input_nodes
         self._targets_key = classification_targets_key
         self._outputs_key = classification_targets_key + '_logits'
 

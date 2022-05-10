@@ -16,17 +16,17 @@ class LSTM(ClassificationModel):
                  hidden_size: int = 64,
                  num_layers: int = 2,
                  embeddings_size: int = None,
-                 num_classes: int = 2,
                  p_dropout: float = 0.25,
+                 input_features = 2,  # (x, y) points
                  **kwargs
                  ):
-        super().__init__()
+        super().__init__(**kwargs)
 
         self.__input_nodes_len = len(input_nodes)
-        self.__input_features = 2  # (x, y) points
+        self.__input_features = input_features  # (x, y) points
 
         self.__input_size = self.__input_nodes_len * self.__input_features
-        self.__output_size = num_classes
+        self.__output_size = self._num_classes
         self.__p_dropout = p_dropout
 
         if embeddings_size:
@@ -61,6 +61,8 @@ class LSTM(ClassificationModel):
 
     @staticmethod
     def add_model_specific_args(parent_parser):
+        ClassificationModel.add_model_specific_args(parent_parser)
+
         parser = parent_parser.add_argument_group("LSTM Classification Model")
         parser.add_argument(
             '--embeddings_size',

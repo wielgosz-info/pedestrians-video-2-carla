@@ -1,8 +1,8 @@
-from typing import Dict, List, Tuple, Type
+from typing import Dict, List, Tuple, Type, Union
 from pedestrians_video_2_carla.modules.flow.base_model import BaseModel
 from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
 import torch
-from pedestrians_video_2_carla.data.base.skeleton import Skeleton, get_skeleton_name_by_type
+from pedestrians_video_2_carla.data.base.skeleton import Skeleton, get_skeleton_name_by_type, get_skeleton_type_by_name
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from pytorch3d.transforms.rotation_conversions import rotation_6d_to_matrix
@@ -14,15 +14,15 @@ class MovementsModel(BaseModel):
     """
 
     def __init__(self,
-                 input_nodes: Type[Skeleton] = CARLA_SKELETON,
-                 output_nodes: Type[Skeleton] = CARLA_SKELETON,
+                 input_nodes: Union[Type[Skeleton], str] = CARLA_SKELETON,
+                 output_nodes: Union[Type[Skeleton], str] = CARLA_SKELETON,
                  *args,
                  **kwargs
                  ):
         super().__init__(prefix='movements', *args, **kwargs)
 
-        self.input_nodes = input_nodes
-        self.output_nodes = output_nodes
+        self.input_nodes = get_skeleton_type_by_name(input_nodes) if isinstance(input_nodes, str) else input_nodes
+        self.output_nodes = get_skeleton_type_by_name(output_nodes) if isinstance(output_nodes, str) else output_nodes
 
         self._hparams.update({
             'input_nodes': get_skeleton_name_by_type(self.input_nodes),
@@ -48,24 +48,6 @@ class MovementsModel(BaseModel):
     @property
     def eval_slice(self):
         return slice(None)
-
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        """
-        Add model-specific arguments to the CLI args parser.
-        """
-        parser = parent_parser.add_argument_group("Movements Model")
-        parser.add_argument(
-            '--lr',
-            default=None,
-            type=float,
-        )
-        parser.add_argument(
-            '--disable_lr_scheduler',
-            default=False,
-            action='store_true',
-        )
-        return parent_parser
 
     def configure_optimizers(self) -> Tuple[List[torch.optim.Optimizer], List[Dict[str, '_LRScheduler']]]:
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
