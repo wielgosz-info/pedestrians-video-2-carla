@@ -146,6 +146,7 @@ def main(args: List[str]):
 
     ae_run_id = 'model-b2jfm4qg'  # get_run_id_from_checkpoint_path(resolve_ckpt_path(ae_ckpt_path))
     ae_output_nodes = ae_trainer.model.movements_model.output_nodes
+    del ae_trainer
 
     try:
         import wandb
@@ -185,18 +186,20 @@ def main(args: List[str]):
         classifier_train_args.noise = 'zero'
         classifier_train_args.noise_param = 0
 
-        # if tag is 'noisy_ae', then data_nodes fromat is determined by AE output
+        # if tag is 'noisy_ae', then data_nodes format is determined by AE output
         if tag == 'noisy_ae':
             classifier_train_args.data_nodes = ae_output_nodes
+            classifier_train_args.input_nodes = ae_output_nodes
         else:
             classifier_train_args.data_nodes = data_prep_args.input_nodes
+            classifier_train_args.input_nodes = data_prep_args.input_nodes
 
         # if recurrent GNNs are used, batch_size should be 1; TODO: make this smarter instead of listing all possible models here
         if flow_args.classification_model_name in ['GConvLSTM', 'DCRNN', 'TGCN', 'GConvGRU']:
             classifier_train_args.log_every_n_steps = classifier_train_args.batch_size * classifier_train_args.log_every_n_steps
             classifier_train_args.batch_size = 1
 
-        _, _, trainer = modeling_main(
+        (_, _, trainer) = modeling_main(
             classifier_train_args,
             version=version,
             standalone=False,
@@ -216,6 +219,8 @@ def main(args: List[str]):
 
         metrics[version] = {k: v for k,
                             v in trainer.logged_metrics.items() if k.startswith('hp')}
+
+        del trainer
 
     for name, results in metrics.items():
         print_metrics(results, f'{name} metrics:')
