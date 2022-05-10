@@ -43,6 +43,10 @@ class BaseModel(torch.nn.Module):
     def needs_targets(self) -> bool:
         return False
 
+    @property
+    def needs_graph(self) -> bool:
+        return False
+
     @staticmethod
     def add_model_specific_args(parent_parser):
         """

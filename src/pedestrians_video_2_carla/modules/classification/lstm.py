@@ -55,10 +55,6 @@ class LSTM(ClassificationModel):
             'p_dropout': self.__p_dropout
         })
 
-    @property
-    def needs_graph(self) -> bool:
-        return False
-
     @staticmethod
     def add_model_specific_args(parent_parser):
         ClassificationModel.add_model_specific_args(parent_parser)

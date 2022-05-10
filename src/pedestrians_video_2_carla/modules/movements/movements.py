@@ -52,17 +52,16 @@ class MovementsModel(BaseModel):
     def configure_optimizers(self) -> Tuple[List[torch.optim.Optimizer], List[Dict[str, '_LRScheduler']]]:
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
 
-        lr_scheduler = {
-            'scheduler': ReduceLROnPlateau(optimizer, mode='min', min_lr=1e-4, factor=0.2, patience=50, cooldown=20),
-            'interval': 'epoch',
-            'monitor': 'val_loss/primary'
-        }
-
         config = {
             'optimizer': optimizer,
         }
 
-        if not self.disable_lr_scheduler:
+        if self.enable_lr_scheduler:
+            lr_scheduler = {
+                'scheduler': ReduceLROnPlateau(optimizer, mode='min', min_lr=1e-4, factor=0.2, patience=50, cooldown=20),
+                'interval': 'epoch',
+                'monitor': 'val_loss/primary'
+            }
             config['lr_scheduler'] = lr_scheduler
 
         return config

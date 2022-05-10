@@ -78,7 +78,7 @@ def add_program_args(parser: argparse.ArgumentParser):
         dest="mode",
         help="set mode to train, test or predict",
         default="train",
-        choices=["train", "test", "predict"],
+        choices=["train", "test", "predict", "tune"],
     )
     parser.add_argument(
         "--flow",
@@ -274,6 +274,8 @@ def main(
 
     if args.mode == "train":
         trainer.fit(model=flow_module, datamodule=dm, ckpt_path=args.ckpt_path)
+    elif args.mode == "tune":
+        trainer.fit(model=flow_module, datamodule=dm) # we ignore optimizer states etc.
     elif args.mode == "test":
         trainer.test(model=flow_module, datamodule=dm)
     elif args.mode == "predict":

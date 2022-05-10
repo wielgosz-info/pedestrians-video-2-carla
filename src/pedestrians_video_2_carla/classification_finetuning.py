@@ -118,7 +118,7 @@ def main(args: List[str]):
     classifier_train_args = copy.deepcopy(flow_args)
     # override some key args
     classifier_train_args.flow = 'classification'
-    classifier_train_args.mode = 'train'
+    classifier_train_args.mode = 'tune'
     classifier_train_args.subsets_dir = ae_data_subsets_dir
     classifier_train_args.renderers = [PedestrianRenderers.none]
 
