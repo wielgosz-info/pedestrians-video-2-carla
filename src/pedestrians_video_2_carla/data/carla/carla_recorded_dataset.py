@@ -21,5 +21,5 @@ class CarlaRecordedDataset(BaseDataset):
             # 'world_pose_loc': torch.from_numpy(self.set_file['targets/world_pose_loc'][idx]),
             # 'world_pose_rot': torch.from_numpy(self.set_file['targets/world_pose_rot'][idx]),
         })
-
+        
         return targets

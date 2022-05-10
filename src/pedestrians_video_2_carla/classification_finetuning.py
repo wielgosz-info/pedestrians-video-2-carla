@@ -18,6 +18,7 @@ from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON
 
 import randomname
+from torch import gt
 
 
 def setup_args() -> argparse.ArgumentParser:
@@ -28,6 +29,11 @@ def setup_args() -> argparse.ArgumentParser:
         '--keep_predictions',
         action='store_true',
         help='Keep the prediction datasets. By default they are deleted at the end of the script.',
+    )
+    parser.add_argument(
+        '--force_train',
+        action='store_true',
+        help='Force training mode for classifier instead of tuning. Useful when resuming tuning from a checkpoint.',
     )
 
     return parser
@@ -63,12 +69,14 @@ def main(args: List[str]):
         'seed': flow_args.seed,
         'num_workers': flow_args.num_workers,
         #
-        'data_module_name': 'JAADOpenPose',
+        'data_module_name': flow_args.data_module_name,
         'clip_length': flow_args.clip_length,
         'clip_offset': flow_args.clip_offset,
         'label_frames': flow_args.label_frames,
         'strong_points': flow_args.strong_points,
-        'data_nodes': BODY_25_SKELETON,
+        'train_proportions': getattr(flow_args, 'train_proportions', None),
+        'val_proportions': getattr(flow_args, 'val_proportions', None),
+        'test_proportions': getattr(flow_args, 'test_proportions', None),
         #
         'fast_dev_run': flow_args.fast_dev_run,
 
@@ -87,20 +95,23 @@ def main(args: List[str]):
     (_, gt_data_subsets_dir, ae_trainer) = modeling_main(
         ae_pred_args,
         version=ae_predict_version,
-        standalone=False,
+        standalone=True,
         return_trainer=True,
         tags=[experiment_tag, 'ae_predict'],
     )
 
     ae_run_id = 'model-b2jfm4qg'  # get_run_id_from_checkpoint_path(resolve_ckpt_path(ae_ckpt_path))
     ae_output_nodes = ae_trainer.model.movements_model.output_nodes
-    del ae_trainer
+    next_data_module_name = flow_args.data_module_name
 
-    try:
-        import wandb
-        wandb.finish()
-    except ImportError:
-        pass
+    if not isinstance(gt_data_subsets_dir, str):
+        gt_data_subsets_dir = gt_data_subsets_dir[0].replace(
+            ae_trainer.datamodule._data_modules[0].__class__.__name__,
+            ae_trainer.datamodule.__class__.__name__
+        )
+        next_data_module_name = ae_trainer.datamodule._data_modules[0].__class__.__name__.replace('DataModule', '')
+
+    del ae_trainer
 
     orig_ae_data_subsets_dir = os.path.join(gt_data_subsets_dir.replace(
         'DataModule', 'DataModulePredictions'), ae_run_id)
@@ -118,7 +129,8 @@ def main(args: List[str]):
     classifier_train_args = copy.deepcopy(flow_args)
     # override some key args
     classifier_train_args.flow = 'classification'
-    classifier_train_args.mode = 'tune'
+    classifier_train_args.mode = 'train' if flow_args.force_train else 'tune'
+    classifier_train_args.data_module_name = next_data_module_name
     classifier_train_args.subsets_dir = ae_data_subsets_dir
     classifier_train_args.renderers = [PedestrianRenderers.none]
 

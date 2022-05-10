@@ -1,6 +1,6 @@
 import copy
 import logging
-from typing import Any, Dict, Iterable, Tuple, Type
+from typing import Any, Dict, Iterable, Optional, Tuple, Type
 import numpy as np
 from pedestrians_scenarios.karma.pose.skeleton import Skeleton
 from torch.utils.data import Dataset, IterableDataset

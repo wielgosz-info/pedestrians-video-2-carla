@@ -198,7 +198,7 @@ class BaseDataModule(LightningDataModule):
         return False
 
     @classmethod
-    def add_data_specific_args(cls, parent_parser):
+    def add_data_specific_args(cls, parent_parser, add_projection_2d_args=False, add_cross_args=False):
         parser = parent_parser.add_argument_group('Base DataModule')
         parser.add_argument(
             '--data_nodes',
@@ -255,9 +255,9 @@ class BaseDataModule(LightningDataModule):
             default=False,
             action='store_true'
         )
-        if cls.uses_projection_mixin():
+        if cls.uses_projection_mixin() or add_projection_2d_args:
             Projection2DMixin.add_cli_args(parser)
-        if cls.uses_cross_mixin():
+        if cls.uses_cross_mixin() or add_cross_args:
             CrossDataModuleMixin.add_cli_args(parser)
 
         parent_parser = cls.add_subclass_specific_args(parent_parser)
@@ -496,12 +496,18 @@ class BaseDataModule(LightningDataModule):
         self.predict_set = self._predict_sets[set_name]
         self.predict_set_name = set_name
 
-    def save_predictions(self, run_id, outputs: Iterable[Tuple[Dict, Dict]], crucial_keys: List[str], outputs_key: str) -> None:
+    def save_predictions(self, run_id, outputs: Iterable[Tuple[Dict, Dict]], crucial_keys: List[str], outputs_key: str, outputs_dm: str = None) -> None:
         """
         Saves predictions from the model so that they can be used as input (dataset) for the next model.
         """
+
+        if outputs_dm is None:
+            base_outputs_dir = f"{self.outputs_dir}Predictions"
+        else:
+            base_outputs_dir = os.path.realpath(os.path.join(self.outputs_dir, "..", f"{outputs_dm}Predictions"))
+
         predictions_output_dir = os.path.join(
-            f"{self.outputs_dir}Predictions", SUBSETS_BASE, self._settings_digest, run_id)
+            base_outputs_dir, SUBSETS_BASE, self._settings_digest, run_id)
 
         if not os.path.exists(predictions_output_dir):
             os.makedirs(predictions_output_dir)

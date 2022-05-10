@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Dict, Iterable
 import numpy
 import torch
 import pandas
@@ -10,6 +10,7 @@ class MixedDataset(torch.utils.data.ConcatDataset):
         datasets,
         skip_metadata: bool = False,
         proportions: Iterable[float] = None,
+        mappings: Dict[str, str] = None,
         **kwargs
     ):
         if proportions is None:  # use all available data
@@ -38,10 +39,13 @@ class MixedDataset(torch.utils.data.ConcatDataset):
 
         super().__init__(subsets)
 
+        self._mappings = mappings
+        self._inverse_mappings = {v: k for k, v in mappings.items()} if mappings else None
+
         # figure out common targets
         self._targets_template = {}
         first_items = [dataset[0][1] for dataset in datasets]
-        all_keys = set([k for targets in first_items for k in targets.keys()])
+        all_keys = set([k for targets in first_items for k in targets.keys() if k not in tuple(self._mappings.keys())])
         for key in all_keys:
             shapes = numpy.array([tuple(targets[key].shape)
                                   for targets in first_items if key in targets])
@@ -60,6 +64,7 @@ class MixedDataset(torch.utils.data.ConcatDataset):
             self._meta_template = {
                 k: v if v != numpy.dtype('object') else numpy.dtype('str')
                 for (k, v) in common_df.dtypes.to_dict().items()
+                if k not in tuple(self._mappings.keys())
             }
 
     def __getitem__(self, index):
@@ -67,8 +72,11 @@ class MixedDataset(torch.utils.data.ConcatDataset):
 
         common_targets = {}
         for key, (template_dtype, template_shape) in self._targets_template.items():
+            mapped_key = self._inverse_mappings.get(key, None)
             if key in targets:
                 common_targets[key] = targets[key]
+            elif mapped_key in targets:
+                common_targets[key] = targets[mapped_key]
             else:
                 common_targets[key] = torch.from_numpy(numpy.full(
                     template_shape,
@@ -79,9 +87,13 @@ class MixedDataset(torch.utils.data.ConcatDataset):
         common_meta = {}
         if self._meta_template is not None:
             for key, template_dtype in self._meta_template.items():
+                mapped_key = self._inverse_mappings.get(key, None)
                 if key in meta:
                     common_meta[key] = numpy.array(
                         [meta[key]], dtype=template_dtype).item()
+                elif mapped_key in meta:
+                    common_meta[key] = numpy.array(
+                        [meta[mapped_key]], dtype=template_dtype).item()
                 else:
                     common_meta[key] = numpy.array(
                         [numpy.nan], dtype=template_dtype).item()

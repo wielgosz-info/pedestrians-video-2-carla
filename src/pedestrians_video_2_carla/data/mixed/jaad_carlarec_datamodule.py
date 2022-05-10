@@ -16,13 +16,19 @@ class JAADCarlaRecDataModule(MixedDataModule):
     test_proportions = [0, -1]
 
     def __init__(self, **kwargs):
-        super().__init__({
-            JAADOpenPoseDataModule: {
-                'data_nodes': BODY_25_SKELETON,
-                'input_nodes': CARLA_SKELETON
+        super().__init__(
+            data_modules_kwargs={
+                JAADOpenPoseDataModule: {
+                    'data_nodes': BODY_25_SKELETON,
+                    'input_nodes': CARLA_SKELETON
+                },
+                CarlaRecordedDataModule: {
+                    'data_nodes': CARLA_SKELETON,
+                    'input_nodes': CARLA_SKELETON
+                }
             },
-            CarlaRecordedDataModule: {
-                'data_nodes': CARLA_SKELETON,
-                'input_nodes': CARLA_SKELETON
-            }
-        }, **kwargs)
+            mappings={
+                'frame.pedestrian.is_crossing': 'cross',
+            },
+            **kwargs
+        )

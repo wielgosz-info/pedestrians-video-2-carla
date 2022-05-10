@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterable, List, Optional, Type, Union
+from typing import Any, Dict, Iterable, List, Literal, Optional, Type, Union
 from pytorch_lightning import LightningDataModule
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
 from pedestrians_video_2_carla.data.mixed.mixed_dataset import MixedDataset
@@ -21,6 +21,7 @@ class MixedDataModule(LightningDataModule):
         val_proportions: List[float] = None,
         test_proportions: List[float] = None,
         subsets_dir: Union[List[str], str] = None,
+        mappings: List[Dict[str, str]] = None,
         **kwargs
     ):
         all_data_modules = self.data_modules + (data_modules or [])
@@ -35,6 +36,12 @@ class MixedDataModule(LightningDataModule):
             uses_projection_mixin), 'All data modules must use projection mixin or none of them can.'
         self._uses_projection_mixin = all(uses_projection_mixin)
 
+        uses_cross_mixin = [dm_cls.uses_cross_mixin()
+                            for dm_cls in all_data_modules]
+        assert all(uses_cross_mixin) or not any(
+            uses_cross_mixin), 'All data modules must use cross mixin or none of them can.'
+        self._uses_cross_mixin = all(uses_cross_mixin)
+
         self._skip_metadata = kwargs.get('skip_metadata', False)
 
         subsets_dirs = [None] * len(all_data_modules)
@@ -44,12 +51,17 @@ class MixedDataModule(LightningDataModule):
             assert len(subsets_dir) == len(all_data_modules)
             subsets_dirs = subsets_dir
 
+        self.predict_set_name = None
+        self.predict_set = None
+
+        self._mappings = mappings
+
         self._data_modules: List[BaseDataModule] = [
             dm_cls(
                 **{
                     **kwargs,
                     **data_modules_kwargs.get(dm_cls, {}),
-                    'subsets_dir': subsets_dir
+                    'subsets_dir': subsets_dir,
                 }
             ) for dm_cls, subsets_dir in zip(all_data_modules, subsets_dirs)
         ]
@@ -78,6 +90,28 @@ class MixedDataModule(LightningDataModule):
     def subsets_dir(self) -> List[str]:
         return [dm.subsets_dir for dm in self._data_modules]
 
+    @property
+    def class_labels(self) -> List[str]:
+        # assumption - all datamodules share labels
+        return self._data_modules[0].class_labels
+
+    @property
+    def class_counts(self) -> Dict[Literal['train', 'val', 'test'], Dict[str, Dict[str, int]]]:
+        class_counts = self._data_modules[0].class_counts
+        mapped_keys = list(self._mappings.keys())
+
+        for dm in self._data_modules[1:]:
+            for set_name in dm.class_counts.keys():
+                for cls_name, cls_values in dm.class_counts[set_name].items():
+                    if cls_name not in class_counts[set_name]:
+                        if cls_name in mapped_keys:
+                            cls_name = self._mappings[cls_name]
+                        else:
+                            continue
+                    for cls_value, cls_count in cls_values.items():
+                        class_counts[set_name][cls_name][cls_value] += cls_count
+        return class_counts
+
     def _validate_proportions(self, proportions: Iterable[float]) -> None:
         assert len(proportions) == len(self._data_modules)
         assert (all(0 <= p <= 1 for p in proportions) and sum(proportions)
@@ -86,7 +120,7 @@ class MixedDataModule(LightningDataModule):
 
     @classmethod
     def add_data_specific_args(cls, parent_parser):
-        parent_parser = BaseDataModule.add_data_specific_args(parent_parser)
+        parent_parser = BaseDataModule.add_data_specific_args(parent_parser, add_projection_2d_args=True, add_cross_args=True)
 
         for dm_cls in cls.data_modules:
             dm_cls: Type[BaseDataModule]
@@ -132,16 +166,18 @@ class MixedDataModule(LightningDataModule):
             # TODO: for now, all sets are ConcatDataset, but this should be changed to something more flexible
             # e.g. to train on various datasets but only validate on the one we're most interested in
             self.train_set = MixedDataset([
-                dm.train_set for dm in self._data_modules
-            ],
+                    dm.train_set for dm in self._data_modules
+                ],
                 skip_metadata=self._skip_metadata,
-                proportions=self.requested_train_proportions
+                proportions=self.requested_train_proportions,
+                mappings=self._mappings,
             )
             self.val_set = MixedDataset([
-                dm.val_set for dm in self._data_modules
-            ],
+                    dm.val_set for dm in self._data_modules
+                ],
                 skip_metadata=self._skip_metadata,
-                proportions=self.requested_val_proportions
+                proportions=self.requested_val_proportions,
+                mappings=self._mappings,
             )
 
             self.hparams['train_set_sizes'] = tuple(np.diff(
@@ -151,13 +187,27 @@ class MixedDataModule(LightningDataModule):
 
         if stage == "test" or stage is None:
             self.test_set = MixedDataset([
-                dm.test_set for dm in self._data_modules
-            ],
+                    dm.test_set for dm in self._data_modules
+                ],
                 skip_metadata=self._skip_metadata,
-                proportions=self.requested_test_proportions
+                proportions=self.requested_test_proportions,
+                mappings=self._mappings,
             )
             self.hparams['test_set_sizes'] = tuple(np.diff(
                 self.test_set.cumulative_sizes, prepend=0))
+
+    def choose_predict_set(self, set_name: str) -> None:
+        for dm in self._data_modules:
+            dm.choose_predict_set(set_name)
+
+        self.predict_set = MixedDataset([
+                dm.predict_set for dm in self._data_modules
+            ],
+            skip_metadata=self._skip_metadata,
+            proportions=self.requested_test_proportions,
+            mappings=self._mappings,
+        )
+        self.predict_set_name = set_name
 
     def train_dataloader(self):
         return self._data_modules[0].get_dataloader(self.train_set, shuffle=True, persistent_workers=True)
@@ -167,3 +217,10 @@ class MixedDataModule(LightningDataModule):
 
     def test_dataloader(self):
         return self._data_modules[0].get_dataloader(self.test_set)
+
+    def predict_dataloader(self):
+        return self._data_modules[0].get_dataloader(self.predict_set)
+
+    def save_predictions(self, *args, **kwargs) -> None:
+        # assumption: data was converted to the same format as the first data module
+        self._data_modules[0].save_predictions(*args, outputs_dm=self.__class__.__name__, **kwargs)
