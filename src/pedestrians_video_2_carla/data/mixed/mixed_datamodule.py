@@ -1,8 +1,15 @@
+import os
 from typing import Any, Dict, Iterable, List, Literal, Optional, Type, Union
 from pytorch_lightning import LightningDataModule
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
 from pedestrians_video_2_carla.data.mixed.mixed_dataset import MixedDataset
 import numpy as np
+import yaml
+
+try:
+    from yaml import CDumper as Dumper, CLoader as Loader
+except ImportError:
+    from yaml import Dumper, Loader
 
 
 class MixedDataModule(LightningDataModule):
@@ -223,4 +230,24 @@ class MixedDataModule(LightningDataModule):
 
     def save_predictions(self, *args, **kwargs) -> None:
         # assumption: data was converted to the same format as the first data module
-        self._data_modules[0].save_predictions(*args, outputs_dm=self.__class__.__name__, **kwargs)
+        predictions_output_dir = self._data_modules[0].save_predictions(*args, outputs_dm=self.__class__.__name__, **kwargs)
+
+        # but update counts in dparams file
+        dparams_path = os.path.join(predictions_output_dir, 'dparams.yaml')
+
+        with open(dparams_path, 'r') as f:
+            settings = yaml.load(f, Loader=Loader)
+
+        if 'class_counts' in settings:
+            settings['class_counts'] = self.class_counts
+        if 'train_set_size' in settings and self.train_set is not None:
+            settings['train_set_size'] = self.train_set.cumulative_sizes[-1]
+        if 'val_set_size' in settings and self.val_set is not None:
+            settings['val_set_size'] = self.val_set.cumulative_sizes[-1]
+        if 'test_set_size' in settings and self.test_set is not None:
+            settings['test_set_size'] = self.test_set.cumulative_sizes[-1]
+            
+        settings['original_datamodule'] = self.__class__.__name__
+        
+        with open(dparams_path, 'w') as f:
+            yaml.dump(settings, f, Dumper=Dumper)

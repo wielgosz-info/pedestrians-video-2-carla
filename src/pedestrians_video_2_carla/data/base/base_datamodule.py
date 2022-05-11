@@ -496,7 +496,7 @@ class BaseDataModule(LightningDataModule):
         self.predict_set = self._predict_sets[set_name]
         self.predict_set_name = set_name
 
-    def save_predictions(self, run_id, outputs: Iterable[Tuple[Dict, Dict]], crucial_keys: List[str], outputs_key: str, outputs_dm: str = None) -> None:
+    def save_predictions(self, run_id, outputs: Iterable[Tuple[Dict, Dict]], crucial_keys: List[str], outputs_key: str, outputs_dm: str = None) -> str:
         """
         Saves predictions from the model so that they can be used as input (dataset) for the next model.
         """
@@ -564,3 +564,5 @@ class BaseDataModule(LightningDataModule):
         # save predictions
         self._save_subset(self.predict_set_name, projections_2d,
                           targets, meta, save_dir=predictions_output_dir)
+
+        return predictions_output_dir

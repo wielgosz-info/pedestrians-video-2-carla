@@ -26,12 +26,13 @@ class MixedDataset(torch.utils.data.ConcatDataset):
                 if p == 0:
                     continue
                 else:
+                    subset_size = int(possible_total * p)
                     subsets.append(
                         torch.utils.data.Subset(
                             datasets[i],
                             numpy.random.choice(
                                 range(lengths[i]),
-                                int(possible_total * p),
+                                subset_size,
                                 replace=False
                             )
                         )
