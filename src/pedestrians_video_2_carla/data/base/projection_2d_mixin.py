@@ -1,4 +1,5 @@
-from typing import Callable, Literal, Optional
+import ast
+from typing import Callable, Iterable, Literal, Optional, Union
 
 import torch
 
@@ -6,7 +7,7 @@ import torch
 class Projection2DMixin:
     def __init__(self,
                  transform: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
-                 missing_point_probability: Optional[float] = 0.0,
+                 missing_joint_probabilities: Optional[Iterable[float]] = (0.0,),
                  noise: Optional[Literal['zero', 'gaussian', 'uniform']] = 'zero',
                  noise_param: Optional[float] = 1.0,
                  **kwargs):
@@ -19,10 +20,19 @@ class Projection2DMixin:
         """
         super().__init__(**kwargs)
 
-        self.transform = transform
-        self.missing_point_probability = missing_point_probability
+        if len(missing_joint_probabilities) == 1:
+            self.missing_joint_probabilities = missing_joint_probabilities * self.num_data_joints
+        elif len(missing_joint_probabilities) == self.num_data_joints:
+            self.missing_joint_probabilities = missing_joint_probabilities
+        else:
+            raise ValueError(
+                f'Missing joint probabilities must have length 1 or {self.num_data_joints}, got {len(missing_joint_probabilities)}.')
+
         self.noise = noise
         self.noise_param = noise_param
+
+        # TODO: this really should be called 'normalization'
+        self.transform = transform
 
         if kwargs.get('overfit_batches', 0):
             self.generator = None
@@ -31,7 +41,7 @@ class Projection2DMixin:
 
     @property
     def needs_missing_points(self) -> bool:
-        return self.missing_point_probability > 0.0
+        return any(self.missing_joint_probabilities)
 
     @property
     def needs_noise(self) -> bool:
@@ -44,13 +54,16 @@ class Projection2DMixin:
     @staticmethod
     def add_cli_args(parser):
         parser.add_argument(
-            "--missing_point_probability",
+            "--missing_joint_probabilities",
             type=float,
-            default=0.0,
-            metavar='PROB',
+            default=[],
+            nargs='+',
+            metavar='PROB or PROB0 PROB1 ...',
             help="""
                 Probability that a joint/node will be missing ("not detected") in a skeleton in a frame.
-                Missing nodes are selected separately for each frame.
+                Missing nodes are selected separately for each frame. If multiple values are provided,
+                they are assumed to be probabilities for each joint/node separately and in the same order
+                as in `data_nodes` Skeleton.
             """
         )
         parser.add_argument(
@@ -60,7 +73,7 @@ class Projection2DMixin:
             choices=['zero', 'gaussian', 'uniform'],
             help="""
                 Noise to add to the skeleton. Noise is added to each joint/node separately
-                and before the missing_point_probability and any transformation
+                and before the missing_joint_probabilities and any transformation
                 is applied (before normalization, too!).
                 'zero' (default) means no noise.
             """
@@ -110,7 +123,9 @@ class Projection2DMixin:
 
         if self.needs_missing_points:
             missing_indices = torch.rand(
-                deformed_projection_2d.shape[:-1], generator=self.generator) < self.missing_point_probability
+                deformed_projection_2d.shape[:-1], generator=self.generator) < torch.tensor(
+                    self.missing_joint_probabilities, dtype=deformed_projection_2d.dtype,
+                    device=deformed_projection_2d.device)
             deformed_projection_2d[missing_indices] = torch.zeros(
                 deformed_projection_2d.shape[-1:], device=deformed_projection_2d.device)
 

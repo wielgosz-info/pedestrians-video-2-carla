@@ -289,7 +289,7 @@ class LitBaseFlow(pl.LightningModule):
         }
 
         if len(unwrapped) > 0:
-            print_metrics(unwrapped, prefix='Initial metrics:')
+            print_metrics(unwrapped, header='Initial metrics:')
 
         return unwrapped
 
@@ -312,16 +312,12 @@ class LitBaseFlow(pl.LightningModule):
             **(initial_metrics or {}),
         }
 
-        if not isinstance(self.logger[0], TensorBoardLogger):
-            try:
-                self.logger[0].experiment.config.update(additional_config)
-            except:
-                pass
-            return
+        if len(self.trainer.loggers) and hasattr(self.trainer.loggers[0].experiment.config, 'update'):
+            self.trainer.loggers[0].experiment.config.update(additional_config)
 
         self.hparams.update(additional_config)
 
-        self.logger[0].log_hyperparams(
+        self.trainer.loggers[0].log_hyperparams(
             self.hparams,
             self._unwrap_nested_metrics(self.metrics, ['hp'], nans=True)
         )
@@ -460,9 +456,9 @@ class LitBaseFlow(pl.LightningModule):
             self.log(k, v, batch_size=batch_size, on_step=False, on_epoch=True)
 
     def _video_to_logger(self, vid, vid_idx, fps, stage, meta):
-        if isinstance(self.logger[0], TensorBoardLogger):
+        if isinstance(self.trainer.loggers[0], TensorBoardLogger):
             vid = vid.permute(0, 1, 4, 2, 3).unsqueeze(0)  # B,T,H,W,C -> B,T,C,H,W
-            self.logger[0].experiment.add_video(
+            self.trainer.loggers[0].experiment.add_video(
                 '{}_{}_render'.format(stage, vid_idx),
                 vid, self.global_step, fps=fps
             )
@@ -480,7 +476,7 @@ class LitBaseFlow(pl.LightningModule):
         else:
             vid_callback = None
 
-        self.logger[1].experiment.log_videos(
+        self.trainer.loggers[1].experiment.log_videos(
             meta=meta,
             step=self.global_step,
             batch_idx=batch_idx,

@@ -110,7 +110,7 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     Pillow==9.0.1 \
     pims==0.5 \
     pyrender==0.1.45 \
-    pytorch-lightning==1.5.2 \
+    pytorch-lightning==1.6.3 \
     pyyaml==6.0 \
     randomname==0.1.5 \
     scikit-image==0.18.3 \

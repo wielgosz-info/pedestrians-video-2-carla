@@ -49,10 +49,12 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         :param class_labels: Labels for classification tasks
         :type class_labels: Dict[str, Iterable[str]]
         """
-        super().__init__(**kwargs)
-
         self.input_nodes = input_nodes
         self.data_nodes = data_nodes if data_nodes is not None else input_nodes
+        self.num_input_joints = len(self.input_nodes)
+        self.num_data_joints = len(self.data_nodes)
+
+        super().__init__(**kwargs)
 
         self._set_filepath = set_filepath
         self._skip_metadata = skip_metadata
@@ -63,8 +65,6 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
             input_nodes=self.data_nodes,
             output_nodes=self.input_nodes
         )
-        self.num_input_joints = len(self.input_nodes)
-        self.num_data_joints = len(self.data_nodes)
         self.class_labels = class_labels or {}
 
         # cache cross classification labels
