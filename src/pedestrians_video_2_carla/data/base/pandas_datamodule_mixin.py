@@ -37,6 +37,9 @@ class PandasDataModuleMixin:
             self.data_filepath = os.path.join(self.outputs_dir, data_filepath)
         elif os.path.exists(os.path.join(self.datasets_dir, data_filepath)):
             self.data_filepath = os.path.join(self.datasets_dir, data_filepath)
+        elif not self._needs_preparation:
+            # we may not need to prepare the data
+            pass
         else:
             raise FileNotFoundError(
                 "Could not find data file '{}'".format(data_filepath))

@@ -36,6 +36,11 @@ class AMASSDataModule(PandasDataModuleMixin, BaseDataModule):
         )
 
         self.amass_dir = os.path.join(self.datasets_dir, AMASS_DIR)
+
+        if not os.path.exists(self.amass_dir):
+            raise FileNotFoundError(
+                f'AMASS directory not found at {self.amass_dir}.')
+
         self.smpl_nodes_len = len(SMPL_SKELETON)
         self.zero_world_loc = torch.zeros(
             (1, 3), dtype=torch.float32, device=torch.device('cpu'))
