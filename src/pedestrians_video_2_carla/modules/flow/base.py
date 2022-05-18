@@ -312,15 +312,16 @@ class LitBaseFlow(pl.LightningModule):
             **(initial_metrics or {}),
         }
 
-        if len(self.trainer.loggers) and hasattr(self.trainer.loggers[0].experiment.config, 'update'):
-            self.trainer.loggers[0].experiment.config.update(additional_config)
-
         self.hparams.update(additional_config)
 
-        self.trainer.loggers[0].log_hyperparams(
-            self.hparams,
-            self._unwrap_nested_metrics(self.metrics, ['hp'], nans=True)
-        )
+        if len(self.trainer.loggers) and isinstance(self.trainer.loggers[0], TensorBoardLogger):
+            # TensorBoard requires 'special' updating to log multiple metrics
+            self.trainer.loggers[0].log_hyperparams(
+                self.hparams,
+                self._unwrap_nested_metrics(self.metrics, ['hp'], nans=True)
+            )
+        else:
+            self.trainer.loggers[0].log_hyperparams(self.hparams)
 
     def _unwrap_nested_metrics(self, items: Union[Dict, float], keys: List[str], zeros: bool = False, nans: bool = False):
         r = {}
