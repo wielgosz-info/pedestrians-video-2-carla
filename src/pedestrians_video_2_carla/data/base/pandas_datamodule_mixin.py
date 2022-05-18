@@ -122,6 +122,10 @@ class PandasDataModuleMixin:
         :param grouped: Grouped data
         :type grouped: pandas.DataFrameGroupBy
         """
+        if self.class_labels is None:
+            # not every dataset has class labels
+            return
+
         grouped_tail = grouped.tail(1).reset_index(drop=False)
         for class_key, class_labels in self.class_labels.items():
             counts = grouped_tail[class_key].value_counts().to_dict()

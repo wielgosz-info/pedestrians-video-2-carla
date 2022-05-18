@@ -45,6 +45,8 @@ class JAADOpenPoseDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseDa
             **{
                 **kwargs,
                 'data_nodes': kwargs.get('data_nodes', BODY_25_SKELETON) or BODY_25_SKELETON,
+                'strong_points': strong_points,
+                'iou_threshold': iou_threshold,
             }
         )
 

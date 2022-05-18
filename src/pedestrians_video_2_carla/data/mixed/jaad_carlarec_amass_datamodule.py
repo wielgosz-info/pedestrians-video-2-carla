@@ -5,6 +5,7 @@ from pedestrians_video_2_carla.data.smpl.amass_datamodule import AMASSDataModule
 from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON
+import numpy as np
 
 
 class JAADCarlaRecAMASSDataModule(MixedDataModule):
@@ -19,17 +20,32 @@ class JAADCarlaRecAMASSDataModule(MixedDataModule):
     test_proportions = [0, 0, -1]
 
     def __init__(self, **kwargs):
+        jaad_missing_joint_probabilities = kwargs.pop('missing_joint_probabilities', [])
+        carla_missing_joint_probabilities = MixedDataModule._map_missing_joint_probabilities(
+            jaad_missing_joint_probabilities,
+            BODY_25_SKELETON,
+            CARLA_SKELETON
+        )
+        amass_missing_joint_probabilities = MixedDataModule._map_missing_joint_probabilities(
+            jaad_missing_joint_probabilities,
+            BODY_25_SKELETON,
+            SMPL_SKELETON
+        )
+
         super().__init__({
             JAADOpenPoseDataModule: {
                 'data_nodes': BODY_25_SKELETON,
-                'input_nodes': CARLA_SKELETON
+                'input_nodes': CARLA_SKELETON,
+                'missing_joint_probabilities': jaad_missing_joint_probabilities
             },
             CarlaRecordedDataModule: {
                 'data_nodes': CARLA_SKELETON,
-                'input_nodes': CARLA_SKELETON
+                'input_nodes': CARLA_SKELETON,
+                'missing_joint_probabilities': carla_missing_joint_probabilities
             },
             AMASSDataModule: {
                 'data_nodes': SMPL_SKELETON,
-                'input_nodes': CARLA_SKELETON
+                'input_nodes': CARLA_SKELETON,
+                'missing_joint_probabilities': amass_missing_joint_probabilities
             }
         }, **kwargs)

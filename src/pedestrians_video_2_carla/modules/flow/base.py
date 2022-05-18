@@ -476,12 +476,13 @@ class LitBaseFlow(pl.LightningModule):
         else:
             vid_callback = None
 
-        self.trainer.loggers[1].experiment.log_videos(
-            meta=meta,
-            step=self.global_step,
-            batch_idx=batch_idx,
-            stage=stage,
-            vid_callback=vid_callback,
-            force=(stage != 'train' and batch_idx == 0),
-            **kwargs
-        )
+        if len(self.trainer.loggers) > 1:
+            self.trainer.loggers[1].experiment.log_videos(
+                meta=meta,
+                step=self.global_step,
+                batch_idx=batch_idx,
+                stage=stage,
+                vid_callback=vid_callback,
+                force=(stage != 'train' and batch_idx == 0),
+                **kwargs
+            )

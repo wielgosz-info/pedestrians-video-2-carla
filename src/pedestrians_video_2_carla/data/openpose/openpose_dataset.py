@@ -11,6 +11,14 @@ class OpenPoseDataset(BaseDataset):
                                    Type[COCO_SKELETON]] = BODY_25_SKELETON,
                  **kwargs
                  ) -> None:
+
+        if kwargs.get('strong_points', 0) != 1 and (
+            len(kwargs.get('missing_joint_probabilities', [])) != 0 or
+            kwargs.get('noise', 'zero') != 'zero'
+        ):
+            raise ValueError(
+                'strong_points should be 1 if artificial missing joints and/or noise are requested.')
+
         super().__init__(set_filepath=set_filepath, data_nodes=data_nodes, **kwargs)
 
     def _get_targets(self, idx: int, *args, **kwargs) -> Dict[str, torch.Tensor]:

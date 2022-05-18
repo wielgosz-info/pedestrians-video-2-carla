@@ -1,6 +1,7 @@
 import os
 from typing import Any, Dict, Iterable, List, Literal, Optional, Type, Union
 from pytorch_lightning import LightningDataModule
+from pedestrians_video_2_carla.data.base.skeleton import Skeleton, get_common_indices
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
 from pedestrians_video_2_carla.data.mixed.mixed_dataset import MixedDataset
 import numpy as np
@@ -43,11 +44,12 @@ class MixedDataModule(LightningDataModule):
             uses_projection_mixin), 'All data modules must use projection mixin or none of them can.'
         self._uses_projection_mixin = all(uses_projection_mixin)
 
-        uses_cross_mixin = [dm_cls.uses_cross_mixin()
-                            for dm_cls in all_data_modules]
-        assert all(uses_cross_mixin) or not any(
-            uses_cross_mixin), 'All data modules must use cross mixin or none of them can.'
-        self._uses_cross_mixin = all(uses_cross_mixin)
+        if kwargs.get('flow', 'pose_lifting') == 'classification':
+            uses_cross_mixin = [dm_cls.uses_cross_mixin()
+                                for dm_cls in all_data_modules]
+            assert all(uses_cross_mixin) or not any(
+                uses_cross_mixin), 'All data modules must use cross mixin or none of them can.'
+            self._uses_cross_mixin = all(uses_cross_mixin)
 
         self._skip_metadata = kwargs.get('skip_metadata', False)
 
@@ -93,6 +95,36 @@ class MixedDataModule(LightningDataModule):
         self.val_set = None
         self.test_set = None
 
+    @staticmethod
+    def _map_missing_joint_probabilities(probabilities: List, input_nodes: Skeleton, output_nodes: Skeleton) -> List:
+        """Helper method for mapping missing joint probabilities to the output skeleton.
+        This should be used by subclasses when & as needed.
+
+        :param probabilities: List of missing joint probabilities.
+        :type probabilities: List
+        :param input_nodes: Skeleton for which the probabilities are given.
+        :type input_nodes: Skeleton
+        :param output_nodes: Skeleton to which the probabilities should be mapped.
+        :type output_nodes: Skeleton
+        :return: Probabilities mapped to the output skeleton.
+        :rtype: List
+        """
+        if len(probabilities) > 1:
+            missing_joint_probabilities = np.array(probabilities)
+
+            # what probability to use for joints that are not in the input_nodes?
+            mean_missing_joint_probability = np.mean(missing_joint_probabilities)
+
+            output_indices, input_indices = get_common_indices(
+                input_nodes, output_nodes)
+            mapped_missing_joint_probabilities = np.ones(
+                len(output_nodes)) * mean_missing_joint_probability
+            mapped_missing_joint_probabilities[output_indices] = missing_joint_probabilities[input_indices]
+
+            return mapped_missing_joint_probabilities.tolist()
+        else:
+            return probabilities[:]
+
     @property
     def subsets_dir(self) -> List[str]:
         return [dm.subsets_dir for dm in self._data_modules]
@@ -127,7 +159,8 @@ class MixedDataModule(LightningDataModule):
 
     @classmethod
     def add_data_specific_args(cls, parent_parser):
-        parent_parser = BaseDataModule.add_data_specific_args(parent_parser, add_projection_2d_args=True, add_cross_args=True)
+        parent_parser = BaseDataModule.add_data_specific_args(
+            parent_parser, add_projection_2d_args=True, add_cross_args=True)
 
         for dm_cls in cls.data_modules:
             dm_cls: Type[BaseDataModule]
@@ -173,15 +206,15 @@ class MixedDataModule(LightningDataModule):
             # TODO: for now, all sets are ConcatDataset, but this should be changed to something more flexible
             # e.g. to train on various datasets but only validate on the one we're most interested in
             self.train_set = MixedDataset([
-                    dm.train_set for dm in self._data_modules
-                ],
+                dm.train_set for dm in self._data_modules
+            ],
                 skip_metadata=self._skip_metadata,
                 proportions=self.requested_train_proportions,
                 mappings=self._mappings,
             )
             self.val_set = MixedDataset([
-                    dm.val_set for dm in self._data_modules
-                ],
+                dm.val_set for dm in self._data_modules
+            ],
                 skip_metadata=self._skip_metadata,
                 proportions=self.requested_val_proportions,
                 mappings=self._mappings,
@@ -194,8 +227,8 @@ class MixedDataModule(LightningDataModule):
 
         if stage == "test" or stage is None:
             self.test_set = MixedDataset([
-                    dm.test_set for dm in self._data_modules
-                ],
+                dm.test_set for dm in self._data_modules
+            ],
                 skip_metadata=self._skip_metadata,
                 proportions=self.requested_test_proportions,
                 mappings=self._mappings,
@@ -208,8 +241,8 @@ class MixedDataModule(LightningDataModule):
             dm.choose_predict_set(set_name)
 
         self.predict_set = MixedDataset([
-                dm.predict_set for dm in self._data_modules
-            ],
+            dm.predict_set for dm in self._data_modules
+        ],
             skip_metadata=self._skip_metadata,
             proportions=self.requested_test_proportions,
             mappings=self._mappings,
@@ -230,7 +263,8 @@ class MixedDataModule(LightningDataModule):
 
     def save_predictions(self, *args, **kwargs) -> None:
         # assumption: data was converted to the same format as the first data module
-        predictions_output_dir = self._data_modules[0].save_predictions(*args, outputs_dm=self.__class__.__name__, **kwargs)
+        predictions_output_dir = self._data_modules[0].save_predictions(
+            *args, outputs_dm=self.__class__.__name__, **kwargs)
 
         # but update counts in dparams file
         dparams_path = os.path.join(predictions_output_dir, 'dparams.yaml')
@@ -246,8 +280,8 @@ class MixedDataModule(LightningDataModule):
             settings['val_set_size'] = self.val_set.cumulative_sizes[-1]
         if 'test_set_size' in settings and self.test_set is not None:
             settings['test_set_size'] = self.test_set.cumulative_sizes[-1]
-            
+
         settings['original_datamodule'] = self.__class__.__name__
-        
+
         with open(dparams_path, 'w') as f:
             yaml.dump(settings, f, Dumper=Dumper)

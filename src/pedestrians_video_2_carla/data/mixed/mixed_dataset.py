@@ -41,12 +41,15 @@ class MixedDataset(torch.utils.data.ConcatDataset):
         super().__init__(subsets)
 
         self._mappings = mappings
-        self._inverse_mappings = {v: k for k, v in mappings.items()} if mappings else None
+        self._inverse_mappings = {v: k for k,
+                                  v in mappings.items()} if mappings else None
 
         # figure out common targets
         self._targets_template = {}
         first_items = [dataset[0][1] for dataset in datasets]
-        all_keys = set([k for targets in first_items for k in targets.keys() if k not in tuple(self._mappings.keys())])
+        mappings_keys = tuple(self._mappings.keys()) if self._mappings else tuple()
+        all_keys = set(
+            [k for targets in first_items for k in targets.keys() if k not in mappings_keys])
         for key in all_keys:
             shapes = numpy.array([tuple(targets[key].shape)
                                   for targets in first_items if key in targets])
@@ -65,7 +68,7 @@ class MixedDataset(torch.utils.data.ConcatDataset):
             self._meta_template = {
                 k: v if v != numpy.dtype('object') else numpy.dtype('str')
                 for (k, v) in common_df.dtypes.to_dict().items()
-                if k not in tuple(self._mappings.keys())
+                if k not in mappings_keys
             }
 
     def __getitem__(self, index):
@@ -73,7 +76,8 @@ class MixedDataset(torch.utils.data.ConcatDataset):
 
         common_targets = {}
         for key, (template_dtype, template_shape) in self._targets_template.items():
-            mapped_key = self._inverse_mappings.get(key, None)
+            mapped_key = self._inverse_mappings.get(
+                key, None) if self._inverse_mappings else None
             if key in targets:
                 common_targets[key] = targets[key]
             elif mapped_key in targets:
@@ -88,7 +92,8 @@ class MixedDataset(torch.utils.data.ConcatDataset):
         common_meta = {}
         if self._meta_template is not None:
             for key, template_dtype in self._meta_template.items():
-                mapped_key = self._inverse_mappings.get(key, None)
+                mapped_key = self._inverse_mappings.get(
+                    key, None) if self._inverse_mappings else None
                 if key in meta:
                     common_meta[key] = numpy.array(
                         [meta[key]], dtype=template_dtype).item()
