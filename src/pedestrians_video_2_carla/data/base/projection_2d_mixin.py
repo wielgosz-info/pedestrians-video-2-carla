@@ -7,7 +7,7 @@ import torch
 class Projection2DMixin:
     def __init__(self,
                  transform: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
-                 missing_joint_probabilities: Optional[Iterable[float]] = (0.0,),
+                 missing_joint_probabilities: Optional[Iterable[float]] = tuple(),
                  noise: Optional[Literal['zero', 'gaussian', 'uniform']] = 'zero',
                  noise_param: Optional[float] = 1.0,
                  **kwargs):
@@ -20,7 +20,9 @@ class Projection2DMixin:
         """
         super().__init__(**kwargs)
 
-        if len(missing_joint_probabilities) == 1:
+        if len(missing_joint_probabilities) == 0:
+            self.missing_joint_probabilities = (0.0,)
+        elif len(missing_joint_probabilities) == 1:
             self.missing_joint_probabilities = missing_joint_probabilities * self.num_data_joints
         elif len(missing_joint_probabilities) == self.num_data_joints:
             self.missing_joint_probabilities = missing_joint_probabilities
@@ -93,7 +95,7 @@ class Projection2DMixin:
     @staticmethod
     def extract_hparams(kwargs) -> dict:
         return {
-            'missing_point_probability': kwargs.get('missing_point_probability', 0.0),
+            'missing_joint_probabilities': kwargs.get('missing_joint_probabilities', tuple()),
             'noise': kwargs.get('noise', 'zero'),
             'noise_param': kwargs.get('noise_param', 1.0),
         }

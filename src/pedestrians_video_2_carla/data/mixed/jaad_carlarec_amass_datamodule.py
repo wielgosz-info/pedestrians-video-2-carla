@@ -22,6 +22,8 @@ class JAADCarlaRecAMASSDataModule(MixedDataModule):
     def __init__(self, **kwargs):
         jaad_missing_joint_probabilities = kwargs.pop('missing_joint_probabilities', [])
         strong_points = kwargs.get('strong_points', 0)
+        jaad_noise = kwargs.get('noise', 'zero')
+        other_noise = jaad_noise
 
         carla_missing_joint_probabilities = MixedDataModule._map_missing_joint_probabilities(
             jaad_missing_joint_probabilities,
@@ -34,27 +36,30 @@ class JAADCarlaRecAMASSDataModule(MixedDataModule):
             SMPL_SKELETON
         )
 
-        if len(jaad_missing_joint_probabilities) and strong_points < 1:
+        if (len(jaad_missing_joint_probabilities) or jaad_noise != 'zero') and strong_points < 1:
             logging.getLogger(__name__).warn(
-                'Strong points is less than 1, but JAAD missing joint probabilities are set. I\'m going to assume you want to introduce artificial missing joints to datasets OTHER than JAAD.',
-                UserWarning
+                'Strong points is less than 1, but JAAD missing joint probabilities and/or noise are set. I\'m going to assume you want to introduce artificial missing joints and noise to datasets OTHER than JAAD.'
             )
             jaad_missing_joint_probabilities = []
+            jaad_noise = 'zero'
 
         super().__init__({
             JAADOpenPoseDataModule: {
                 'data_nodes': BODY_25_SKELETON,
                 'input_nodes': CARLA_SKELETON,
-                'missing_joint_probabilities': jaad_missing_joint_probabilities
+                'missing_joint_probabilities': jaad_missing_joint_probabilities,
+                'noise': jaad_noise
             },
             CarlaRecordedDataModule: {
                 'data_nodes': CARLA_SKELETON,
                 'input_nodes': CARLA_SKELETON,
-                'missing_joint_probabilities': carla_missing_joint_probabilities
+                'missing_joint_probabilities': carla_missing_joint_probabilities,
+                'noise': other_noise
             },
             AMASSDataModule: {
                 'data_nodes': SMPL_SKELETON,
                 'input_nodes': CARLA_SKELETON,
-                'missing_joint_probabilities': amass_missing_joint_probabilities
+                'missing_joint_probabilities': amass_missing_joint_probabilities,
+                'noise': other_noise
             }
         }, **kwargs)
