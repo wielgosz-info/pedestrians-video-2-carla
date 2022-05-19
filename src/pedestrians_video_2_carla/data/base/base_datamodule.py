@@ -51,7 +51,7 @@ class BaseDataModule(LightningDataModule):
                  batch_size: Optional[int] = 64,
                  num_workers: Optional[int] = os.cpu_count() // 4,
                  transform: Optional[Union[BaseTransforms, Callable]
-                                     ] = BaseTransforms.hips_neck,
+                                     ] = BaseTransforms.hips_neck_bbox,
                  return_graph: bool = False,
                  val_set_frac: Optional[float] = 0.2,
                  test_set_frac: Optional[float] = 0.2,
@@ -245,7 +245,7 @@ class BaseDataModule(LightningDataModule):
                 """.format(
                 set(BaseTransforms.__members__.keys())),
             metavar="TRANSFORM",
-            default=BaseTransforms.hips_neck,
+            default=BaseTransforms.hips_neck_bbox,
             choices=list(set(BaseTransforms) - {BaseTransforms.user_defined}),
             type=BaseTransforms.__getitem__
         )

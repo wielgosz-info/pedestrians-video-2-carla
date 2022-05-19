@@ -15,7 +15,7 @@ class JAADCarlaRecAMASSDataModule(MixedDataModule):
         AMASSDataModule
     ]
     # default mixing proportions
-    train_proportions = [0.3, 0.3, 0.4]
+    train_proportions = [0.1, 0.4, 0.5]
     val_proportions = [0, 0, -1]
     test_proportions = [0, 0, -1]
 

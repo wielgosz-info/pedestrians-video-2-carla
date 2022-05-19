@@ -16,13 +16,22 @@ class CarlaRecAMASSDataModule(MixedDataModule):
     test_proportions = [0.5, 0.5]
 
     def __init__(self, **kwargs):
+        carla_missing_joint_probabilities = kwargs.pop('missing_joint_probabilities', [])
+        amass_missing_joint_probabilities = MixedDataModule._map_missing_joint_probabilities(
+            carla_missing_joint_probabilities,
+            CARLA_SKELETON,
+            SMPL_SKELETON
+        )
+
         super().__init__({
             CarlaRecordedDataModule: {
                 'data_nodes': CARLA_SKELETON,
-                'input_nodes': CARLA_SKELETON
+                'input_nodes': CARLA_SKELETON,
+                'missing_joint_probabilities': carla_missing_joint_probabilities,
             },
             AMASSDataModule: {
                 'data_nodes': SMPL_SKELETON,
-                'input_nodes': CARLA_SKELETON
+                'input_nodes': CARLA_SKELETON,
+                'missing_joint_probabilities': amass_missing_joint_probabilities,
             }
         }, **kwargs)
