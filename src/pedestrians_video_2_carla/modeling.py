@@ -149,6 +149,7 @@ def main(
     return_trainer: bool = False,
     standalone: bool = True,
     tags: List[str] = None,
+    project: str = None,
 ) -> Union[Tuple[str, str], Tuple[str, str, pl.Trainer]]:
     """
     :param args: command line parameters as list of strings
@@ -174,7 +175,7 @@ def main(
 
         args, (data_module_cls,
                flow_module_cls,
-               models_cls) = setup_flow(args, parser) # this also seeds everything
+               models_cls) = setup_flow(args, parser)  # this also seeds everything
 
     dict_args = vars(args)
 
@@ -199,7 +200,7 @@ def main(
             save_dir=abs_logs_dir,
             name=version,
             version=version,
-            project=args.flow,
+            project=project if project is not None else args.flow,
             entity="carla-pedestrians",
             log_model=True,  # this will log models created by ModelCheckpoint,
             tags=tags,
@@ -226,7 +227,8 @@ def main(
     # some models support this as a CLI option
     # so we only add it if it's not already set
     if "movements_model" in models:
-        dict_args.setdefault("movements_output_type", models["movements_model"].output_type)
+        dict_args.setdefault("movements_output_type",
+                             models["movements_model"].output_type)
 
     pedestrian_logger = PedestrianLogger(
         save_dir=os.path.join(log_dir, "videos"),
@@ -275,14 +277,15 @@ def main(
     if args.mode == "train":
         trainer.fit(model=flow_module, datamodule=dm, ckpt_path=args.ckpt_path)
     elif args.mode == "tune":
-        trainer.fit(model=flow_module, datamodule=dm) # we ignore optimizer states etc.
+        trainer.fit(model=flow_module, datamodule=dm)  # we ignore optimizer states etc.
     elif args.mode == "test":
         trainer.test(model=flow_module, datamodule=dm)
     elif args.mode == "predict":
         # we need to explicitly set the datamodule here
         dm.prepare_data()
         dm.setup(stage='predict')
-        run_id = get_run_id_from_checkpoint_path(args.ckpt_path) if args.ckpt_path else version
+        run_id = get_run_id_from_checkpoint_path(
+            args.ckpt_path) if args.ckpt_path else version
         for set_name in args.predict_sets:
             dm.choose_predict_set(set_name)
             outputs = trainer.predict(
@@ -375,13 +378,14 @@ def setup_flow(args, parser: argparse.ArgumentParser):
     return args, (data_module_cls, flow_module_cls, models_cls)
 
 
-def setup_classes(program_args: argparse.Namespace, parser: argparse.ArgumentParser=None, args: List[str]=None) -> Tuple[BaseDataModule, LitBaseFlow, Dict[str, BaseModel]]:
+def setup_classes(program_args: argparse.Namespace, parser: argparse.ArgumentParser = None, args: List[str] = None) -> Tuple[BaseDataModule, LitBaseFlow, Dict[str, BaseModel]]:
     """
     Extracts the classes from the program args. discover_available_classes needs to be called first
     to get supported DataModule and FlowModule classes.
     """
     global flow_modules
-    flow_module_cls = flow_modules[program_args.flow]  # TODO: should this be subcommand?
+    # TODO: should this be subcommand?
+    flow_module_cls = flow_modules[program_args.flow]
 
     global data_modules
     data_module_cls = data_modules[program_args.data_module_name]
