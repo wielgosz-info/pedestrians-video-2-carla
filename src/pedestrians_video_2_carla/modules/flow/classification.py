@@ -209,17 +209,14 @@ class LitClassificationFlow(pl.LightningModule):
 
         self.hparams.update(additional_config)
 
-        if not isinstance(self.logger[0], TensorBoardLogger):
-            try:
-                self.logger[0].experiment.config.update(additional_config)
-            except:
-                pass
-            return
-
-        self.logger[0].log_hyperparams(
-            self.hparams,
-            self._unwrap_nested_metrics(self.metrics, ['hp'], nans=True)
-        )
+        if len(self.trainer.loggers) and isinstance(self.trainer.loggers[0], TensorBoardLogger):
+            # TensorBoard requires 'special' updating to log multiple metrics
+            self.trainer.loggers[0].log_hyperparams(
+                self.hparams,
+                self._unwrap_nested_metrics(self.metrics, ['hp'], nans=True)
+            )
+        else:
+            self.trainer.loggers[0].log_hyperparams(self.hparams)
 
     def _calculate_initial_metrics(self) -> Dict[str, float]:
         dl = self.trainer.datamodule.val_dataloader()
@@ -319,7 +316,7 @@ class LitClassificationFlow(pl.LightningModule):
             for x_s, y_s in zip(*vals)
         ]
 
-        self.logger[0].experiment.log({
+        self.trainer.loggers[0].experiment.log({
             key: wandb.plot_table(
                 "wandb/area-under-curve/v0",
                 wandb.Table(columns=["class"] + col_names, data=data),
@@ -365,7 +362,7 @@ class LitClassificationFlow(pl.LightningModule):
             "nPredictions": "nPredictions",
         }
 
-        self.logger[0].experiment.log({
+        self.trainer.loggers[0].experiment.log({
             k: wandb.plot_table(
                 "wandb/confusion_matrix/v1",
                 wandb.Table(columns=["Actual", "Predicted", "nPredictions"], data=data),
@@ -384,7 +381,7 @@ class LitClassificationFlow(pl.LightningModule):
             unwrapped_m = self._unwrap_nested_metrics(self.metrics.compute(), ['hp'])
             for k, v in unwrapped_m.items():
                 # special W&B plots
-                if not isinstance(self.logger[0], TensorBoardLogger):
+                if not isinstance(self.trainer.loggers[0], TensorBoardLogger):
                     if k.endswith('ConfusionMatrix'):
                         self._log_confusion_matrix(k, v)
                     elif k.endswith('ROCCurve'):
