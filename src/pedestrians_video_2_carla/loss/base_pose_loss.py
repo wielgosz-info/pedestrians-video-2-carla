@@ -13,7 +13,8 @@ class BasePoseLoss(object):
                  criterion: loss._Loss,
                  input_nodes: Type[Skeleton],
                  output_nodes: Type[Skeleton],
-                 mask_missing_joints: bool = True) -> None:
+                 mask_missing_joints: bool = True,
+                 **kwargs) -> None:
         self._criterion = criterion
         self._output_indices, self._input_indices = get_common_indices(
             input_nodes, output_nodes)
@@ -30,18 +31,23 @@ class BasePoseLoss(object):
         common_pred = pred[..., self._output_indices, :]
         common_gt = gt[..., self._input_indices, :]
 
+        mask = None
         if self._mask_missing_joints:
             mask = get_missing_joints_mask(
                 common_gt, self._input_hips, self._input_indices)
             common_pred = common_pred[mask]
             common_gt = common_gt[mask]
 
-        loss = self._criterion(
+        return self._calculate_loss(common_pred, common_gt, mask)
+
+    def _calculate_loss(self,
+                        common_pred: Tensor,
+                        common_gt: Tensor,
+                        mask: Tensor = None) -> Tensor:
+        return self._criterion(
             common_pred,
             common_gt
         )
-
-        return loss
 
     def _extract_gt_targets(self, **kwargs) -> Tensor:
         raise NotImplementedError

@@ -84,6 +84,7 @@ class LitBaseFlow(pl.LightningModule):
                 input_nodes=self.movements_model.input_nodes,
                 output_nodes=self.movements_model.output_nodes,
                 mask_missing_joints=self.mask_missing_joints,
+                **{k: v for k, v in kwargs.items() if k.startswith('loss_')}
             ), None, mode.value[2] if len(mode.value) > 2 else tuple()) if issubclass(mode.value[0], BasePoseLoss) else (mode.name, *mode.value)
             for mode in list(dict.fromkeys(modes))
         ]
@@ -211,6 +212,18 @@ class LitBaseFlow(pl.LightningModule):
             nargs="+",
             action=DictAction,
             value_type=float
+        )
+
+        # Temporary hack to allow passing of parameters loss
+        parser.add_argument(
+            '--loss_params',
+            help="""
+                Set loss parameters (e.g. weights for per_joint_loc_2d loss).
+                """,
+            metavar="PARAM PARAM",
+            default=[],
+            nargs="+",
+            type=float
         )
 
         return parent_parser
