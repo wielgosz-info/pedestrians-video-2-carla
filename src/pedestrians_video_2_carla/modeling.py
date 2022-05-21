@@ -402,16 +402,16 @@ def setup_classes(program_args: argparse.Namespace, parser: argparse.ArgumentPar
                 f"--{model_type}_model_name",
                 dest=f"{model_type}_model_name",
                 help=f"{model_type.capitalize()} model class to use",
-                default=default_models[model_type],
-                choices=list(model_choices.values()),
-                type=lambda x: model_choices[x],
+                default=None,
+                choices=list(model_choices.keys()),
+                type=str,
             )
 
         program_args, _ = parser.parse_known_args(args)
 
     for model_type, model_choices in available_models.items():
         model_name = getattr(program_args, f'{model_type}_model_name', None)
-        if model_name is not None and model_name in model_choices:
+        if model_name is not None and model_name in list(model_choices.keys()):
             selected_models[model_type] = model_choices[model_name]
         else:
             selected_models[model_type] = default_models[model_type]

@@ -16,9 +16,9 @@ from pedestrians_video_2_carla.metrics.multiinput_wrapper import MultiinputWrapp
 from pedestrians_video_2_carla.modules.classification.gnn.dcrnn import DCRNNModel
 from pedestrians_video_2_carla.modules.classification.gnn.gconv_gru import GConvGRUModel
 from pedestrians_video_2_carla.modules.classification.gnn.gconv_lstm import GConvLSTMModel
-from pedestrians_video_2_carla.modules.classification.gnn.rnn import GRNNModel
 from pedestrians_video_2_carla.modules.classification.gnn.tgcn import TGCNModel
 from pedestrians_video_2_carla.modules.classification.lstm import LSTM
+from pedestrians_video_2_carla.modules.classification.gru import GRU
 
 from pedestrians_video_2_carla.utils.printing import print_metrics
 from pytorch_lightning.utilities import rank_zero_only
@@ -140,6 +140,7 @@ class LitClassificationFlow(pl.LightningModule):
                 "TGCN": TGCNModel,
                 "GConvGRU": GConvGRUModel,
                 "LSTM": LSTM,
+                "GRU": GRU
             }
         }
 

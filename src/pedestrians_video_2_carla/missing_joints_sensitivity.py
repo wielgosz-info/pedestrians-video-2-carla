@@ -1,27 +1,21 @@
 
 import argparse
 import copy
-import glob
-import logging
-import os
-import shutil
 import sys
 from typing import List
+
 import numpy as np
-
-from tqdm.auto import tqdm
-import wandb
-from pedestrians_video_2_carla.data.base.base_transforms import BaseTransforms
-
-from pedestrians_video_2_carla.loggers.pedestrian.enums import PedestrianRenderers
-from pedestrians_video_2_carla.modeling import discover_available_classes, main as modeling_main, setup_flow
-from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
-from pedestrians_video_2_carla.utils.paths import get_run_id_from_checkpoint_path, get_run_id_from_log_dir, resolve_ckpt_path
-from pedestrians_video_2_carla.utils.printing import print_metrics
-from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
-from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON
-
 import randomname
+import torch
+import torch.nn.functional as F
+import wandb
+from tqdm.auto import tqdm
+
+from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
+from pedestrians_video_2_carla.loggers.pedestrian.enums import \
+    PedestrianRenderers
+from pedestrians_video_2_carla.modeling import discover_available_classes, setup_flow, main as modeling_main
+from pedestrians_video_2_carla.utils.printing import print_metrics
 
 
 def setup_args() -> argparse.ArgumentParser:
@@ -119,7 +113,7 @@ def main(args: List[str]):
         baseline = np.array(row[1])
         joints = np.array(row[2:(num_joints+2)])
         weights = baseline / joints
-        normalized_weights = weights / np.sum(weights)
+        normalized_weights = F.softmax(torch.tensor(weights)).numpy()
         weights_data.append([name, *normalized_weights, np.var(normalized_weights)])
 
     weights_table = wandb.Table(
