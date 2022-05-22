@@ -28,7 +28,7 @@ class Seq2SeqFlatEmbeddings(Seq2Seq):
                  input_features: int = 2,
                  **kwargs):
 
-        self.embeddings_size = flat_args_as_list_arg(kwargs, 'embeddings_size', int)
+        self.embeddings_size = flat_args_as_list_arg(kwargs, 'embeddings_size')
 
         super().__init__(**{
             **kwargs,

@@ -52,7 +52,7 @@ def list_arg_as_flat_args(parser, name, max_length, defaults=None, value_type=fl
 
     return parser
 
-def flat_args_as_list_arg(kwargs, name, value_type=float):
+def flat_args_as_list_arg(kwargs, name):
     """
     Converts a `max_length` individual arguments to a single `name` argument.
     """
@@ -60,6 +60,6 @@ def flat_args_as_list_arg(kwargs, name, value_type=float):
     flat_kwargs = [kw for kw in kwargs.keys(
     ) if kw.startswith(f'{name}_')]
     flat_kwargs.sort(key=lambda x: int(x[len(name) + 1:]))
-    values = [value_type(kwargs[kw]) for kw in flat_kwargs if (kwargs[kw] is not None and kwargs[kw].lower() != 'none')]
+    values = [kwargs[kw] for kw in flat_kwargs if kwargs[kw] is not None]
 
     return values

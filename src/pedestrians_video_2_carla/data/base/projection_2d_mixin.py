@@ -20,7 +20,7 @@ class Projection2DMixin:
         """
         super().__init__(**kwargs)
 
-        missing_joint_probabilities = flat_args_as_list_arg('missing_joint_probabilities', kwargs, float)
+        missing_joint_probabilities = flat_args_as_list_arg(kwargs, 'missing_joint_probabilities')
 
         if len(missing_joint_probabilities) == 0:
             self.missing_joint_probabilities = (0.0,)
@@ -93,7 +93,7 @@ class Projection2DMixin:
     @staticmethod
     def extract_hparams(kwargs) -> dict:
         return {
-            'missing_joint_probabilities': flat_args_as_list_arg('missing_joint_probabilities', kwargs, float),
+            'missing_joint_probabilities': flat_args_as_list_arg(kwargs, 'missing_joint_probabilities'),
             'noise': kwargs.get('noise', 'zero'),
             'noise_param': kwargs.get('noise_param', 1.0),
         }

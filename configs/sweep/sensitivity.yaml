@@ -1,4 +1,4 @@
-program: src/pedestrians_video_2_carla/missing_joints_sensitivity.py
+program: src/pedestrians_video_2_carla/modeling.py
 project: sensitivity
 entity: carla-pedestrians
 method: bayes
@@ -6,16 +6,14 @@ metric:
   goal: maximize
   name: hp/F1Score
 parameters:
+  flow:
+    value: classification
   classification_targets_key:
     value: frame.pedestrian.is_crossing
-  classification_output_type:
-    value: multiclass
   classification_model_name:
     value: LSTM
   classification_average:
     value: macro
-  classification_enable_lr_scheduler:
-    value: false
   classification_lr:
     value: 0.0001
   carla_rec_set_name:
@@ -26,8 +24,6 @@ parameters:
     value: 0
   label_frames:
     value: 0.1
-  fast_dev_run:
-    value: true
   num_classes:
     value: 2
   input_nodes:
