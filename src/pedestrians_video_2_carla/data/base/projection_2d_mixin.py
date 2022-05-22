@@ -1,5 +1,6 @@
 import ast
 from typing import Callable, Iterable, Literal, Optional, Union
+from pedestrians_video_2_carla.utils.argparse import flat_args_as_list_arg, list_arg_as_flat_args
 
 import torch
 
@@ -7,7 +8,6 @@ import torch
 class Projection2DMixin:
     def __init__(self,
                  transform: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
-                 missing_joint_probabilities: Optional[Iterable[float]] = tuple(),
                  noise: Optional[Literal['zero', 'gaussian', 'uniform']] = 'zero',
                  noise_param: Optional[float] = 1.0,
                  **kwargs):
@@ -19,6 +19,8 @@ class Projection2DMixin:
         need to also be consistent across calls.
         """
         super().__init__(**kwargs)
+
+        missing_joint_probabilities = flat_args_as_list_arg('missing_joint_probabilities', kwargs, float)
 
         if len(missing_joint_probabilities) == 0:
             self.missing_joint_probabilities = (0.0,)
@@ -55,12 +57,8 @@ class Projection2DMixin:
 
     @staticmethod
     def add_cli_args(parser):
-        parser.add_argument(
-            "--missing_joint_probabilities",
-            type=float,
-            default=[],
-            nargs='+',
-            metavar='PROB or PROB0 PROB1 ...',
+        parser = list_arg_as_flat_args(
+            parser, 'missing_joint_probabilities', 26, None, float,
             help="""
                 Probability that a joint/node will be missing ("not detected") in a skeleton in a frame.
                 Missing nodes are selected separately for each frame. If multiple values are provided,
@@ -95,7 +93,7 @@ class Projection2DMixin:
     @staticmethod
     def extract_hparams(kwargs) -> dict:
         return {
-            'missing_joint_probabilities': kwargs.get('missing_joint_probabilities', tuple()),
+            'missing_joint_probabilities': flat_args_as_list_arg('missing_joint_probabilities', kwargs, float),
             'noise': kwargs.get('noise', 'zero'),
             'noise_param': kwargs.get('noise_param', 1.0),
         }

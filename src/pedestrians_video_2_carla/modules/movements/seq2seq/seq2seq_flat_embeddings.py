@@ -1,5 +1,5 @@
 from typing import Iterable, Union
-import torch
+from pedestrians_video_2_carla.utils.argparse import flat_args_as_list_arg, list_arg_as_flat_args
 from torch import nn
 from .seq2seq import Seq2Seq
 
@@ -26,29 +26,17 @@ class Seq2SeqFlatEmbeddings(Seq2Seq):
 
     def __init__(self,
                  input_features: int = 2,
-                 embeddings_size: Union[int, Iterable[int]] = 64,
                  **kwargs):
 
-        if embeddings_size is None or (isinstance(embeddings_size, list) and len(embeddings_size) == 0):
-            # try to get the embeddings size from kwargs
-            es_kwargs = [kw for kw in kwargs.keys(
-            ) if kw.startswith('embeddings_size_')]
-            if len(es_kwargs) == 0:
-                raise ValueError('No embeddings size specified')
-            es_kwargs.sort()
-            embeddings_size = [kwargs[kw] for kw in es_kwargs if kwargs[kw]]
-
-        if isinstance(embeddings_size, int):
-            embeddings_size = [embeddings_size]
+        self.embeddings_size = flat_args_as_list_arg(kwargs, 'embeddings_size', int)
 
         super().__init__(**{
             **kwargs,
             'input_features': None,
-            'input_size': embeddings_size[-1]
+            'input_size': self.embeddings_size[-1] if self.embeddings_size else None,
         })
 
-        self.embeddings_size = embeddings_size
-        sizes = [input_features * len(self.input_nodes)] + embeddings_size
+        sizes = [input_features * len(self.input_nodes)] + self.embeddings_size
         layers = [
             (nn.Linear(sizes[i], sizes[i+1]), nn.ReLU())
             for i in range(len(sizes)-1)
@@ -65,31 +53,8 @@ class Seq2SeqFlatEmbeddings(Seq2Seq):
 
         parser = parent_parser.add_argument_group(
             "Seq2SeqFlatEmbeddings Movements Module")
-        parser.add_argument(
-            '--embeddings_size',
-            default=[],
-            type=int,
-            nargs='+',
-        )
-        # alternative way to specify the embeddings size, used by wandb sweeps
-        # embeddings_size must be set to None for this to work
-        parser.add_argument(
-            '--embeddings_size_0',
-            default=128,
-            type=int,
-        )
-        parser.add_argument(
-            '--embeddings_size_1',
-            default=64,
-            type=int,
-        )
-        # we're assuming max 5 embedding layers in this case
-        for i in range(2, 5):
-            parser.add_argument(
-                '--embeddings_size_{}'.format(i),
-                default=None,
-                type=int,
-            )
+
+        parser = list_arg_as_flat_args(parser, 'embeddings_size', 5, [128, 64], int)
 
         return parent_parser
 

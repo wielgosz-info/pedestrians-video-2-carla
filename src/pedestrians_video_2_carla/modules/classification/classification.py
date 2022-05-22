@@ -19,7 +19,7 @@ class ClassificationModel(BaseModel):
 
     @staticmethod
     def add_model_specific_args(parent_parser):
-        BaseModel.add_model_specific_args(parent_parser)
+        BaseModel.add_model_specific_args(parent_parser, 'classification')
 
         parser = parent_parser.add_argument_group("Classification Model")
         parser.add_argument(

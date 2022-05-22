@@ -49,6 +49,11 @@ class MovementsModel(BaseModel):
     def eval_slice(self):
         return slice(None)
 
+    @staticmethod
+    def add_model_specific_args(parent_parser):
+        BaseModel.add_model_specific_args(parent_parser, 'movements')
+        return parent_parser
+
     def configure_optimizers(self) -> Tuple[List[torch.optim.Optimizer], List[Dict[str, '_LRScheduler']]]:
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
 

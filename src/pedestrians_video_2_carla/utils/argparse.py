@@ -35,3 +35,31 @@ class DictAction(argparse.Action):
 
 def boolean(x):
     return bool(distutils.util.strtobool(x))
+
+
+def list_arg_as_flat_args(parser, name, max_length, defaults=None, value_type=float, help=None):
+    """
+    Adds `name` argument as a `max_length` individual arguments instead of non-sweep-compatible `nargs='+'`.
+    """
+
+    for i in range(max_length):
+        parser.add_argument(
+            f'--{name}_{i}',
+            default=defaults[i] if (defaults is not None and i < len(defaults)) else None,
+            type=value_type,
+            help=help if (help is not None and i == 0) else None
+        )
+
+    return parser
+
+def flat_args_as_list_arg(kwargs, name, value_type=float):
+    """
+    Converts a `max_length` individual arguments to a single `name` argument.
+    """
+
+    flat_kwargs = [kw for kw in kwargs.keys(
+    ) if kw.startswith(f'{name}_')]
+    flat_kwargs.sort(key=lambda x: int(x[len(name) + 1:]))
+    values = [value_type(kwargs[kw]) for kw in flat_kwargs if (kwargs[kw] is not None and kwargs[kw].lower() != 'none')]
+
+    return values

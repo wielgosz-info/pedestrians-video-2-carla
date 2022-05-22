@@ -55,7 +55,8 @@ def main(args: List[str]):
 
         # forcefully set the missing joint params
         classifier_train_args.missing_joint_probabilities = [0.0] * num_joints
-        classifier_train_args.missing_joint_probabilities[idx - 1] = 1.0
+        if idx > 0:
+            classifier_train_args.missing_joint_probabilities[idx - 1] = 1.0
         classifier_train_args.noise = 'zero'
         classifier_train_args.noise_param = 0
 

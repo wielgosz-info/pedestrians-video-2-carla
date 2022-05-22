@@ -9,6 +9,11 @@ class TrajectoryModel(BaseModel):
     def __init__(self, *args, **kwargs):
         super().__init__(prefix='trajectory', *args, **kwargs)
 
+    @staticmethod
+    def add_model_specific_args(parent_parser):
+        BaseModel.add_model_specific_args(parent_parser, 'trajectory')
+        return parent_parser
+
     @property
     def output_type(self) -> TrajectoryModelOutputType:
         return TrajectoryModelOutputType.changes

@@ -18,7 +18,7 @@ from pedestrians_video_2_carla.modules.movements.zero import ZeroMovements
 from pedestrians_video_2_carla.modules.trajectory.trajectory import \
     TrajectoryModel
 from pedestrians_video_2_carla.modules.trajectory.zero import ZeroTrajectory
-from pedestrians_video_2_carla.utils.argparse import DictAction
+from pedestrians_video_2_carla.utils.argparse import DictAction, flat_args_as_list_arg, list_arg_as_flat_args
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from pytorch_lightning.utilities import rank_zero_only
 from torch import Tensor
@@ -84,7 +84,7 @@ class LitBaseFlow(pl.LightningModule):
                 input_nodes=self.movements_model.input_nodes,
                 output_nodes=self.movements_model.output_nodes,
                 mask_missing_joints=self.mask_missing_joints,
-                **{k: v for k, v in kwargs.items() if k.startswith('loss_')}
+                loss_params=flat_args_as_list_arg(kwargs, 'loss_params'),
             ), None, mode.value[2] if len(mode.value) > 2 else tuple()) if issubclass(mode.value[0], BasePoseLoss) else (mode.name, *mode.value)
             for mode in list(dict.fromkeys(modes))
         ]
@@ -214,17 +214,7 @@ class LitBaseFlow(pl.LightningModule):
             value_type=float
         )
 
-        # Temporary hack to allow passing of parameters loss
-        parser.add_argument(
-            '--loss_params',
-            help="""
-                Set loss parameters (e.g. weights for per_joint_loc_2d loss).
-                """,
-            metavar="PARAM PARAM",
-            default=[],
-            nargs="+",
-            type=float
-        )
+        parser = list_arg_as_flat_args(parser, 'loss_params', 26, None, float)
 
         return parent_parser
 

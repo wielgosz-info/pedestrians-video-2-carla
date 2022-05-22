@@ -79,6 +79,8 @@ class LinearAEResidual(MovementsModel):
 
     @ staticmethod
     def add_model_specific_args(parent_parser):
+        parent_parser = MovementsModel.add_model_specific_args(parent_parser)
+
         parser = parent_parser.add_argument_group("LinearAEResidual Lightning Module")
         parser.add_argument(
             '--linear_size',

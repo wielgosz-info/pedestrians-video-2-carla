@@ -63,8 +63,10 @@ class Baseline3DPose(MovementsModel):
         if type(m) == nn.Linear:
             torch.nn.init.kaiming_normal_(m.weight)
 
-    @ staticmethod
+    @staticmethod
     def add_model_specific_args(parent_parser):
+        parent_parser = MovementsModel.add_model_specific_args(parent_parser)
+
         parser = parent_parser.add_argument_group("Baseline3DPose Lightning Module")
         parser.add_argument(
             '--num_stage',

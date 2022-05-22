@@ -30,8 +30,8 @@ class BaseModel(torch.nn.Module):
         return {
             f'{self._prefix}_model_name': self.__class__.__name__,
             f'{self._prefix}_output_type': self.output_type.name,
-            'enable_lr_scheduler': self.enable_lr_scheduler,
-            'lr': self.learning_rate,
+            f'{self._prefix}_enable_lr_scheduler': self.enable_lr_scheduler,
+            f'{self._prefix}_lr': self.learning_rate,
             **self._hparams
         }
 
@@ -48,18 +48,18 @@ class BaseModel(torch.nn.Module):
         return False
 
     @staticmethod
-    def add_model_specific_args(parent_parser):
+    def add_model_specific_args(parent_parser, prefix: str):
         """
         Add model-specific arguments to the CLI args parser.
         """
         parser = parent_parser.add_argument_group("Base Model")
         parser.add_argument(
-            '--lr',
+            f'--{prefix}_lr',
             default=None,
             type=float,
         )
         parser.add_argument(
-            '--enable_lr_scheduler',
+            f'--{prefix}_enable_lr_scheduler',
             default=False,
             action='store_true',
         )

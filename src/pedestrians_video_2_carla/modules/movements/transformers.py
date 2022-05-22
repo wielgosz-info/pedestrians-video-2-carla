@@ -71,6 +71,8 @@ class SimpleTransformer(TransformerBase):
 
     @staticmethod
     def add_model_specific_args(parent_parser):
+        parent_parser = MovementsModel.add_model_specific_args(parent_parser)
+
         parser = parent_parser.add_argument_group("Simple Transformer Model")
         parser.add_argument(
             '--n_heads',
