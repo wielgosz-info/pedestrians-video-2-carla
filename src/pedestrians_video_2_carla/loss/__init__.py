@@ -2,7 +2,7 @@ from enum import Enum
 
 from torch import nn
 
-from pedestrians_video_2_carla.loss.per_joint_loc_2d import PerJointLoc2DPoseLoss
+from .per_joint_loc_2d import PerJointLoc2DPoseLoss
 
 from .pose_changes import calculate_loss_pose_changes
 from .loc_3d import calculate_loss_loc_3d
