@@ -46,7 +46,7 @@ def main(args: List[str]):
     discover_available_classes()
     flow_args, _ = setup_flow(args, parser)
 
-    logging.getLogger(__name__).info(f"Starting data preparation flow for {flow_args.data_module_name} with missing_point_probability={flow_args.missing_point_probability}, noise={flow_args.noise}, noise_param={flow_args.noise_param}")
+    logging.getLogger(__name__).info(f"Starting data preparation flow")
 
     # store metrics to display at the end of the script
     metrics = {}
@@ -80,10 +80,11 @@ def main(args: List[str]):
         common_predict_args['strong_points'] = flow_args.strong_points
 
     noise_args = {
-        'missing_point_probability': flow_args.missing_point_probability,
-        'noise': flow_args.noise,
-        'noise_param': flow_args.noise_param,
+        k: v for k,v in vars(flow_args).items() if k.startswith('missing_joint_probabilities')
     }
+
+    noise_args['noise'] = flow_args.noise
+    noise_args['noise_param'] = flow_args.noise_param
 
     # Gather input data (add artificial noise)
     data_prep_args = argparse.Namespace(**{
@@ -119,6 +120,7 @@ def main(args: List[str]):
     logging.getLogger(__name__).info(f'Prepared data saved in {prep_data_subsets_dir}')
 
     # Gather predictions from the AE
+    ae_ckpt_path = './artifacts/model-bright-node:v0/model.ckpt'
     ae_pred_args = argparse.Namespace(**{
         **common_predict_args,
 
@@ -126,7 +128,7 @@ def main(args: List[str]):
 
         # AE args
         # TODO: get this from cmd line instead of hardcoding - implement args prefixing
-        'ckpt_path': './artifacts/model-b2jfm4qg:v0/model.ckpt',
+        'ckpt_path': ae_ckpt_path,
         'hidden_size': 191,
         'num_layers': 2,
         'transform': BaseTransforms.hips_neck_bbox,  # fixed, since the important thing is what AE was trained with
@@ -144,7 +146,7 @@ def main(args: List[str]):
         tags=[experiment_tag, 'ae_predict'],
     )
 
-    ae_run_id = 'model-b2jfm4qg'  # get_run_id_from_checkpoint_path(resolve_ckpt_path(ae_ckpt_path))
+    ae_run_id = get_run_id_from_checkpoint_path(resolve_ckpt_path(ae_ckpt_path))
     ae_output_nodes = ae_trainer.model.movements_model.output_nodes
     del ae_trainer
 
@@ -182,9 +184,12 @@ def main(args: List[str]):
         classifier_train_args.renderers = [PedestrianRenderers.none]
 
         # forcefully disable artificial noise - it was already applied to the data
-        classifier_train_args.missing_point_probability = 0
+        classifier_train_args.missing_joint_probabilities = [0]
         classifier_train_args.noise = 'zero'
         classifier_train_args.noise_param = 0
+        for k in vars(flow_args):
+            if k.startswith('missing_joint_probabilities'):
+                delattr(classifier_train_args, k)
 
         # if tag is 'noisy_ae', then data_nodes format is determined by AE output
         if tag == 'noisy_ae':

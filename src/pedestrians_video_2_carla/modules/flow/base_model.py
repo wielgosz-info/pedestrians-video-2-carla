@@ -8,8 +8,6 @@ class BaseModel(torch.nn.Module):
     """
     def __init__(self,
         prefix: str,
-        enable_lr_scheduler: bool = False,
-        lr: float = None,
         *args,
         **kwargs
     ):
@@ -18,7 +16,8 @@ class BaseModel(torch.nn.Module):
         self._prefix = prefix
         self._hparams = {}
 
-        self.enable_lr_scheduler = enable_lr_scheduler
+        self.enable_lr_scheduler = kwargs.get(f'{self._prefix}_enable_lr_scheduler')
+        lr = kwargs.get(f'{self._prefix}_lr')
 
         if lr is None:
             self.learning_rate = 5e-2 if self.enable_lr_scheduler else 1e-4

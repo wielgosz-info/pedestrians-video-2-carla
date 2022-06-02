@@ -4,6 +4,7 @@ from pedestrians_video_2_carla.data.openpose.jaad_openpose_datamodule import JAA
 from pedestrians_video_2_carla.data.carla.carla_recorded_datamodule import CarlaRecordedDataModule
 from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
+from pedestrians_video_2_carla.utils.argparse import flat_args_as_list_arg
 
 
 class JAADCarlaRecDataModule(MixedDataModule):
@@ -17,7 +18,8 @@ class JAADCarlaRecDataModule(MixedDataModule):
     test_proportions = [0, -1]
 
     def __init__(self, **kwargs):
-        jaad_missing_joint_probabilities = kwargs.pop('missing_joint_probabilities', [])
+        jaad_missing_joint_probabilities = flat_args_as_list_arg(kwargs, 'missing_joint_probabilities', True)
+        
         strong_points = kwargs.get('strong_points', 0)
         jaad_noise = kwargs.get('noise', 'zero')
         carla_noise = jaad_noise

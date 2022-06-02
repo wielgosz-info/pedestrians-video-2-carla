@@ -2,6 +2,8 @@ from enum import Enum
 
 from torch import nn
 
+from pedestrians_video_2_carla.loss.per_joint_loc_2d import PerJointLoc2DPoseLoss
+
 from .pose_changes import calculate_loss_pose_changes
 from .loc_3d import calculate_loss_loc_3d
 from .loc_2d import calculate_loss_loc_2d, Loc2DPoseLoss
@@ -40,3 +42,5 @@ class LossModes(Enum):
     weighted_loc_2d_loc_rot_3d = (calculate_loss_weighted_loc_2d_loc_rot_3d, None, (
         'loc_2d', 'loc_3d', 'rot_3d'
     ))
+
+    per_joint_loc_2d = (PerJointLoc2DPoseLoss, nn.MSELoss(reduction='mean'))
