@@ -152,7 +152,7 @@ class MixedDataModule(LightningDataModule):
         return class_counts
 
     def _validate_proportions(self, proportions: Iterable[float]) -> None:
-        assert len(proportions) == len(self._data_modules)
+        assert len(proportions) == len(self._data_modules), 'Proportions must be specified for each data module.'
         assert (all(0 <= p <= 1 for p in proportions) and sum(proportions)
                 == 1) or all((p == 0 or p == -1) for p in proportions)
         return proportions

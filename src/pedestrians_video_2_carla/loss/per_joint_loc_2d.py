@@ -18,12 +18,20 @@ class PerJointLoc2DPoseLoss(Loc2DPoseLoss):
                         common_gt: Tensor,
                         mask: Tensor = None) -> Tensor:
         weights = self._weights[..., self._input_indices]
-        weights = weights[mask] if mask is not None else weights
 
-        return torch.sum([
+        if mask is not None:
+            return torch.sum(torch.tensor([
+                self._criterion(
+                    common_pred[mask[..., i,]],
+                    common_gt[mask[..., i,]],
+                ) * w
+                for i, w in enumerate(weights)
+            ], requires_grad=True))
+
+        return torch.sum(torch.tensor([
             self._criterion(
                 common_pred[..., i, :],
                 common_gt[..., i, :],
             ) * w
             for i, w in enumerate(weights)
-        ])
+        ], requires_grad=True))

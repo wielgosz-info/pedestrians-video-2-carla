@@ -35,8 +35,6 @@ class BasePoseLoss(object):
         if self._mask_missing_joints:
             mask = get_missing_joints_mask(
                 common_gt, self._input_hips, self._input_indices)
-            common_pred = common_pred[mask]
-            common_gt = common_gt[mask]
 
         return self._calculate_loss(common_pred, common_gt, mask)
 
@@ -44,6 +42,10 @@ class BasePoseLoss(object):
                         common_pred: Tensor,
                         common_gt: Tensor,
                         mask: Tensor = None) -> Tensor:
+        if mask is not None:
+            common_pred = common_pred[mask]
+            common_gt = common_gt[mask]
+
         return self._criterion(
             common_pred,
             common_gt
