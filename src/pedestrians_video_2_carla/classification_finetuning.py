@@ -35,6 +35,12 @@ def setup_args() -> argparse.ArgumentParser:
         action='store_true',
         help='Force training mode for classifier instead of tuning. Useful when resuming tuning from a checkpoint.',
     )
+    parser.add_argument(
+        '--ae_ckpt_path',
+        type=str,
+        help='Path to AE',
+        default='wandb://carla-pedestrians/autoencoder/model-bright-node:v0',
+    )
 
     return parser
 
@@ -54,6 +60,7 @@ def main(args: List[str]):
         raise ValueError("You must provide a classifier checkpoint path for fine-tuning!")
 
     # Gather JAAD predictions from the AE
+    ae_ckpt_path = flow_args.ae_ckpt_path
     ae_pred_args = argparse.Namespace(**{
         'flow': 'autoencoder',
         'mode': 'predict',
@@ -82,7 +89,7 @@ def main(args: List[str]):
 
         # AE args
         # TODO: get this from cmd line instead of hardcoding - implement args prefixing
-        'ckpt_path': './artifacts/model-b2jfm4qg:v0/model.ckpt',
+        'ckpt_path': ae_ckpt_path,
         'hidden_size': 191,
         'num_layers': 2,
         'transform': BaseTransforms.hips_neck_bbox,  # fixed, since the important thing is what AE was trained with
@@ -95,12 +102,19 @@ def main(args: List[str]):
     (_, gt_data_subsets_dir, ae_trainer) = modeling_main(
         ae_pred_args,
         version=ae_predict_version,
-        standalone=True,
+        standalone=False,
         return_trainer=True,
         tags=[experiment_tag, 'ae_predict'],
     )
 
-    ae_run_id = 'model-b2jfm4qg'  # get_run_id_from_checkpoint_path(resolve_ckpt_path(ae_ckpt_path))
+    ae_run_id = get_run_id_from_checkpoint_path(resolve_ckpt_path(ae_ckpt_path))
+
+    try:
+        import wandb
+        wandb.finish()
+    except ImportError:
+        pass
+
     ae_output_nodes = ae_trainer.model.movements_model.output_nodes
     next_data_module_name = flow_args.data_module_name
 
@@ -135,7 +149,7 @@ def main(args: List[str]):
     classifier_train_args.renderers = [PedestrianRenderers.none]
 
     # forcefully disable artificial noise - it was already applied to the data
-    classifier_train_args.missing_point_probability = 0
+    classifier_train_args.missing_joint_probabilities = [0]
     classifier_train_args.noise = 'zero'
     classifier_train_args.noise_param = 0
 

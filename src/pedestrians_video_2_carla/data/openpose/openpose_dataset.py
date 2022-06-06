@@ -13,7 +13,7 @@ class OpenPoseDataset(BaseDataset):
                  ) -> None:
 
         if kwargs.get('strong_points', 0) != 1 and (
-            len(kwargs.get('missing_joint_probabilities', [])) != 0 or
+            sum(kwargs.get('missing_joint_probabilities', [])) != 0 or
             kwargs.get('noise', 'zero') != 'zero'
         ):
             raise ValueError(

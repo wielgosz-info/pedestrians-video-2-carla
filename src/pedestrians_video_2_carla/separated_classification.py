@@ -29,6 +29,12 @@ def setup_args() -> argparse.ArgumentParser:
         action='store_true',
         help='Keep the prediction datasets. By default they are deleted at the end of the script.',
     )
+    parser.add_argument(
+        '--ae_ckpt_path',
+        type=str,
+        help='Path to AE',
+        default='wandb://carla-pedestrians/autoencoder/model-bright-node:v0',
+    )
 
     return parser
 
@@ -120,7 +126,7 @@ def main(args: List[str]):
     logging.getLogger(__name__).info(f'Prepared data saved in {prep_data_subsets_dir}')
 
     # Gather predictions from the AE
-    ae_ckpt_path = './artifacts/model-bright-node:v0/model.ckpt'
+    ae_ckpt_path = flow_args.ae_ckpt_path
     ae_pred_args = argparse.Namespace(**{
         **common_predict_args,
 
@@ -169,8 +175,8 @@ def main(args: List[str]):
 
     # Train the same classifier three times: on clean data (for baseline), once on noisy data and once with denoising AE
     for version, subsets_dir, tag, after_run_params in [
-        (classifier_version_a, gt_data_subsets_dir, 'clean', { 'ae': False }),
-        (classifier_version_b, prep_data_subsets_dir, 'noisy', { **noise_args, 'ae': False }),
+        # (classifier_version_a, gt_data_subsets_dir, 'clean', { 'ae': False }),
+        # (classifier_version_b, prep_data_subsets_dir, 'noisy', { **noise_args, 'ae': False }),
         (classifier_version_c, ae_data_subsets_dir, 'noisy_ae', { **noise_args, 'ae': True }),
     ]:
         logging.getLogger(__name__).info(f"Training classifier on {subsets_dir}.")

@@ -14,7 +14,7 @@ from pedestrians_video_2_carla.modules.movements.linear import Linear
 from pedestrians_video_2_carla.modules.movements.lstm import LSTM
 from pedestrians_video_2_carla.modules.movements.linear_ae import LinearAE, LinearAE2D
 from pedestrians_video_2_carla.modules.movements.seq2seq import Seq2Seq, Seq2SeqEmbeddings, Seq2SeqFlatEmbeddings, Seq2SeqResidualA, Seq2SeqResidualB, Seq2SeqResidualC
-
+from pedestrians_video_2_carla.modules.movements.transformers import SimpleTransformer
 
 class LitAutoencoderFlow(LitBaseFlow):
     @property
@@ -46,6 +46,7 @@ class LitAutoencoderFlow(LitBaseFlow):
 
                     # For 2D pose autoencoding
                     LinearAE2D,
+                    SimpleTransformer,
                 ]
             }
         }
