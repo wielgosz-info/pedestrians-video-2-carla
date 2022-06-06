@@ -1,21 +1,28 @@
+from typing import Dict, Union
 import torch
 from torch_geometric.nn import GCNConv, global_mean_pool
+from pedestrians_video_2_carla.modules.classification.classification import ClassificationModel
+
+from torch.optim.lr_scheduler import StepLR
+
+from pedestrians_video_2_carla.modules.flow.output_types import ClassificationModelOutputType
 
 # This is the model from the paper: https://ieeexplore.ieee.org/document/8917118
 
-class GCN(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
+class GCNBestPaper(ClassificationModel):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
         self.conv1 = GCNConv(
-            in_channels=1,
-            hidden_channels=64, 
+            in_channels=2,
+            out_channels=64,
             cached=True,
             bias=True,
             normalize=False
             )
         self.conv2 = GCNConv(
             in_channels=64,
-            hidden_channels=32, 
+            out_channels=32, 
             cached=True,
             bias=True,
             normalize=False
@@ -23,19 +30,40 @@ class GCN(torch.nn.Module):
         self.relu = torch.nn.ReLU()
         self.sign = torch.nn.Sigmoid()
         self.dropout = torch.nn.Dropout(p=0.5)
-        self.linear = torch.nn.Linear(14, 1)
+        self.linear = torch.nn.Linear(26, 1)
 
-    def forward(self, x, edge_index, edge_weight=None):
-        x = self.conv1(x, edge_index, edge_weight).relu()
+    def forward(self, x, edge_index, batch_vector):
+        x = self.conv1(x, edge_index)
         x = self.relu(x)
         x = self.dropout(x)
 
-        x = self.conv2(x, edge_index, edge_weight).relu()
+        x = self.conv2(x, edge_index)
         x = self.relu(x)
         x = self.dropout(x)
 
-        x = global_mean_pool(x, size=14)
-        x = x.view(x.size(0), -1)
+        x = x.view((15, 26, -1))
+        x = torch.mean(x, dim=0)
+        x = torch.mean(x, dim=-1)
+
         x = self.linear(x)
-        x = self.sign(x)
+        
         return x
+
+    def configure_optimizers(self) -> Dict[str, Union[torch.optim.Optimizer, '_LRScheduler']]:
+        optimizer = torch.optim.AdamW(
+            self.parameters(), lr=self.learning_rate, weight_decay=1e-8)
+
+        config = {
+            'optimizer': optimizer,
+            'scheduler': StepLR(optimizer, step_size=5000, gamma=0.98)
+        }
+
+        return config
+
+    @property
+    def needs_graph(self):
+        return True
+
+    @property
+    def output_type(self):
+        return ClassificationModelOutputType.binary

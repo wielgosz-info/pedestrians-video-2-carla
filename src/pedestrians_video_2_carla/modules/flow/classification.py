@@ -19,6 +19,8 @@ from pedestrians_video_2_carla.modules.classification.gnn.gconv_lstm import GCon
 from pedestrians_video_2_carla.modules.classification.gnn.tgcn import TGCNModel
 from pedestrians_video_2_carla.modules.classification.lstm import LSTM
 from pedestrians_video_2_carla.modules.classification.gru import GRU
+from pedestrians_video_2_carla.modules.classification.gnn.gcn_best_paper import GCNBestPaper
+from pedestrians_video_2_carla.modules.flow.output_types import ClassificationModelOutputType
 
 from pedestrians_video_2_carla.utils.printing import print_metrics
 from pytorch_lightning.utilities import rank_zero_only
@@ -40,6 +42,8 @@ class LitClassificationFlow(pl.LightningModule):
                  **kwargs: Any) -> None:
         super().__init__()
 
+        self.classification_model = classification_model
+
         self.input_nodes = get_skeleton_type_by_name(input_nodes) if isinstance(input_nodes, str) else input_nodes
         self._targets_key = classification_targets_key
         self._outputs_key = classification_targets_key + '_logits'
@@ -48,10 +52,12 @@ class LitClassificationFlow(pl.LightningModule):
         self._num_classes = 2
         self._average = classification_average
 
-        self.criterion = torch.nn.CrossEntropyLoss()
-        self.metrics = MetricCollection(self.get_metrics())
+        if self._num_classes == 2 and classification_model.output_type == ClassificationModelOutputType.binary:
+            self.criterion = torch.nn.BCEWithLogitsLoss()
+        else:
+            self.criterion = torch.nn.CrossEntropyLoss()
 
-        self.classification_model = classification_model
+        self.metrics = MetricCollection(self.get_metrics())
 
         self.save_hyperparameters({
             'host': platform.node(),
@@ -70,51 +76,69 @@ class LitClassificationFlow(pl.LightningModule):
         return {}
 
     def get_metrics(self) -> Dict[str, torchmetrics.Metric]:
+        if self.classification_model.output_type == ClassificationModelOutputType.multiclass:
+            mc = {
+                'num_classes': self._num_classes,
+                'average': self._average,
+                'multiclass': True,
+            }
+            curve_mc = {
+                'num_classes': self._num_classes,
+            }
+        else:
+            mc = {
+                'num_classes': None,
+            }
+            curve_mc = {
+                'num_classes': None,
+            }
+
         return {
             'Accuracy': MultiinputWrapper(
                 Accuracy(dist_sync_on_step=True,
-                         num_classes=self._num_classes, average=self._average),
+                         **mc),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'Precision': MultiinputWrapper(
                 Precision(dist_sync_on_step=True,
-                          num_classes=self._num_classes, average=self._average),
+                          **mc),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'Recall': MultiinputWrapper(
                 Recall(dist_sync_on_step=True,
-                       num_classes=self._num_classes, average=self._average),
+                       **mc),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'F1Score': MultiinputWrapper(
                 F1Score(dist_sync_on_step=True,
-                        num_classes=self._num_classes, average=self._average),
+                        **mc),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'ConfusionMatrix': MultiinputWrapper(
                 ConfusionMatrix(dist_sync_on_step=True,
-                                num_classes=self._num_classes, normalize=None),
+                                num_classes=self._num_classes,
+                                normalize=None),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'AUROC': MultiinputWrapper(
                 AUROC(dist_sync_on_step=True,
-                      num_classes=self._num_classes, average=self._average),
+                      **curve_mc),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'ROCCurve': MultiinputWrapper(
-                ROC(dist_sync_on_step=True, num_classes=self._num_classes),
+                ROC(dist_sync_on_step=True, **curve_mc),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'PRCurve': MultiinputWrapper(
                 PrecisionRecallCurve(dist_sync_on_step=True,
-                                     num_classes=self._num_classes),
+                                     **curve_mc),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
@@ -140,7 +164,8 @@ class LitClassificationFlow(pl.LightningModule):
                 "TGCN": TGCNModel,
                 "GConvGRU": GConvGRUModel,
                 "LSTM": LSTM,
-                "GRU": GRU
+                "GRU": GRU,
+                "GCNBestPaper": GCNBestPaper
             }
         }
 
@@ -244,17 +269,22 @@ class LitClassificationFlow(pl.LightningModule):
             (inputs, targets, *_) = self._unwrap_batch(batch)
             d_targets = {k: v.to(self.device) for k, v in targets.items()}
 
-            one_hot = torch.nn.functional.one_hot(
-                torch.ones_like(d_targets[self._targets_key]) * prevalent_class,
-                num_classes=self._num_classes
-            )
+            if self.classification_model.output_type == ClassificationModelOutputType.multiclass:
+                one_hot = torch.nn.functional.one_hot(
+                    torch.ones_like(d_targets[self._targets_key]) * prevalent_class,
+                    num_classes=self._num_classes
+                )
 
-            if one_hot.ndim > 2:
-                one_hot = one_hot.transpose(one_hot.ndim-2, one_hot.ndim-1)
+                if one_hot.ndim > 2:
+                    one_hot = one_hot.transpose(one_hot.ndim-2, one_hot.ndim-1)
 
-            initial_metrics.update({
-                self._outputs_key: one_hot.float(),
-            }, d_targets)
+                initial_metrics.update({
+                    self._outputs_key: one_hot.float(),
+                }, d_targets)
+            else:
+                initial_metrics.update({
+                    self._outputs_key: (torch.ones_like(d_targets[self._targets_key]) * prevalent_class).float(),
+                }, d_targets)
 
         results = initial_metrics.compute()
         unwrapped = {
@@ -296,20 +326,31 @@ class LitClassificationFlow(pl.LightningModule):
         if axis_names is None:
             axis_names = col_names
 
-        for i, class_name in enumerate(self.class_labels):
+        if len(x) == len(self.class_labels):
+            classes = enumerate(self.class_labels)
+        else:
+            classes = ((0, self.class_labels[1]), )
+            x = x.unsqueeze(0)
+            y = y.unsqueeze(0)
+
+        for i, class_name in classes:
             x_class = x[i]
             y_class = y[i]
 
-            samples = min(20, len(y_class))
+            x_class_len = x_class.shape[0]
+            y_class_len = y_class.shape[0]
+
+            samples = min(20, y_class_len)
             sample_y = []
             sample_x = []
             for k in range(samples):
-                sample_x.append(x_class[int(len(x_class) * k / samples)].item())
+                sample_x.append(x_class[int(x_class_len * k / samples)].item())
                 sample_y.append(
-                    y_class[int(len(y_class) * k / samples)].item()
+                    y_class[int(y_class_len * k / samples)].item()
                 )
 
             curves[class_name] = (sample_x, sample_y)
+
 
         data = [
             [class_name, round(x_s, 3), round(y_s, 3)]
@@ -478,9 +519,13 @@ class LitClassificationFlow(pl.LightningModule):
         # TODO: for now this hardcodes the loss to be the cross entropy loss
         loss_dict = {}
 
+        criterion_targets = torch.atleast_1d(sliced['targets'][self._targets_key])
+        if self.classification_model.output_type == ClassificationModelOutputType.binary:
+            criterion_targets = criterion_targets.to(torch.float32)
+
         loss = self.criterion(
             sliced[self._outputs_key],
-            sliced['targets'][self._targets_key],
+            criterion_targets,
         )
 
         if loss is not None and not torch.isnan(loss):

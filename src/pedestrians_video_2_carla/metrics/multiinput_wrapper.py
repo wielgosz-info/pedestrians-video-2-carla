@@ -46,7 +46,10 @@ class MultiinputWrapper(Metric):
     def update(self, predictions: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]):
         if self._input_indices is None and self._output_indices is None:
             # this metric is not calculated on joints
-            return self.base_metric.update(predictions[self.pred_key], targets[self.target_key])
+            return self.base_metric.update(
+                predictions[self.pred_key],
+                torch.atleast_1d(targets[self.target_key])
+            )
 
         common_pred = predictions[self.pred_key][..., self._output_indices, :]
         common_gt = targets[self.target_key][..., self._input_indices, :]

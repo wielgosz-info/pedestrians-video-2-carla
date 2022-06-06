@@ -33,3 +33,4 @@ class ClassificationModelOutputType(Enum):
     Enum for the different model types.
     """
     multiclass = 0  # default
+    binary = 1
