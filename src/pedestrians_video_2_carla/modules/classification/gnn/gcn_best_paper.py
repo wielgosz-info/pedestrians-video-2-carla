@@ -55,7 +55,9 @@ class GCNBestPaper(ClassificationModel):
 
         config = {
             'optimizer': optimizer,
-            'scheduler': StepLR(optimizer, step_size=5000, gamma=0.98)
+            'lr_scheduler': {
+                'scheduler': StepLR(optimizer, step_size=2, gamma=0.6)
+            }
         }
 
         return config
