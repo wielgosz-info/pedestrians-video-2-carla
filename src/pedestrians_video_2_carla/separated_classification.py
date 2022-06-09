@@ -175,8 +175,8 @@ def main(args: List[str]):
 
     # Train the same classifier three times: on clean data (for baseline), once on noisy data and once with denoising AE
     for version, subsets_dir, tag, after_run_params in [
-        # (classifier_version_a, gt_data_subsets_dir, 'clean', { 'ae': False }),
-        # (classifier_version_b, prep_data_subsets_dir, 'noisy', { **noise_args, 'ae': False }),
+        (classifier_version_a, gt_data_subsets_dir, 'clean', { 'ae': False }),
+        (classifier_version_b, prep_data_subsets_dir, 'noisy', { **noise_args, 'ae': False }),
         (classifier_version_c, ae_data_subsets_dir, 'noisy_ae', { **noise_args, 'ae': True }),
     ]:
         logging.getLogger(__name__).info(f"Training classifier on {subsets_dir}.")
@@ -206,7 +206,7 @@ def main(args: List[str]):
             classifier_train_args.input_nodes = data_prep_args.input_nodes
 
         # if recurrent GNNs are used, batch_size should be 1; TODO: make this smarter instead of listing all possible models here
-        if flow_args.classification_model_name in ['GConvLSTM', 'DCRNN', 'TGCN', 'GConvGRU']:
+        if flow_args.classification_model_name in ['GConvLSTM', 'DCRNN', 'TGCN', 'GConvGRU', 'GCNBestPaper']:
             classifier_train_args.log_every_n_steps = classifier_train_args.batch_size * classifier_train_args.log_every_n_steps
             classifier_train_args.batch_size = 1
 

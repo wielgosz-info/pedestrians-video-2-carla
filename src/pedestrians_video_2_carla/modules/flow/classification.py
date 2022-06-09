@@ -38,13 +38,11 @@ class LitClassificationFlow(pl.LightningModule):
                  classification_model: ClassificationModel,
                  classification_targets_key: str,
                  classification_average: str = 'macro',
-                 input_nodes: Union[Type[Skeleton], str] = CARLA_SKELETON,
                  **kwargs: Any) -> None:
         super().__init__()
 
         self.classification_model = classification_model
 
-        self.input_nodes = get_skeleton_type_by_name(input_nodes) if isinstance(input_nodes, str) else input_nodes
         self._targets_key = classification_targets_key
         self._outputs_key = classification_targets_key + '_logits'
 
@@ -61,7 +59,6 @@ class LitClassificationFlow(pl.LightningModule):
 
         self.save_hyperparameters({
             'host': platform.node(),
-            'input_nodes': get_skeleton_name_by_type(self.input_nodes),
             'classification_targets_key': self._targets_key,
             'classification_average': self._average,
             'num_classes': self._num_classes,

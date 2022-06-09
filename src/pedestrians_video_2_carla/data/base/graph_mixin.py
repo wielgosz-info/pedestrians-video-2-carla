@@ -24,7 +24,7 @@ class GraphMixin:
         self.return_graph = return_graph
 
         if self.return_graph:
-            self.edge_index = kwargs.get('input_nodes', CARLA_SKELETON).get_edge_index()
+            self.edge_index = self.input_nodes.get_edge_index()
             self.clip_length = kwargs.get('clip_length', 30)
 
     def process_graph(self, out: Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, Iterable]]) -> torch.Tensor:

@@ -13,6 +13,8 @@ class GCNBestPaper(ClassificationModel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+        self._num_input_nodes = len(self._input_nodes)
+
         self.conv1 = GCNConv(
             in_channels=2,
             out_channels=64,
@@ -30,7 +32,7 @@ class GCNBestPaper(ClassificationModel):
         self.relu = torch.nn.ReLU()
         self.sign = torch.nn.Sigmoid()
         self.dropout = torch.nn.Dropout(p=0.5)
-        self.linear = torch.nn.Linear(26, 1)
+        self.linear = torch.nn.Linear(self._num_input_nodes, 1)
 
     def forward(self, x, edge_index, batch_vector):
         x = self.conv1(x, edge_index)
@@ -41,7 +43,7 @@ class GCNBestPaper(ClassificationModel):
         x = self.relu(x)
         x = self.dropout(x)
 
-        x = x.view((15, 26, -1))
+        x = x.view((-1, self._num_input_nodes, 2))
         x = torch.mean(x, dim=0)
         x = torch.mean(x, dim=-1)
 

@@ -418,6 +418,9 @@ class BaseDataModule(LightningDataModule):
         self.save_settings()
         progress_bar.close()
 
+        # in case the method is called second time
+        self._needs_preparation = False
+
     def _save_subset(self, name, projection_2d, targets, meta, save_dir=None):
         """
         This method is used to save the subset of data as HDF5 file that follows common format.
