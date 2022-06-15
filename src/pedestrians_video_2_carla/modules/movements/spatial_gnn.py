@@ -81,14 +81,6 @@ class TransformerBlock(torch.nn.Module):
         return x
 
 class TransformerGNN(SpatialGnn):
-    @property
-    def needs_graph(self) -> bool:
-        return True
-
-    @property
-    def output_type(self) -> MovementsModelOutputType:
-        return MovementsModelOutputType.pose_2d
-
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.in_channels = in_channels

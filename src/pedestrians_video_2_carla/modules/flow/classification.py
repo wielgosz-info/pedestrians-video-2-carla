@@ -20,6 +20,7 @@ from pedestrians_video_2_carla.modules.classification.gnn.tgcn import TGCNModel
 from pedestrians_video_2_carla.modules.classification.lstm import LSTM
 from pedestrians_video_2_carla.modules.classification.gru import GRU
 from pedestrians_video_2_carla.modules.classification.gnn.gcn_best_paper import GCNBestPaper
+from pedestrians_video_2_carla.modules.classification.gnn.gcn_best_paper_transformer import GCNBestPaperTransformer
 from pedestrians_video_2_carla.modules.flow.output_types import ClassificationModelOutputType
 
 from pedestrians_video_2_carla.utils.printing import print_metrics
@@ -162,7 +163,8 @@ class LitClassificationFlow(pl.LightningModule):
                 "GConvGRU": GConvGRUModel,
                 "LSTM": LSTM,
                 "GRU": GRU,
-                "GCNBestPaper": GCNBestPaper
+                "GCNBestPaper": GCNBestPaper,
+                "GCNBestPaperTransformer": GCNBestPaperTransformer
             }
         }
 
@@ -414,7 +416,8 @@ class LitClassificationFlow(pl.LightningModule):
     def _eval_step_end(self, outputs, stage):
         # update metrics
         self.metrics.update(outputs['preds'], outputs['targets'])
-
+        
+    #TODO: somehow this is not working
     def _on_eval_epoch_end(self):
         try:
             unwrapped_m = self._unwrap_nested_metrics(self.metrics.compute(), ['hp'])
@@ -424,9 +427,11 @@ class LitClassificationFlow(pl.LightningModule):
                     if k.endswith('ConfusionMatrix'):
                         self._log_confusion_matrix(k, v)
                     elif k.endswith('ROCCurve'):
-                        self._log_roc_curve(k, v)
+                        # self._log_roc_curve(k, v)
+                        pass
                     elif k.endswith('PRCurve'):
-                        self._log_pr_curve(k, v)
+                        # self._log_pr_curve(k, v)
+                        pass
                     else:
                         self.log(k, v)
                 else:
