@@ -14,8 +14,9 @@ class GCNBestPaperTransformer(ClassificationModel):
         super().__init__(**kwargs)
 
         self._num_input_nodes = len(self._input_nodes)
-        self._n_heads = 2
-        self._out_channels = [64, 32]
+        self._n_heads = 1
+        # self._out_channels = [64, 32]
+        self._out_channels = [8, 4]
 
         self.conv1 = TransformerConv(
             in_channels=2,
@@ -24,7 +25,7 @@ class GCNBestPaperTransformer(ClassificationModel):
             bias=True
             )
         self.conv2 = TransformerConv(
-            in_channels=self._n_heads*64,
+            in_channels=self._n_heads * self._out_channels[0],
             out_channels=self._out_channels[-1], 
             heads=self._n_heads,
             bias=True
