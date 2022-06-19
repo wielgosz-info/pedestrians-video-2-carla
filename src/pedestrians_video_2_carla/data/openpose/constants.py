@@ -1,13 +1,13 @@
-import os
+OPENPOSE_DIR = 'openpose'
 
 JAAD_DIR = 'JAAD'
-OPENPOSE_DIR = os.path.join(JAAD_DIR, 'openpose')
-DF_ISIN = {
-    # 'action': ['walking'],
-    # 'speed': ['stopped'],
-    'group_size': [1]
-}
-DF_USECOLS = [
+JAAD_ISIN = None
+# JAAD_ISIN = {
+#     'action': ['walking'],
+#     'speed': ['stopped'],
+#     'group_size': [1]
+# }
+JAAD_USECOLS = [
     'video',
     'frame',
     'x1',
@@ -15,10 +15,25 @@ DF_USECOLS = [
     'x2',
     'y2',
     'id',
-    'action',
     'gender',
     'age',
-    'speed',
-    'group_size',
-    'cross'
+    'crossing',
+    'action'
+]
+
+PIE_DIR = 'PIE'
+PIE_ISIN = None
+PIE_USECOLS = [
+    'set_name',
+    'video',
+    'frame',
+    'x1',
+    'y1',
+    'x2',
+    'y2',
+    'id',
+    'gender',
+    'age',
+    'crossing',
+    'action'
 ]

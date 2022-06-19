@@ -93,12 +93,12 @@ class BODY_25_SKELETON(Skeleton):
             (BODY_25_SKELETON.LEye, BODY_25_SKELETON.LEar),
             (BODY_25_SKELETON.LAnkle, BODY_25_SKELETON.LHeel),
             (BODY_25_SKELETON.RAnkle, BODY_25_SKELETON.RHeel),
-            (BODY_25_SKELETON.LHeel, BODY_25_SKELETON.LBigToe),
+            (BODY_25_SKELETON.LAnkle, BODY_25_SKELETON.LBigToe),
             (BODY_25_SKELETON.LBigToe, BODY_25_SKELETON.LSmallToe),
-            (BODY_25_SKELETON.LHeel, BODY_25_SKELETON.LSmallToe),
-            (BODY_25_SKELETON.RHeel, BODY_25_SKELETON.RBigToe),
+            (BODY_25_SKELETON.LAnkle, BODY_25_SKELETON.LSmallToe),
+            (BODY_25_SKELETON.RAnkle, BODY_25_SKELETON.RBigToe),
             (BODY_25_SKELETON.RBigToe, BODY_25_SKELETON.RSmallToe),
-            (BODY_25_SKELETON.RHeel, BODY_25_SKELETON.RSmallToe),
+            (BODY_25_SKELETON.RAnkle, BODY_25_SKELETON.RSmallToe),
         ]
 
 

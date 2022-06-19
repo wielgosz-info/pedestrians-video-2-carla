@@ -10,6 +10,7 @@ import torch
 
 from tqdm.auto import tqdm
 from PIL import Image
+from torchvision.transforms.functional import equalize, normalize, resize
 
 from pedestrians_video_2_carla.data.openpose.skeleton import COCO_SKELETON
 from pedestrians_video_2_carla.data.openpose.jaad_openpose_datamodule import JAADOpenPoseDataModule
@@ -80,92 +81,10 @@ class JAADUniPoseDataModule(JAADOpenPoseDataModule):
         start_frame = int(pedestrian_info.iloc[0]['frame'])
         end_frame = int(pedestrian_info.iloc[-1]['frame'] + 1)
 
-        bboxes = pedestrian_info[['x1', 'y1', 'x2', 'y2']
-                                 ].to_numpy().reshape((-1, 2, 2))
-
-        canvas_size = (
-            bboxes[:, 1] - bboxes[:, 0]).max().astype(int)
-        canvas_size = max(canvas_size, 368)
-        half_size = canvas_size // 2
-
-        canvas = np.zeros((end_frame - start_frame, canvas_size,
-                           canvas_size, 3), dtype=np.uint8)
-
         paths = glob.glob(os.path.join(
             self.datasets_dir, JAAD_DIR, 'videos', '{}.*'.format(os.path.splitext(video_id)[0])))
-        try:
-            assert len(paths) == 1
-            with pims.PyAVReaderIndexed(paths[0]) as video:
-                clip = video[start_frame:end_frame]
-                clip_length = len(clip)
-                (clip_height, clip_width, _) = clip.frame_shape
 
-                centers = (bboxes.mean(axis=-2) + 0.5).round().astype(int)
-                shifts = np.zeros((clip_length, 2), dtype=int)
-
-                for idx in range(clip_length):
-                    shifts[idx] = self._extract_bbox_from_frame(canvas[idx], clip[idx],
-                                                                (half_size,
-                                                                 half_size),
-                                                                centers[idx],
-                                                                (clip_width,
-                                                                 clip_height),
-                                                                )
-
-            # right now we have a canvas with all the frames of the clip that hopefully contains the pedestrian in the center
-            # it is now time to run the unipose model
-
-            # first, resize the canvas to the size of the model input
-            # it can be 368px x 368px or bigger
-            if canvas_size > 368:
-                scaled_canvas = np.zeros((clip_length, 368, 368, 3), dtype=np.uint8)
-                for idx in range(clip_length):
-                    scaled_canvas[idx] = Image.fromarray(canvas[idx]).resize((368, 368))
-            else:
-                scaled_canvas = canvas
-
-            # convert from chanel-last RGB image to channel-first BGR image
-            # as compatible with pretrained UniPose model
-            bgr_canvas = torch.from_numpy(
-                scaled_canvas[..., ::-1].transpose((0, 3, 1, 2)).copy()).float().to(device)
-
-            # normalize
-            mean = [128.0, 128.0, 128.0]
-            std = [256.0, 256.0, 256.0]
-            for t, m, s in zip(bgr_canvas, mean, std):
-                t.sub_(m).div_(s)
-
-            heatmaps = unipose_model(bgr_canvas)
-
-            clip_keypoints = self._keypoints_from_heatmaps(
-                heatmaps.cpu().numpy(),
-                (canvas_size, canvas_size),
-                shifts
-            )
-
-            for idx, keypoints in enumerate(clip_keypoints):
-                pedestrian_info.at[pedestrian_info.index[idx],
-                                   'keypoints'] = keypoints
-
-                # debug
-                # pth = os.path.join(
-                #     '/outputs/', '{}_{}_{}'.format(video_id, pedestrian_id, clip_id))
-                # if not os.path.exists(pth):
-                #     os.makedirs(pth)
-                # kp = np.array(keypoints)[..., :2]
-                # bbox_img = PointsRenderer.draw_projection_points(
-                #     canvas[idx], kp, COCO_SKELETON, lines=True)
-                # Image.fromarray(bbox_img).save(
-                #     os.path.join(pth, 'bbox_{}.png'.format(idx)))
-
-                # frame_img = PointsRenderer.draw_projection_points(
-                #     clip[idx], kp + shifts[idx], COCO_SKELETON, lines=True)
-                # Image.fromarray(frame_img).save(
-                #     os.path.join(pth, 'frame_{}.png'.format(idx)))
-
-            # everything went well, append the clip to the list
-            return pedestrian_info
-        except AssertionError:
+        if len(paths) != 1:
             # no video or multiple candidates - skip
             logging.getLogger(__name__).warn(
                 "Clip extraction failed for {}, {}, {}".format(
@@ -174,8 +93,99 @@ class JAADUniPoseDataModule(JAADOpenPoseDataModule):
                     clip_id))
             return None
 
-    def _extract_bbox_from_frame(self, canvas, clip, frame_half_size, bbox_center, clip_size):
-        (half_width, half_height) = frame_half_size
+        bboxes = pedestrian_info[['x1', 'y1', 'x2', 'y2']
+                                 ].to_numpy().reshape((-1, 2, 2))
+
+        target_size = 368
+        canvas_size = (
+            bboxes[:, 1] - bboxes[:, 0]).max().astype(int)
+        canvas_size = max(canvas_size, target_size)
+        half_size = canvas_size // 2
+
+        canvas = np.zeros((end_frame - start_frame, canvas_size,
+                           canvas_size, 3), dtype=np.uint8)
+
+        with pims.PyAVReaderIndexed(paths[0]) as video:
+            clip = video[start_frame:end_frame]
+            clip_length = len(clip)
+            (clip_height, clip_width, _) = clip.frame_shape
+
+            centers = (bboxes.mean(axis=-2) + 0.5).round().astype(int)
+            shifts = np.zeros((clip_length, 2), dtype=int)
+
+            for idx in range(clip_length):
+                shifts[idx] = self._extract_bbox_from_frame(canvas[idx], clip[idx],
+                                                            (half_size, half_size),
+                                                            centers[idx],
+                                                            (clip_width, clip_height),
+                                                            )
+
+        # right now we have a canvas with all the frames of the clip
+        # that hopefully contains the pedestrian in the center
+        # it is now time to run the unipose model
+
+        # convert to tensor
+        tensor_canvas = torch.from_numpy(
+            canvas.transpose((0, 3, 1, 2)).copy()
+        )
+
+        # equalize histogram of the images
+        tensor_canvas = equalize(tensor_canvas)
+
+        # resize if needed
+        if canvas_size > target_size:
+            scaled_canvas = torch.zeros(
+                (clip_length, 3, target_size, target_size), dtype=torch.uint8)
+            for idx in range(clip_length):
+                scaled_canvas[idx] = resize(
+                    tensor_canvas[idx],
+                    (target_size, target_size),
+                    antialias=True
+                )
+            tensor_canvas = scaled_canvas
+
+        # normalize
+        tensor_canvas = tensor_canvas.div(255.0)
+        tensor_canvas = normalize(
+            tensor_canvas, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+
+        heatmaps = unipose_model(tensor_canvas.to(device))
+
+        clip_keypoints = self._keypoints_from_heatmaps(
+            heatmaps.cpu().numpy(),
+            (canvas_size, canvas_size),
+            shifts
+        )
+
+        for idx, keypoints in enumerate(clip_keypoints):
+            pedestrian_info.at[pedestrian_info.index[idx],
+                               'keypoints'] = keypoints
+
+            # debug
+            # pth = os.path.join(
+            #     '/outputs/', '{}_{}_{}'.format(video_id, pedestrian_id, clip_id))
+            # if not os.path.exists(pth):
+            #     os.makedirs(pth)
+            # kp = np.array(keypoints)[..., :2]
+            # bbox_img = PointsRenderer.draw_projection_points(
+            #     (tensor_canvas[idx]*128 + 127).numpy().transpose((1, 2, 0)
+            #                                                      ).round().clip(0,255).astype(np.uint8),
+            #     kp - shifts[idx], COCO_SKELETON, lines=True)
+            # Image.fromarray(canvas[idx]).save(
+            #     os.path.join(pth, 'bbox_{}.png'.format(idx)))
+            # Image.fromarray(bbox_img).save(
+            #     os.path.join(pth, 'bbox_{}_sk.png'.format(idx)))
+
+            # frame_img = PointsRenderer.draw_projection_points(
+            #     clip[idx], kp, COCO_SKELETON, lines=True)
+            # Image.fromarray(frame_img).save(
+            #     os.path.join(pth, 'frame_{}_sk.png'.format(idx)))
+
+        # everything went well, append the clip to the list
+        return pedestrian_info
+
+    def _extract_bbox_from_frame(self, canvas, clip, half_size, bbox_center, clip_size):
+        (half_width, half_height) = half_size
         (x_center, y_center) = bbox_center
         (clip_width, clip_height) = clip_size
 
@@ -212,14 +222,17 @@ class JAADUniPoseDataModule(JAADOpenPoseDataModule):
             kpts = []
             for m in heatmap[1:]:
                 h, w = np.unravel_index(m.argmax(), m.shape)
-                x = int(w * bbox_width / m.shape[1])  # + x_shift
-                y = int(h * bbox_height / m.shape[0])  # + y_shift
+                x = int(w * bbox_width / m.shape[1]) + x_shift
+                y = int(h * bbox_height / m.shape[0]) + y_shift
                 c = m.max()
-                kpts.append([x, y, c])
+                if c > 0:
+                    kpts.append((x, y, c))
+                else:
+                    kpts.append((0, 0, 0))
 
             # points are detected in the order other than standard COCO order
             # this is a bit of a guesswork, because I couldn't find a reference
-            # no neck, nose, or left/right toe
+            # no neck or nose
             unipose_order = tuple([n.value for n in (
                 COCO_SKELETON.LEye,  # 0
                 COCO_SKELETON.REye,  # 1

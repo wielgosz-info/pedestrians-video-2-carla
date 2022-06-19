@@ -143,7 +143,7 @@ class PedestrianWriter(object):
                 world_loc[self.__videos_slice] if world_loc is not None else None,
                 world_rot[self.__videos_slice] if world_rot is not None else None,
                 batch_idx)), desc="Rendering clips", total=self._max_videos, leave=False):
-            video_dir = os.path.join(self._log_dir, stage, meta['video_id'])
+            video_dir = os.path.join(self._log_dir, stage, meta.get('set_name', ''), meta['video_id'])
             os.makedirs(video_dir, exist_ok=True)
 
             torchvision.io.write_video(
