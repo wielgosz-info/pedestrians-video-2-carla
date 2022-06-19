@@ -125,7 +125,7 @@ class COCO_SKELETON(Skeleton):
     @classmethod
     def get_colors(cls) -> Dict['COCO_SKELETON', Tuple[int, int, int, int]]:
         # try to match OpenPose color scheme for easier visual comparison
-        {
+        return {
             COCO_SKELETON.Nose: (255, 0, 85, 255),
             COCO_SKELETON.Neck: (255, 0, 0, 192),
             COCO_SKELETON.RShoulder: (255, 85, 0, 255),

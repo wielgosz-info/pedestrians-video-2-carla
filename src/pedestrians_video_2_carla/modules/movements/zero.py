@@ -15,13 +15,16 @@ class ZeroMovements(MovementsModelOutputTypeMixin, MovementsModel):
             MovementsModelOutputType.pose_changes,
             MovementsModelOutputType.pose_2d,
         ]:
-            raise ValueError('Unsupported movements output type: {}'.format(self.movements_output_type))
+            raise ValueError('Unsupported movements output type: {}'.format(
+                self.movements_output_type))
 
         self.a = torch.nn.Linear(1, 1)
 
     @staticmethod
     def add_model_specific_args(parent_parser):
         parent_parser = MovementsModel.add_model_specific_args(parent_parser)
+
+        parser = parent_parser.add_argument_group("Zero Movements Model")
         parser = MovementsModelOutputTypeMixin.add_model_specific_args(parser)
 
         return parent_parser
@@ -38,7 +41,6 @@ class ZeroMovements(MovementsModelOutputTypeMixin, MovementsModel):
             )
         else:
             return x
-            
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-4)
