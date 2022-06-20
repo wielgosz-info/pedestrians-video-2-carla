@@ -66,9 +66,9 @@ class _UniPoseLSTM(UniPoseLSTMOriginal):
         centermap = self.pool_center(centermap[:, iter, :, :, :])
 
         # it may happen that due to the downsampling, the centermap is smaller than the output of the decoder
-        # in this case, we need to pad the centermap with zeros
+        # in this case, we need to crop the decoder output to match the centermap
         if centermap.shape[-1] != x.shape[-1]:
-            centermap = F.pad(centermap, (0, x.shape[-1] - centermap.shape[-1]))
+            x = x[..., :centermap.shape[-1]]
 
         concatenated = torch.cat((x, centermap), dim=1)
 
@@ -97,6 +97,7 @@ class UniPoseLSTM(PoseEstimationModel):
         self._output_nodes_len = len(self.output_nodes)
         self._stride = stride
         self._output_stride = output_stride
+        self._sigma = 3  # TODO: sigma was hardcoded in original to 3, should it match what was used in dataset? kwargs.get('sigma', 3)
 
         self.unipose = _UniPoseLSTM(
             num_classes=self._output_nodes_len,
@@ -124,6 +125,23 @@ class UniPoseLSTM(PoseEstimationModel):
             'output_stride': self._output_stride
         })
 
+    @staticmethod
+    def add_model_specific_args(parent_parser):
+        parent_parser = PoseEstimationModel.add_model_specific_args(parent_parser)
+
+        parser = parent_parser.add_argument_group("UniPoseLSTM Pose Estimation Model")
+        parser.add_argument(
+            '--stride',
+            default=8,
+            type=int,
+        )
+        parser.add_argument(
+            '--output_stride',
+            default=16,
+            type=int,
+        )
+        return parent_parser
+
     def forward(self, input: torch.Tensor, **kwargs):
         bs, l, _, h, w = input.shape
 
@@ -135,7 +153,7 @@ class UniPoseLSTM(PoseEstimationModel):
         # in original code it came from dataset for whatever reason
         # a starting point for heatmaps maybe?
         centermap = gaussian_kernel(
-            w, h, w // 2, h // 2, 3)[None, None, ...].repeat(bs, l, 1, 1, 1).to(input.device)
+            w, h, w // 2, h // 2, self._sigma)[None, None, ...].repeat(bs, l, 1, 1, 1).to(input.device)
 
         for iter in range(l):
             heatmap, cell, hide = self.unipose(input, centermap, iter, None, hide, cell)

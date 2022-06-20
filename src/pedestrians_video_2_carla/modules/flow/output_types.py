@@ -34,3 +34,10 @@ class ClassificationModelOutputType(Enum):
     """
     multiclass = 0  # default
     binary = 1
+
+
+class PoseEstimationModelOutputType(Enum):
+    """
+    Enum for the different model types.
+    """
+    heatmaps = 100  # default
