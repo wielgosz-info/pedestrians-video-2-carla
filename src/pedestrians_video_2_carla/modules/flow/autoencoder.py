@@ -108,9 +108,9 @@ class LitAutoencoderFlow(LitBaseFlow):
             frames,
             targets=targets if self.training and self.movements_model.needs_targets else None,
             edge_index=edge_index.to(
-                self.device) if self.movements_model.needs_graph else None,
+                self.device) if self.needs_graph else None,
             batch_vector=batch_vector.to(
-                self.device) if self.movements_model.needs_graph else None
+                self.device) if self.needs_graph else None
         )
 
         return self._get_sliced_data(frames, targets, pose_inputs)

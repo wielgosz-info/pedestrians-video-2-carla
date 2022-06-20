@@ -169,7 +169,7 @@ class PandasDataModuleMixin:
 
         # handle continuous clips first
         for idx in tqdm(frame_counts[frame_counts.frame_count_eq_diff == True].index, desc='Extracting from continuous data', leave=False):
-            video = annotations_df.loc[idx].sort_values('frame')
+            video = annotations_df.loc[idx].sort_values(self.clips_index[-1])
             ci = 0
             while (ci*self.clip_offset + self.clip_length) <= frame_counts.loc[idx].frame_count:
                 clips.append(video.iloc[ci * self.clip_offset:ci *
@@ -178,7 +178,7 @@ class PandasDataModuleMixin:
 
         # then try to extract from non-continuos
         for idx in tqdm(frame_counts[frame_counts.frame_count_eq_diff == False].index, desc='Extracting from non-continuous data', leave=False):
-            video = annotations_df.loc[idx].sort_values('frame')
+            video = annotations_df.loc[idx].sort_values(self.clips_index[-1])
             frame_diffs_min = video[1:][[self.clips_index[-1]]].assign(
                 frame_diff=video[1:].frame - video[0:-1].frame)
             frame_min = [frame_counts.loc[idx].frame_min] + \

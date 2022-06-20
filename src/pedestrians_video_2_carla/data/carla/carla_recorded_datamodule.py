@@ -30,11 +30,12 @@ class CarlaRecordedDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseD
                  carla_rec_set_name: str = CARLA_RECORDED_DEFAULT_SET_NAME,
                  **kwargs):
         self.set_name = carla_rec_set_name
+        source_videos_dir = os.path.join(CARLA_RECORDED_DIR, self.set_name)
 
         super().__init__(
-            cross_label = 'frame.pedestrian.is_crossing',
+            cross_label='frame.pedestrian.is_crossing',
             data_filepath=os.path.join(
-                CARLA_RECORDED_DIR, self.set_name, 'data.csv'),
+                source_videos_dir, 'data.csv'),
             primary_index=['id', 'camera.idx', 'pedestrian.idx'],
             clips_index=['clip', 'frame.idx'],
             converters={
@@ -49,6 +50,7 @@ class CarlaRecordedDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseD
             },
             **{
                 **kwargs,
+                'source_videos_dir': source_videos_dir,
                 'data_nodes': CARLA_SKELETON
             }
         )

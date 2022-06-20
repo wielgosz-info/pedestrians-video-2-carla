@@ -57,11 +57,17 @@ class BaseDataModule(LightningDataModule):
                  test_set_frac: Optional[float] = 0.2,
                  predict_sets: List[str] = None,
                  subsets_dir: Optional[str] = None,
+                 source_videos_dir: Optional[str] = None,
                  **kwargs):
         super().__init__()
 
         self.outputs_dir = os.path.join(root_dir, OUTPUTS_BASE, self.__class__.__name__)
         self.datasets_dir = os.path.join(root_dir, DATASETS_BASE)
+
+        self.source_videos_dir = source_videos_dir
+        if self.source_videos_dir is not None and not os.path.isabs(self.source_videos_dir):
+            self.source_videos_dir = os.path.join(
+                self.datasets_dir, self.source_videos_dir)
 
         self.clip_length = clip_length
         self.batch_size = batch_size
@@ -443,7 +449,7 @@ class BaseDataModule(LightningDataModule):
                     unique = list(set(v))
                     labels = np.array([
                         str(s).encode("latin-1") for s in unique
-                    ], dtype=h5py.string_dtype('ascii', 30))
+                    ], dtype=h5py.string_dtype('ascii', 64))
                     mapping = {s: i for i, s in enumerate(unique)}
                     f.create_dataset("meta/{}".format(k),
                                      data=[mapping[s] for s in v], dtype=np.uint16)
@@ -467,29 +473,30 @@ class BaseDataModule(LightningDataModule):
             'return_graph': self.return_graph,
             'clip_length': self.clip_length,
             'class_labels': self.class_labels,
+            'source_videos_dir': self.source_videos_dir,
             **self.kwargs
         }
 
         if stage == "fit" or stage is None:
             self.train_set = dataset_creator(
-                os.path.join(self._subsets_dir, f'train.{set_ext}'),
+                set_filepath=os.path.join(self._subsets_dir, f'train.{set_ext}'),
                 **common_kwargs,
             )
             self.val_set = dataset_creator(
-                os.path.join(self._subsets_dir, f'val.{set_ext}'),
+                set_filepath=os.path.join(self._subsets_dir, f'val.{set_ext}'),
                 **common_kwargs,
             )
 
         if stage == "test" or stage is None:
             self.test_set = dataset_creator(
-                os.path.join(self._subsets_dir, f'test.{set_ext}'),
+                set_filepath=os.path.join(self._subsets_dir, f'test.{set_ext}'),
                 **common_kwargs,
             )
 
         if stage == "predict":
             self._predict_sets = {
                 name: dataset_creator(
-                    os.path.join(self._subsets_dir, f'{name}.{set_ext}'),
+                    set_filepath=os.path.join(self._subsets_dir, f'{name}.{set_ext}'),
                     **common_kwargs,
                 )
                 for name in self._predict_set_names
@@ -507,7 +514,8 @@ class BaseDataModule(LightningDataModule):
         if outputs_dm is None:
             base_outputs_dir = f"{self.outputs_dir}Predictions"
         else:
-            base_outputs_dir = os.path.realpath(os.path.join(self.outputs_dir, "..", f"{outputs_dm}Predictions"))
+            base_outputs_dir = os.path.realpath(os.path.join(
+                self.outputs_dir, "..", f"{outputs_dm}Predictions"))
 
         predictions_output_dir = os.path.join(
             base_outputs_dir, SUBSETS_BASE, self._settings_digest, run_id)

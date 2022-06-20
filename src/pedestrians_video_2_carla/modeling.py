@@ -16,6 +16,7 @@ from pedestrians_video_2_carla.modules.flow.base import LitBaseFlow
 from pedestrians_video_2_carla.modules.flow.classification import LitClassificationFlow
 from pedestrians_video_2_carla.modules.flow.pose_lifting import \
     LitPoseLiftingFlow
+from pedestrians_video_2_carla.modules.flow.pose_estimation import LitPoseEstimationFlow
 from pedestrians_video_2_carla.utils.paths import get_run_id_from_checkpoint_path, resolve_ckpt_path
 
 try:
@@ -315,6 +316,7 @@ def discover_available_classes() -> Tuple[Dict[str, Type[BaseDataModule]], Dict[
         'pose_lifting': LitPoseLiftingFlow,
         'autoencoder': LitAutoencoderFlow,
         'classification': LitClassificationFlow,
+        'pose_estimation': LitPoseEstimationFlow,
     }
 
     return data_modules, flow_modules
