@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 
 
@@ -10,4 +11,4 @@ def gaussian_kernel(size_w, size_h, center_x, center_y, sigma):
     gmap[gmap > 1] = 1
     gmap[gmap < 0.0099] = 0
 
-    return torch.from_numpy(gmap).permute(2, 0, 1)
+    return torch.from_numpy(gmap).unsqueeze(0).float()  # (1, H, W)

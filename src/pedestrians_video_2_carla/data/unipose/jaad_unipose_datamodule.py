@@ -9,14 +9,14 @@ from pandas.core.frame import DataFrame
 import torch
 
 from tqdm.auto import tqdm
-from PIL import Image
-from torchvision.transforms.functional import equalize, normalize, resize
+from pedestrians_video_2_carla.transforms.video_to_resnet import VideoToResNet
 
 from pedestrians_video_2_carla.data.openpose.skeleton import COCO_SKELETON
 from pedestrians_video_2_carla.data.openpose.jaad_openpose_datamodule import JAADOpenPoseDataModule
 from pedestrians_video_2_carla.data.openpose.constants import JAAD_DIR
 from pedestrians_video_2_carla.data.unipose.constants import UNIPOSE_MODEL_DIR
 
+from PIL import Image
 from pedestrians_scenarios.karma.renderers.points_renderer import PointsRenderer
 
 
@@ -47,6 +47,9 @@ class JAADUniPoseDataModule(JAADOpenPoseDataModule):
 
         # override openpose dir with unipose dumped data
         self._unipose_model_path = os.path.join(UNIPOSE_MODEL_DIR, 'UniPose_COCO.pth')
+
+        self._target_size = 368
+        self._video_transform = VideoToResNet(target_size=self._target_size)
 
     def _extract_additional_data(self, clips: List[DataFrame]):
         """
@@ -96,10 +99,9 @@ class JAADUniPoseDataModule(JAADOpenPoseDataModule):
         bboxes = pedestrian_info[['x1', 'y1', 'x2', 'y2']
                                  ].to_numpy().reshape((-1, 2, 2))
 
-        target_size = 368
         canvas_size = (
             bboxes[:, 1] - bboxes[:, 0]).max().astype(int)
-        canvas_size = max(canvas_size, target_size)
+        canvas_size = max(canvas_size, self._target_size)
         half_size = canvas_size // 2
 
         canvas = np.zeros((end_frame - start_frame, canvas_size,
@@ -124,32 +126,10 @@ class JAADUniPoseDataModule(JAADOpenPoseDataModule):
         # that hopefully contains the pedestrian in the center
         # it is now time to run the unipose model
 
-        # convert to tensor
-        tensor_canvas = torch.from_numpy(
-            canvas.transpose((0, 3, 1, 2)).copy()
-        )
+        # prepare the input
+        tensor_canvas = self._video_transform(canvas).to(device)
 
-        # equalize histogram of the images
-        tensor_canvas = equalize(tensor_canvas)
-
-        # resize if needed
-        if canvas_size > target_size:
-            scaled_canvas = torch.zeros(
-                (clip_length, 3, target_size, target_size), dtype=torch.uint8)
-            for idx in range(clip_length):
-                scaled_canvas[idx] = resize(
-                    tensor_canvas[idx],
-                    (target_size, target_size),
-                    antialias=True
-                )
-            tensor_canvas = scaled_canvas
-
-        # normalize
-        tensor_canvas = tensor_canvas.div(255.0)
-        tensor_canvas = normalize(
-            tensor_canvas, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-
-        heatmaps = unipose_model(tensor_canvas.to(device))
+        heatmaps = unipose_model(tensor_canvas)
 
         clip_keypoints = self._keypoints_from_heatmaps(
             heatmaps.cpu().numpy(),

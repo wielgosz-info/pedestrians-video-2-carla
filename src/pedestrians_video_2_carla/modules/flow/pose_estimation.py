@@ -18,7 +18,7 @@ class LitPoseEstimationFlow(LitAutoencoderFlow):
         Returns a dictionary with available/required models.
         """
         return {
-            'pose_estimation': {
+            'movements': {
                 m.__name__: m
                 for m in [
                     # For pose estimation
@@ -33,7 +33,7 @@ class LitPoseEstimationFlow(LitAutoencoderFlow):
         Returns a dictionary with default models.
         """
         return {
-            'pose_estimation': UniPoseLSTM,
+            'movements': UniPoseLSTM,
         }
 
     def get_initial_metrics(self) -> Dict[str, torchmetrics.Metric]:
