@@ -1,8 +1,9 @@
-from typing import Callable, Dict, Literal, Type
+from typing import Callable, Dict, Literal, Type, Union
 import torch
 from torchmetrics import Metric
 
 from pedestrians_video_2_carla.data.base.skeleton import get_common_indices
+from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 from pedestrians_video_2_carla.utils.tensors import get_bboxes, get_missing_joints_mask
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
@@ -17,7 +18,8 @@ class PCK(Metric):
         mask_missing_joints: bool = True,
         key: Literal['projection_2d', 'projection_2d_transformed'] = 'projection_2d',
         threshold: float = 0.05,
-        get_normalization_tensor: Callable[[torch.Tensor], torch.Tensor] = None,
+        get_normalization_tensor: Union[Literal['hn', 'bbox'],
+                                        Callable[[torch.Tensor], torch.Tensor]] = None,
     ) -> None:
         """
         Percentage of correct keypoints.
@@ -32,7 +34,13 @@ class PCK(Metric):
 
         self.key = key
         self.threshold = threshold
-        self.get_normalization_tensor = get_normalization_tensor if get_normalization_tensor is not None else self.bbox_norm_dist
+
+        if get_normalization_tensor == 'hn':
+            self.get_normalization_tensor = self.hn_norm_dist
+        elif callable(get_normalization_tensor):
+            self.get_normalization_tensor = get_normalization_tensor
+        else:
+            self.get_normalization_tensor = self.bbox_norm_dist
 
         self.mask_missing_joints = mask_missing_joints
         self._input_hips = input_nodes.get_hips_point()
@@ -42,6 +50,11 @@ class PCK(Metric):
 
         self.add_state("correct", default=torch.tensor(0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
+
+    def hn_norm_dist(self, sample: torch.Tensor) -> torch.Tensor:
+        return HipsNeckExtractor(
+            input_nodes=self.input_nodes
+        ).get_shift_scale(sample)[1]
 
     def bbox_norm_dist(self, sample: torch.Tensor) -> torch.Tensor:
         """

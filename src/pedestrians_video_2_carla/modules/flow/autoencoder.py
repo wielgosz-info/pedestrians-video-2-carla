@@ -6,7 +6,6 @@ from pedestrians_video_2_carla.metrics.missing_joints_ratio import MissingJoints
 from pedestrians_video_2_carla.metrics.multiinput_wrapper import MultiinputWrapper
 from pedestrians_video_2_carla.metrics.pck import PCK
 from pedestrians_video_2_carla.modules.flow.base import LitBaseFlow
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 
 # available models
 from pedestrians_video_2_carla.modules.movements.zero import ZeroMovements
@@ -15,6 +14,7 @@ from pedestrians_video_2_carla.modules.movements.lstm import LSTM
 from pedestrians_video_2_carla.modules.movements.linear_ae import LinearAE, LinearAE2D
 from pedestrians_video_2_carla.modules.movements.seq2seq import Seq2Seq, Seq2SeqEmbeddings, Seq2SeqFlatEmbeddings, Seq2SeqResidualA, Seq2SeqResidualB, Seq2SeqResidualC
 from pedestrians_video_2_carla.modules.movements.transformers import SimpleTransformer
+
 
 class LitAutoencoderFlow(LitBaseFlow):
     @property
@@ -71,10 +71,6 @@ class LitAutoencoderFlow(LitBaseFlow):
         }
 
     def get_metrics(self) -> Dict[str, torchmetrics.Metric]:
-        def get_normalization_tensor(x): return HipsNeckExtractor(
-            input_nodes=self.movements_model.input_nodes
-        ).get_shift_scale(x)[1]
-
         return {
             'MSE': MultiinputWrapper(
                 MeanSquaredError(dist_sync_on_step=True),
@@ -90,7 +86,7 @@ class LitAutoencoderFlow(LitBaseFlow):
                 mask_missing_joints=self.mask_missing_joints,
                 key=self._outputs_key,
                 threshold=0.1,
-                get_normalization_tensor=get_normalization_tensor,
+                get_normalization_tensor='hn',
             ),
             'PCK@005': PCK(
                 dist_sync_on_step=True,
@@ -99,7 +95,7 @@ class LitAutoencoderFlow(LitBaseFlow):
                 mask_missing_joints=self.mask_missing_joints,
                 key=self._outputs_key,
                 threshold=0.05,
-                get_normalization_tensor=None,  # standard bbox normalization
+                get_normalization_tensor='bbox',
             ),
         }
 

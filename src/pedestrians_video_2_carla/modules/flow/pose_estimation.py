@@ -6,7 +6,7 @@ from pedestrians_video_2_carla.modules.flow.autoencoder import LitAutoencoderFlo
 from pedestrians_video_2_carla.modules.flow.output_types import PoseEstimationModelOutputType
 
 # available models
-from pedestrians_video_2_carla.modules.pose_estimation.unipose_lstm import UniPoseLSTM
+from pedestrians_video_2_carla.modules.pose_estimation.unipose.unipose_lstm import UniPoseLSTM
 from pedestrians_video_2_carla.utils.unravel_index import unravel_index
 
 
@@ -60,13 +60,15 @@ class LitPoseEstimationFlow(LitAutoencoderFlow):
             projection_2d = self._keypoints_from_heatmaps(
                 heatmaps, frames.shape[-2:])  # pixel space
 
-            sliced['projection_2d_confidence'] = self._fix_dimensions(projection_2d)[eval_slice]
-            sliced['projection_2d'] = self._fix_dimensions(projection_2d[...,:2])[eval_slice]
+            sliced['projection_2d_confidence'] = self._fix_dimensions(projection_2d)[
+                eval_slice]
+            sliced['projection_2d'] = self._fix_dimensions(
+                projection_2d[..., :2])[eval_slice]
 
             dm = self.trainer.datamodule
             if dm.transform_callable is not None:
                 sliced['projection_2d_transformed'] = self._fix_dimensions(dm.transform_callable(
-                    projection_2d[...,:2]))[eval_slice]
+                    projection_2d[..., :2]))[eval_slice]
 
             sliced['inputs'] = self._fix_dimensions(frames)[eval_slice]
             sliced['targets'] = {k: self._fix_dimensions(
@@ -95,7 +97,8 @@ class LitPoseEstimationFlow(LitAutoencoderFlow):
         (bbox_width, bbox_height) = bbox_size
         (sw, sh) = bbox_width / w, bbox_height / h
 
-        keypoints = torch.zeros((b, l, p-1, 3), dtype=torch.float32)
+        keypoints = torch.zeros(
+            (b, l, p-1, 3), dtype=torch.float32, device=heatmaps.device)
 
         # TODO: there's probably a better way to do this
         for bi in range(b):

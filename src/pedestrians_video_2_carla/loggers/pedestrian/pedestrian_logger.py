@@ -47,7 +47,7 @@ class PedestrianLogger(LightningLoggerBase):
         :type log_every_n_steps: int
         :param video_saving_frequency_reduction: Reduce the video saving frequency by this factor. Default: 10.
         :type video_saving_frequency_reduction: int
-        :param renderers: List of used renderers. Default: ['input_points', 'projection_points'].
+        :param renderers: List of used renderers. Default: [].
         :type renderers: List[PedestrianRenderers]
         :param extractor: Extractor used for denormalization. Default: HipsNeckExtractor().
         :type extractor: Extractor
@@ -73,10 +73,9 @@ class PedestrianLogger(LightningLoggerBase):
             rank_zero_warn("Video logging interval set to 0. Disabling video output.")
             self._writer_cls = DisabledPedestrianWriter
 
-        # If renderers were not specified, use default. To disable, 'none' renderer must be passed explicitly.
-        self._renderers = renderers if (renderers is not None) and (len(renderers) > 0) else [
-            PedestrianRenderers.input_points, PedestrianRenderers.projection_points
-        ]
+        # If renderers were not specified, use 'none'.
+        self._renderers = renderers if (
+            renderers is not None) and (len(renderers) > 0) else []
 
         # See if we can use CARLA renderer. It can still fail later if CARLA server is not available.
         # Here we only test if actual package or mock is used

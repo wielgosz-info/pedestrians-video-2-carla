@@ -26,4 +26,9 @@ services:
       WANDB_API_KEY: ${WANDB_API_KEY}
       WANDB_DISABLE_CODE: ${WANDB_DISABLE_CODE:-true}
       VIDEO2CARLA_ROOT_DIR: ${VIDEO2CARLA_ROOT_DIR:-/}
-    shm_size: ${SHM_SIZE:-2gb}
+    shm_size: ${VIDEO2CARLA_SHM_SIZE:-2gb}
+    deploy:
+      resources:
+        limits:
+          memory: ${VIDEO2CARLA_MEMORY:-16gb}
+          cpus: ${VIDEO2CARLA_CPUS:-8}
