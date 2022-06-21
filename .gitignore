@@ -64,3 +64,5 @@ notebooks/data/
 artifacts/
 models/**/*.pth
 models/**/*.tar
+
+core.*

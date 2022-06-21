@@ -26,6 +26,9 @@ class VideoMixin:
         self.sigma = sigma
         self.video_transform = VideoToResNet(target_size=self.target_size)
 
+        if kwargs.get('skip_metadata', False):
+            raise ValueError("VideoMixin does not support skip_metadata")
+
     @staticmethod
     def add_cli_args(parser):
         parser.add_argument(

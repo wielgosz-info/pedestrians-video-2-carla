@@ -46,4 +46,4 @@ class LossModes(Enum):
     per_joint_loc_2d = (PerJointLoc2DPoseLoss, nn.MSELoss(reduction='mean'))
 
     # for images
-    heatmaps = (HeatmapsLoss, nn.MSELoss(reduction='sum'))
+    heatmaps = (HeatmapsLoss, nn.MSELoss(reduction='mean'))

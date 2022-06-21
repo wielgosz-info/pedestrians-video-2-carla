@@ -4,6 +4,7 @@
 # and also to handle the very ugly importing
 # also, we're using torchvision ResNet50 backbone instead of ResNet101
 
+from typing import Dict, List, Tuple
 from pedestrians_video_2_carla.modules.pose_estimation.pose_estimation import PoseEstimationModel
 from pedestrians_video_2_carla.utils.gaussian_kernel import gaussian_kernel
 
@@ -13,7 +14,7 @@ import torch.nn.functional as F
 import torch
 import sys
 import importlib
-
+from torch.optim.lr_scheduler import StepLR
 
 # this is really unfortunate name to import from, let's only keep it as long as necessary
 sys.modules['model'] = importlib.import_module(
@@ -97,7 +98,7 @@ class UniPoseLSTM(PoseEstimationModel):
         self._output_nodes_len = len(self.output_nodes)
         self._stride = stride
         self._output_stride = output_stride
-        self._sigma = 3  # TODO: sigma was hardcoded in original to 3, should it match what was used in dataset? kwargs.get('sigma', 3)
+        self._sigma = kwargs.get('sigma', 3)  # match with the dataset
 
         self.unipose = _UniPoseLSTM(
             num_classes=self._output_nodes_len,
@@ -122,7 +123,7 @@ class UniPoseLSTM(PoseEstimationModel):
 
         self._hparams.update({
             'stride': self._stride,
-            'output_stride': self._output_stride
+            'output_stride': self._output_stride,
         })
 
     @staticmethod

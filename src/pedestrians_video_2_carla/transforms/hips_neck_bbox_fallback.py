@@ -25,9 +25,9 @@ class HipsNeckBBoxFallbackExtractor(Extractor):
         missing_hips = torch.all(hn_shift < self.near_zero, dim=-1)
         out_shift = hn_shift.clone()
         if torch.any(missing_hips):
-            out_shift[missing_hips, 0] = bb_shift[missing_hips, 0] + \
+            out_shift[missing_hips][:,0] = bb_shift[missing_hips][:,0] + \
                 (bb_scale[missing_hips] * self.__fallback_x_shift)
-            out_shift[missing_hips, 1] = bb_shift[missing_hips, 1] + \
+            out_shift[missing_hips][:,1] = bb_shift[missing_hips][:,1] + \
                 (bb_scale[missing_hips] * self.__fallback_y_shift)
 
         missing_neck = torch.all(hn_neck < self.near_zero, dim=-1)

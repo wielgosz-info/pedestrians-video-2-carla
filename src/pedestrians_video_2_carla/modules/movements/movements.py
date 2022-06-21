@@ -1,10 +1,8 @@
-from typing import Dict, List, Tuple, Type, Union
+from typing import Type, Union
 from pedestrians_video_2_carla.modules.flow.base_model import BaseModel
 from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
-import torch
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton, get_skeleton_name_by_type, get_skeleton_type_by_name
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 from pytorch3d.transforms.rotation_conversions import rotation_6d_to_matrix
 
 
@@ -21,8 +19,10 @@ class MovementsModel(BaseModel):
                  ):
         super().__init__(prefix='movements', *args, **kwargs)
 
-        self.input_nodes = get_skeleton_type_by_name(input_nodes) if isinstance(input_nodes, str) else input_nodes
-        self.output_nodes = get_skeleton_type_by_name(output_nodes) if isinstance(output_nodes, str) else output_nodes
+        self.input_nodes = get_skeleton_type_by_name(
+            input_nodes) if isinstance(input_nodes, str) else input_nodes
+        self.output_nodes = get_skeleton_type_by_name(
+            output_nodes) if isinstance(output_nodes, str) else output_nodes
 
         self._hparams.update({
             'input_nodes': get_skeleton_name_by_type(self.input_nodes),
@@ -53,23 +53,6 @@ class MovementsModel(BaseModel):
     def add_model_specific_args(parent_parser):
         BaseModel.add_model_specific_args(parent_parser, 'movements')
         return parent_parser
-
-    def configure_optimizers(self) -> Tuple[List[torch.optim.Optimizer], List[Dict[str, '_LRScheduler']]]:
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
-
-        config = {
-            'optimizer': optimizer,
-        }
-
-        if self.enable_lr_scheduler:
-            lr_scheduler = {
-                'scheduler': ReduceLROnPlateau(optimizer, mode='min', min_lr=1e-4, factor=0.2, patience=50, cooldown=20),
-                'interval': 'epoch',
-                'monitor': 'val_loss/primary'
-            }
-            config['lr_scheduler'] = lr_scheduler
-
-        return config
 
     def forward(self, x, *args, **kwargs):
         raise NotImplementedError()
