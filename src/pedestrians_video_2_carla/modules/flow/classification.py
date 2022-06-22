@@ -350,7 +350,6 @@ class LitClassificationFlow(pl.LightningModule):
 
             curves[class_name] = (sample_x, sample_y)
 
-
         data = [
             [class_name, round(x_s, 3), round(y_s, 3)]
             for class_name, vals in curves.items()
@@ -416,8 +415,8 @@ class LitClassificationFlow(pl.LightningModule):
     def _eval_step_end(self, outputs, stage):
         # update metrics
         self.metrics.update(outputs['preds'], outputs['targets'])
-        
-    #TODO: somehow this is not working
+
+    # TODO: somehow this is not working
     def _on_eval_epoch_end(self):
         try:
             unwrapped_m = self._unwrap_nested_metrics(self.metrics.compute(), ['hp'])
@@ -463,6 +462,8 @@ class LitClassificationFlow(pl.LightningModule):
 
         loss_dict = self._calculate_lossess(stage, len(frames), sliced, meta)
 
+        self._log_videos(meta=meta, batch_idx=batch_idx, stage=stage, **sliced)
+
         return self._get_outputs(stage, len(frames), sliced, meta, loss_dict)
 
     def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor, batch_vector: torch.Tensor) -> Dict[str, Union[Dict, torch.Tensor]]:
@@ -471,7 +472,7 @@ class LitClassificationFlow(pl.LightningModule):
         out_slice = slice(None, None, None)
         if self.needs_graph and frames.shape[0] != out.shape[0]:
             out_slice = slice(-1, None, None)
-        
+
         out = out[out_slice]
         target = targets[self._targets_key][out_slice]
 
@@ -536,3 +537,26 @@ class LitClassificationFlow(pl.LightningModule):
         for k, v in loss_dict.items():
             self.log('{}_loss/{}'.format(stage, k), v, batch_size=batch_size)
         return loss_dict
+
+    def _log_videos(self,
+                    meta: torch.Tensor,
+                    batch_idx: int,
+                    stage: str,
+                    save_to_logger: bool = False,
+                    **kwargs
+                    ):
+        if save_to_logger:
+            vid_callback = self._video_to_logger
+        else:
+            vid_callback = None
+
+        if len(self.trainer.loggers) > 1:
+            self.trainer.loggers[1].experiment.log_videos(
+                meta=meta,
+                step=self.global_step,
+                batch_idx=batch_idx,
+                stage=stage,
+                vid_callback=vid_callback,
+                force=(stage != 'train' and batch_idx == 0),
+                **kwargs
+            )
