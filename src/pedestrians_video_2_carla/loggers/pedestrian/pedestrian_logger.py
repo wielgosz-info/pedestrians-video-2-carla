@@ -101,6 +101,14 @@ class PedestrianLogger(LightningLoggerBase):
             except ValueError:
                 pass
 
+        if kwargs.get('output_nodes', None) is None:
+            try:
+                self._renderers.remove(PedestrianRenderers.projection_points)
+                rank_zero_warn(
+                    "No output_nodes was specified. Disabling projection_points renderer.")
+            except ValueError:
+                pass
+
         if len(self._renderers) == 0:
             rank_zero_warn("No renderers specified. Disabling video output.")
             self._writer_cls = DisabledPedestrianWriter

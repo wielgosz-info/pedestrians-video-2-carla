@@ -27,7 +27,7 @@ class PedestrianWriter(object):
                  renderers: List[PedestrianRenderers],
                  extractor: Extractor,
                  input_nodes: Type[Skeleton],
-                 output_nodes: Type[Skeleton],
+                 output_nodes: Type[Skeleton] = None,
                  reduced_log_every_n_steps: int = 500,
                  fps: float = 30.0,
                  max_videos: int = 10,
@@ -74,8 +74,10 @@ class PedestrianWriter(object):
         self._input_nodes = input_nodes
         self._output_nodes = output_nodes
 
-        assert self._output_nodes == self._extractor.input_nodes, "Configuration mismatch, Extractor and PointsRenderer need to use the same Skeleton."
+        if self._output_nodes is not None:
+            assert self._output_nodes == self._extractor.input_nodes, "Configuration mismatch, Extractor and PointsRenderer need to use the same Skeleton."
 
+        # TODO: there should be two, one for the input and one for the output
         self.__denormalize = ReferenceSkeletonsDenormalize(
             extractor=self._extractor
         )
@@ -100,7 +102,7 @@ class PedestrianWriter(object):
             ) if PedestrianRenderers.target_points in self._used_renderers else zeros_renderer,
             PedestrianRenderers.projection_points: PointsRenderer(
                 input_nodes=self._output_nodes
-            ) if PedestrianRenderers.projection_points in self._used_renderers else zeros_renderer,
+            ) if PedestrianRenderers.projection_points in self._used_renderers and self._output_nodes is not None else zeros_renderer,
             PedestrianRenderers.carla: CarlaRenderer(
                 fps=self._fps
             ) if PedestrianRenderers.carla in self._used_renderers else zeros_renderer,
@@ -117,7 +119,7 @@ class PedestrianWriter(object):
                    stage: str,
                    vid_callback: Callable = None,
                    force: bool = False,
-                   # data that is passed from various outputs:
+                   # data that is passed from various inputs/outputs:
                    inputs: Tensor = None,
                    targets: Dict[str, Tensor] = None,
                    projection_2d: Tensor = None,
@@ -143,7 +145,8 @@ class PedestrianWriter(object):
                 world_loc[self.__videos_slice] if world_loc is not None else None,
                 world_rot[self.__videos_slice] if world_rot is not None else None,
                 batch_idx)), desc="Rendering clips", total=self._max_videos, leave=False):
-            video_dir = os.path.join(self._log_dir, stage, meta.get('set_name', ''), meta['video_id'])
+            video_dir = os.path.join(self._log_dir, stage, meta.get(
+                'set_name', ''), meta['video_id'])
             os.makedirs(video_dir, exist_ok=True)
 
             torchvision.io.write_video(
@@ -303,24 +306,25 @@ class PedestrianWriter(object):
             }
         ]
 
-        if projection_2d_transformed is not None and 'projection_2d_shift' in targets and 'projection_2d_scale' in targets:
-            output_denormalizer = DeNormalizer()
-            skeletons.append({
-                'type': self._output_nodes,
-                # green; TODO: make it configurable
-                'color': (0, 255, 0),
-                'keypoints': output_denormalizer(
-                    projection_2d_transformed[..., :2],
-                    targets['projection_2d_scale'],
-                    targets['projection_2d_shift']
-                ).cpu().numpy()
-            })
-        elif projection_2d is not None:
-            skeletons.append({
-                'type': self._output_nodes,
-                # blue; TODO: make it configurable
-                'color': (0, 0, 255),
-                'keypoints': projection_2d[..., :2].cpu().numpy()
-            })
+        if self._output_nodes is not None:
+            if projection_2d_transformed is not None and 'projection_2d_shift' in targets and 'projection_2d_scale' in targets:
+                output_denormalizer = DeNormalizer()
+                skeletons.append({
+                    'type': self._output_nodes,
+                    # green; TODO: make it configurable
+                    'color': (0, 255, 0),
+                    'keypoints': output_denormalizer(
+                        projection_2d_transformed[..., :2],
+                        targets['projection_2d_scale'],
+                        targets['projection_2d_shift']
+                    ).cpu().numpy()
+                })
+            elif projection_2d is not None:
+                skeletons.append({
+                    'type': self._output_nodes,
+                    # blue; TODO: make it configurable
+                    'color': (0, 0, 255),
+                    'keypoints': projection_2d[..., :2].cpu().numpy()
+                })
 
         meta['skeletons'] = skeletons
