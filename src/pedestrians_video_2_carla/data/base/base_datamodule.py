@@ -459,10 +459,12 @@ class BaseDataModule(LightningDataModule):
                                      chunks=(1, *v.shape[1:]))
                 else:
                     unique = list(set(v))
-                    max_string_length = max(len(s) for s in unique)
-                    labels = np.array([
+                    encoded_unique = [
                         str(s).encode("latin-1") for s in unique
-                    ], dtype=h5py.string_dtype('ascii', max_string_length))
+                    ]
+                    max_string_length = max(len(s) for s in encoded_unique)
+                    labels = np.array(encoded_unique, dtype=h5py.string_dtype(
+                        'ascii', max_string_length))
                     mapping = {s: i for i, s in enumerate(unique)}
                     f.create_dataset("meta/{}".format(k),
                                      data=[mapping[s] for s in v], dtype=np.uint16)
