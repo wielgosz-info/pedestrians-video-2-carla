@@ -462,13 +462,22 @@ class BaseDataModule(LightningDataModule):
                     encoded_unique = [
                         str(s).encode("latin-1") for s in unique
                     ]
-                    max_string_length = max(len(s) for s in encoded_unique)
+                    max_label_length = max(len(s) for s in encoded_unique)
                     labels = np.array(encoded_unique, dtype=h5py.string_dtype(
-                        'ascii', max_string_length))
-                    mapping = {s: i for i, s in enumerate(unique)}
-                    f.create_dataset("meta/{}".format(k),
-                                     data=[mapping[s] for s in v], dtype=np.uint16)
-                    f["meta/{}".format(k)].attrs["labels"] = labels
+                        'ascii', max_label_length))
+                    if labels.nbytes < 64 * 1024:
+                        # if labels are less than 64Kb, we can save them as attributes
+                        mapping = {s: i for i, s in enumerate(unique)}
+                        mapped_v = np.array([mapping[s] for s in v], dtype=np.uint16)
+                        f.create_dataset("meta/{}".format(k), data=mapped_v)
+                        f["meta/{}".format(k)].attrs["labels"] = labels
+                    else:
+                        # otherwise we need to save the values as dataset
+                        encoded_v = [str(s).encode("latin-1") for s in v]
+                        max_v_length = max(len(s) for s in encoded_v)
+                        np_v = np.array(encoded_v, dtype=h5py.string_dtype(
+                            'ascii', max_v_length))
+                        f.create_dataset("meta/{}".format(k), data=np_v)
 
         return len(projection_2d)
 

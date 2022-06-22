@@ -113,6 +113,9 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         if isinstance(value, np.integer):
             return int(value)
 
+        if value.dtype.kind == 'S':
+            return value.decode("latin-1")
+
         return value
 
     def _decode_meta(self, meta):
