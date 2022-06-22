@@ -58,10 +58,11 @@ class BaseDataModule(LightningDataModule):
                  predict_sets: List[str] = None,
                  subsets_dir: Optional[str] = None,
                  source_videos_dir: Optional[str] = None,
+                 outputs_dir: Optional[str] = None,
                  **kwargs):
         super().__init__()
 
-        self.outputs_dir = os.path.join(root_dir, OUTPUTS_BASE, self.__class__.__name__)
+        self.outputs_dir = outputs_dir if outputs_dir is not None else os.path.join(root_dir, OUTPUTS_BASE, self.__class__.__name__)
         self.datasets_dir = os.path.join(root_dir, DATASETS_BASE)
 
         self.source_videos_dir = source_videos_dir
@@ -283,6 +284,16 @@ class BaseDataModule(LightningDataModule):
             "--subsets_dir",
             dest="subsets_dir",
             help="Directory to use for subsets. If specified, will use subsets as-is.",
+            default=None,
+            type=str
+        )
+
+        # force override outputs dir path (useful when raw data is in some kind of "slow" persistent storage,
+        # but runtime data needs to be elsewhere
+        parser.add_argument(
+            "--outputs_dir",
+            dest="outputs_dir",
+            help="Force different output dir for subsets",
             default=None,
             type=str
         )
