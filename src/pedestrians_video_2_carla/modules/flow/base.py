@@ -22,7 +22,11 @@ from pedestrians_video_2_carla.utils.argparse import DictAction, flat_args_as_li
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from pytorch_lightning.utilities import rank_zero_only
 from torch import Tensor
-from torch_geometric.data import Batch
+try:
+    from torch_geometric.data import Batch
+except ImportError:
+    Batch=None
+
 from torchmetrics import MetricCollection
 from pedestrians_video_2_carla.utils.argparse import boolean
 from pedestrians_video_2_carla.utils.printing import print_metrics

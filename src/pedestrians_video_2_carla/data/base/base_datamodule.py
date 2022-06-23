@@ -22,7 +22,12 @@ from pedestrians_video_2_carla.transforms.hips_neck_bbox_fallback import \
 from pedestrians_video_2_carla.transforms.normalization import DeNormalizer, Normalizer
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
-from torch_geometric.loader import DataLoader as GraphDataLoader
+
+try:
+    from torch_geometric.loader import DataLoader as GraphDataLoader
+except ImportError:
+    GraphDataLoader=None
+
 from tqdm.auto import tqdm
 import itertools
 

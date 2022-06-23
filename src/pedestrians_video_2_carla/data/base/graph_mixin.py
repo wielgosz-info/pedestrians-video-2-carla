@@ -2,17 +2,25 @@ from typing import Dict, Iterable, Tuple
 from importlib_metadata import metadata
 import torch
 
-from torch_geometric.data import Data, Batch
-
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 
 
-class PedestrianData(Data):
-    def __cat_dim__(self, key, value, *args, **kwargs):
-        if key.startswith('meta'):
-            return None
-        else:
-            return super().__cat_dim__(key, value, *args, **kwargs)
+try:
+    from torch_geometric.data import Data, Batch
+
+    class PedestrianData(Data):
+        def __cat_dim__(self, key, value, *args, **kwargs):
+            if key.startswith('meta'):
+                return None
+            else:
+                return super().__cat_dim__(key, value, *args, **kwargs)
+
+except ImportError:
+    Data=None
+    Batch=None
+    class PedestrianData:
+        def __init__(self, *args, **kwargs):
+            raise NotImplementedError()
 
 
 class GraphMixin:
