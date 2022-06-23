@@ -485,6 +485,7 @@ class LitClassificationFlow(pl.LightningModule):
             target = target.squeeze(-1)
 
         return {
+            'inputs': frames[out_slice],
             self._outputs_key: out,
             'targets': {
                 **targets,
