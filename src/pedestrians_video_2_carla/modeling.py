@@ -10,13 +10,13 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, ModelSummary
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 
-from pedestrians_video_2_carla.modules.flow.autoencoder import \
+from pedestrians_video_2_carla.modules.flow.autoencoder_flow import \
     LitAutoencoderFlow
-from pedestrians_video_2_carla.modules.flow.base import LitBaseFlow
-from pedestrians_video_2_carla.modules.flow.classification import LitClassificationFlow
-from pedestrians_video_2_carla.modules.flow.pose_lifting import \
+from pedestrians_video_2_carla.modules.flow.base_flow import LitBaseFlow
+from pedestrians_video_2_carla.modules.flow.classification_flow import LitClassificationFlow
+from pedestrians_video_2_carla.modules.flow.pose_lifting_flow import \
     LitPoseLiftingFlow
-from pedestrians_video_2_carla.modules.flow.pose_estimation import LitPoseEstimationFlow
+from pedestrians_video_2_carla.modules.flow.pose_estimation_flow import LitPoseEstimationFlow
 from pedestrians_video_2_carla.utils.paths import get_run_id_from_checkpoint_path, resolve_ckpt_path
 
 try:
@@ -245,7 +245,7 @@ def main(
         save_top_k=1,
     )
     lr_monitor = LearningRateMonitor(logging_interval="step")
-    model_summary = ModelSummary(max_depth=2)
+    model_summary = ModelSummary(max_depth=3)
 
     # flow model
     if args.ckpt_path is not None:

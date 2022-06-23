@@ -122,15 +122,17 @@ class PedestrianWriter(object):
                    # data that is passed from various inputs/outputs:
                    inputs: Tensor = None,
                    targets: Dict[str, Tensor] = None,
-                   projection_2d: Tensor = None,
-                   projection_2d_transformed: Tensor = None,
-                   relative_pose_loc: Tensor = None,
-                   relative_pose_rot: Tensor = None,
-                   world_loc: Tensor = None,
-                   world_rot: Tensor = None,
+                   preds: Dict[str, Tensor] = None,
                    **kwargs) -> None:
         if step % self._reduced_log_every_n_steps != 0 and not force:
             return
+
+        projection_2d = preds.get("projection_2d", None)
+        projection_2d_transformed = preds.get("projection_2d_transformed", None)
+        relative_pose_loc = preds.get("relative_pose_loc", None)
+        relative_pose_rot = preds.get("relative_pose_rot", None)
+        world_loc = preds.get("world_loc", None)
+        world_rot = preds.get("world_rot", None)
 
         # TODO: render videos in background so rendering is not blocking the main thread
 

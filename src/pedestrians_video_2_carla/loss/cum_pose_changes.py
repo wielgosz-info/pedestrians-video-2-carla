@@ -6,31 +6,32 @@ from torch import Tensor
 from torch.nn.modules import loss
 
 
-def calculate_loss_cum_pose_changes(criterion: loss._Loss, pose_inputs: Tensor, targets: Dict[str, Tensor], **kwargs) -> Tensor:
+def calculate_loss_cum_pose_changes(criterion: loss._Loss, preds: Dict[str, Tensor], targets: Dict[str, Tensor], **kwargs) -> Tensor:
     """
     Calculates the loss by comparing the pose changes accumulated over the frames.
 
     :param criterion: Criterion to use for the loss calculation, e.g. nn.MSELoss().
     :type criterion: _Loss
-    :param pose_inputs: The pose changes to compare with the target pose changes.
-    :type pose_inputs: Tensor
+    :param preds: Dictionary containing the pose changes to compare with the target pose changes.
+    :type preds: Tensor
     :param targets: Dictionary returned from dataset that containins the target pose changes.
     :type targets: Dict[str, Tensor]
     :return: Calculated loss.
     :rtype: Tensor
     """
     # calculate cumulative rotations
-    (batch_size, clip_length, bones, *_) = pose_inputs.shape
+    pose_changes = preds['pose_changes']
+    (batch_size, clip_length, bones, *_) = pose_changes.shape
 
     cumulative_changes = []
     cumulative_targets = []
 
-    prev_changes = torch.eye(3, device=pose_inputs.device).reshape(
+    prev_changes = torch.eye(3, device=pose_changes.device).reshape(
         (1, 3, 3)).repeat((batch_size*bones, 1, 1))
-    prev_targets = torch.eye(3, device=pose_inputs.device).reshape(
+    prev_targets = torch.eye(3, device=pose_changes.device).reshape(
         (1, 3, 3)).repeat((batch_size*bones, 1, 1))
 
-    matrix_pose_changes = pose_inputs.transpose(0, 1).reshape((clip_length, -1, 3, 3))
+    matrix_pose_changes = pose_changes.transpose(0, 1).reshape((clip_length, -1, 3, 3))
     matrix_targets = targets['pose_changes'].transpose(
         0, 1).reshape((clip_length, -1, 3, 3))
 

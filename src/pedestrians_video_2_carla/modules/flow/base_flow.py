@@ -1,75 +1,82 @@
 
 import platform
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Union
 
 import pytorch_lightning as pl
 import torch
 import torchmetrics
 from pedestrians_video_2_carla.data.base.base_transforms import BaseTransforms
-from pedestrians_video_2_carla.data.base.skeleton import \
-    get_skeleton_type_by_name
-from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.loss.base_pose_loss import BasePoseLoss
-from pedestrians_video_2_carla.modules.flow.output_types import TrajectoryModelOutputType
 from pedestrians_video_2_carla.loss import LossModes
-from pedestrians_video_2_carla.modules.movements.movements import \
-    MovementsModel, MovementsModelOutputType
+from pedestrians_video_2_carla.modules.flow.base_model import BaseModel
 from pedestrians_video_2_carla.modules.movements.zero import ZeroMovements
-from pedestrians_video_2_carla.modules.trajectory.trajectory import \
-    TrajectoryModel
-from pedestrians_video_2_carla.modules.trajectory.zero import ZeroTrajectory
-from pedestrians_video_2_carla.utils.argparse import DictAction, flat_args_as_list_arg, list_arg_as_flat_args
+from pedestrians_video_2_carla.utils.argparse import flat_args_as_list_arg, list_arg_as_flat_args
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from pytorch_lightning.utilities import rank_zero_only
 from torch import Tensor
+from torchmetrics import MetricCollection
+from pedestrians_video_2_carla.utils.argparse import boolean
+from pedestrians_video_2_carla.utils.printing import print_metrics
+
 try:
     from torch_geometric.data import Batch
 except ImportError:
     Batch = None
 
-from torchmetrics import MetricCollection
-from pedestrians_video_2_carla.utils.argparse import boolean
-from pedestrians_video_2_carla.utils.printing import print_metrics
-
 
 class LitBaseFlow(pl.LightningModule):
     """
     Base LightningModule - all other LightningModules should inherit from this.
-    It contains movements model, trajectory model, projection layer, loss modes handling and video logging.
+    It contains actual model, loss modes handling and video logging.
 
-    Movements & Trajectory models should implement forward() and configure_optimizers() method.
+    Actual model(s) should implement forward() and configure_optimizers() method.
     If they use additional hyperparameters, they should also set self._hparams dict
     in __init__() and (optionally) override add_model_specific_args() method.
     """
+    model_key = 'movements'  # default since so many flows already use it
 
     def __init__(
         self,
-        movements_model: MovementsModel = None,
-        trajectory_model: TrajectoryModel = None,
         loss_modes: List[LossModes] = None,
-        loss_weights: Dict[str, Tensor] = None,
         mask_missing_joints: bool = True,
         **kwargs
     ):
         super().__init__()
 
         # default layers
-        if movements_model is None:
-            movements_model = ZeroMovements()
-        self.movements_model = movements_model
+        self.models: torch.nn.ModuleDict[str, BaseModel] = torch.nn.ModuleDict(
+            self._get_models(**kwargs))
 
-        # TODO: extract trajectory model from Base into PoseLifting flow
-        if trajectory_model is None:
-            trajectory_model = ZeroTrajectory()
-        self.trajectory_model = trajectory_model
+        # inputs/outputs
+        kwargs_transform = kwargs.get('transform', BaseTransforms.hips_neck_bbox)
+        if isinstance(kwargs_transform, str):
+            kwargs_transform = BaseTransforms[kwargs_transform.lower()]
+        self._outputs_key = 'projection_2d_transformed' if kwargs_transform != BaseTransforms.none else 'projection_2d'
+        self._crucial_keys = self._get_crucial_keys()
 
         self.mask_missing_joints = mask_missing_joints
 
         # losses
-        if loss_weights is None:
-            loss_weights = {}
-        self.loss_weights = loss_weights
+        self._configure_losses(loss_modes, **kwargs)
 
+        # metrics
+        self.metrics = MetricCollection(self.get_metrics())
+
+        self.save_hyperparameters({
+            'host': platform.node(),
+            'loss_modes': [mode.name for mode in self._loss_modes],
+            **{
+                f'{model_name}_{k}': v for model_name, model in self.models.items() for k, v in model.hparams.items()
+            },
+        })
+
+    def _get_models(self, **kwargs) -> Dict[str, BaseModel]:
+        # default, since a lot of flows already use it
+        return {
+            self.model_key: kwargs.get('movements_model', ZeroMovements()),
+        }
+
+    def _configure_losses(self, loss_modes, **kwargs):
         if loss_modes is None or len(loss_modes) == 0:
             loss_modes = [LossModes.loc_2d]
         self._loss_modes = [LossModes[lm] if isinstance(
@@ -81,34 +88,24 @@ class LitBaseFlow(pl.LightningModule):
                 for k in mode.value[2]:
                     modes.append(LossModes[k])
             modes.append(mode)
+
         # TODO: resolve requirements chain and put modes in correct order, not just 'hopefully correct' one
+        self._loss_kwargs = self._get_loss_kwargs()
         self._losses_to_calculate = [
             (mode.name, mode.value[0](
                 criterion=mode.value[1],
-                input_nodes=self.movements_model.input_nodes,
-                output_nodes=self.movements_model.output_nodes,
-                mask_missing_joints=self.mask_missing_joints,
                 loss_params=flat_args_as_list_arg(kwargs, 'loss_params'),
+                **self._loss_kwargs
             ), None, mode.value[2] if len(mode.value) > 2 else tuple()) if issubclass(mode.value[0], BasePoseLoss) else (mode.name, *mode.value)
             for mode in list(dict.fromkeys(modes))
         ]
 
-        kwargs_transform = kwargs.get('transform', BaseTransforms.hips_neck)
-        if isinstance(kwargs_transform, str):
-            kwargs_transform = BaseTransforms[kwargs_transform.lower()]
-        self._outputs_key = 'projection_2d_transformed' if kwargs_transform != BaseTransforms.none else 'projection_2d'
-        self._crucial_keys = self._get_crucial_keys()
-
-        # default metrics
-        self.metrics = MetricCollection(self.get_metrics())
-
-        self.save_hyperparameters({
-            'host': platform.node(),
-            'loss_modes': [mode.name for mode in self._loss_modes],
-            'loss_weights': self.loss_weights,
-            **self.movements_model.hparams,
-            **self.trajectory_model.hparams,
-        })
+    def _get_loss_kwargs(self):
+        return {
+            'mask_missing_joints': self.mask_missing_joints,
+            'input_nodes': self.models[self.model_key].input_nodes,
+            'output_nodes': self.models[self.model_key].output_nodes,
+        }
 
     def _get_crucial_keys(self):
         return [
@@ -152,16 +149,11 @@ class LitBaseFlow(pl.LightningModule):
         return {}
 
     def configure_optimizers(self):
-        movements_optimizers = self.movements_model.configure_optimizers()
-        trajectory_optimizers = self.trajectory_model.configure_optimizers()
+        optimizers = filter(lambda opt: 'optimizer' in opt, [
+            model.configure_optimizers() for model in self.models.values()
+        ])
 
-        if 'optimizer' not in movements_optimizers:
-            movements_optimizers = None
-
-        if 'optimizer' not in trajectory_optimizers:
-            trajectory_optimizers = None
-
-        return [opt for opt in [movements_optimizers, trajectory_optimizers] if opt is not None]
+        return list(optimizers)
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -173,16 +165,6 @@ class LitBaseFlow(pl.LightningModule):
         """
 
         parser = parent_parser.add_argument_group("BaseFlow Module")
-        parser.add_argument(
-            '--input_nodes',
-            type=get_skeleton_type_by_name,
-            default=CARLA_SKELETON
-        )
-        parser.add_argument(
-            '--output_nodes',
-            type=get_skeleton_type_by_name,
-            default=CARLA_SKELETON
-        )
         parser.add_argument(
             '--mask_missing_joints',
             type=boolean,
@@ -204,19 +186,6 @@ class LitBaseFlow(pl.LightningModule):
             action="extend",
             type=LossModes.__getitem__
         )
-        parser.add_argument(
-            '--loss_weights',
-            help="""
-                Set loss weights for each loss part when using weighted loss.
-                Example: --loss_weights common_loc_2d=1.0 loc_3d=1.0 rot_3d=3.0
-                Default: ANY_LOSS=1.0
-                """,
-            metavar="WEIGHT",
-            default={},
-            nargs="+",
-            action=DictAction,
-            value_type=float
-        )
 
         parser = list_arg_as_flat_args(parser, 'loss_params', 26, None, float)
 
@@ -224,7 +193,9 @@ class LitBaseFlow(pl.LightningModule):
 
     @property
     def needs_graph(self):
-        return self.movements_model.needs_graph
+        # check if first model needs graph as input;
+        # it is up to child flow to handle passing data to other models
+        return list(self.models.values())[0].needs_graph
 
     @property
     def needs_heatmaps(self):
@@ -236,10 +207,7 @@ class LitBaseFlow(pl.LightningModule):
         self._update_hparams(initial_metrics)
 
     def _unwrap_batch(self, batch):
-        if isinstance(batch, (Tuple, List)):
-            return (*batch, None, None)
-
-        if isinstance(batch, Batch):
+        if Batch is not None and isinstance(batch, Batch):
             return (
                 batch.x,
                 {
@@ -251,6 +219,8 @@ class LitBaseFlow(pl.LightningModule):
                 batch.edge_index,
                 batch.batch
             )
+
+        return (*batch, None, None)
 
     def _fix_dimensions(self, data: torch.Tensor):
         if self.needs_graph:
@@ -390,9 +360,6 @@ class LitBaseFlow(pl.LightningModule):
         if hasattr(self.movements_model, 'training_epoch_end'):
             to_log.update(self.movements_model.training_epoch_end(outputs))
 
-        if hasattr(self.trajectory_model, 'training_epoch_end'):
-            to_log.update(self.trajectory_model.training_epoch_end(outputs))
-
         if len(to_log) > 0:
             batch_size = len(outputs[0]['preds'][self._outputs_key])
             self.log_dict(to_log, batch_size=batch_size)
@@ -419,6 +386,49 @@ class LitBaseFlow(pl.LightningModule):
     def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor, batch_vector: torch.Tensor) -> Dict[str, Union[Dict, torch.Tensor]]:
         raise NotImplementedError()
 
+    def _get_eval_slice(self):
+        starts = [m.eval_slice.start for m in self.models.values() if hasattr(
+            m, 'eval_slice') and m.eval_slice.start is not None]
+        stops = [m.eval_slice.stop for m in self.models.values() if hasattr(
+            m, 'eval_slice') and m.eval_slice.stop is not None]
+        steps = [m.eval_slice.step for m in self.models.values() if hasattr(
+            m, 'eval_slice') and m.eval_slice.step is not None]
+        models_slice = slice(
+            max(starts) if len(starts) > 0 else None,
+            min(stops) if len(stops) > 0 else None,
+            max(steps) if len(steps) > 0 else None
+        )
+        return (slice(None), models_slice)
+
+    def _get_preds(self, **kwargs) -> Dict[str, torch.Tensor]:
+        """
+        Returns predictions for the given batch a dictionary.
+        Those should be Tensors with gradients, suitable for the loss calculation.
+        It is assumed that the returned tensors NOT sliced, e.g., if model needs
+        several "starting" frames those should be returned too (e.g. as 0s).
+        In other words, the returned tensors should be of the same shape as the
+        input tensors with respect to the sequence length.
+        """
+        raise NotImplementedError()
+
+    def _get_sliced_data(self,
+                         frames,
+                         targets,
+                         **kwargs
+                         ):
+        eval_slice = self._get_eval_slice()
+
+        # get all inputs/outputs properly sliced
+        sliced = {}
+
+        sliced['preds'] = {k: self._fix_dimensions(v)[eval_slice[:v.ndim]]
+                           for k, v in self._get_preds(**kwargs).items()}
+        sliced['inputs'] = self._fix_dimensions(frames)[eval_slice[:frames.ndim]]
+        sliced['targets'] = {k: self._fix_dimensions(
+            v)[eval_slice[:v.ndim]] for k, v in targets.items()}
+
+        return sliced
+
     def _get_outputs(self, stage, batch_size, sliced, loss_dict):
         # return primary loss - the first one available from loss_modes list
         # also log it as 'primary' for monitoring purposes
@@ -431,13 +441,9 @@ class LitBaseFlow(pl.LightningModule):
                 return {
                     'loss': loss_dict[mode.name],
                     'preds': {
-                        'pose_changes': sliced['pose_inputs'] if self.movements_model.output_type == MovementsModelOutputType.pose_changes else None,
-                        'world_rot_changes': sliced['world_rot_inputs'] if self.trajectory_model.output_type == TrajectoryModelOutputType.changes and 'world_rot_inputs' in sliced else None,
-                        'world_loc_changes': sliced['world_loc_inputs'] if self.trajectory_model.output_type == TrajectoryModelOutputType.changes and 'world_loc_inputs' in sliced else None,
-                        **{
-                            k: sliced[k] if k in sliced and sliced[k] is not None else None
-                            for k in self._crucial_keys
-                        }
+                        k: sliced['preds'][k].detach(
+                        ) if k in sliced and sliced[k] is not None else None
+                        for k in self._crucial_keys
                     },
                     'targets': sliced['targets']
                 }
@@ -454,15 +460,12 @@ class LitBaseFlow(pl.LightningModule):
             (name, loss_fn, criterion, *_) = mode
             loss = loss_fn(
                 criterion=criterion,
-                input_nodes=self.movements_model.input_nodes,
-                output_nodes=self.movements_model.output_nodes,
-                mask_missing_joints=self.mask_missing_joints,
                 requirements={
                     k.name: v
                     for k, v in loss_dict.items()
                     if k.name in mode[2]
                 } if len(mode) > 2 else None,
-                loss_weights=self.loss_weights,
+                **self._loss_kwargs,  # TODO: this will not be needed when we drop functional losses
                 **sliced
             )
             if loss is not None and not torch.isnan(loss):

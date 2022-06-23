@@ -42,6 +42,6 @@ class HeatmapsLoss(BasePoseLoss):
         return self._flatten_heatmaps(targets['heatmaps'])
 
     def _extract_predicted_targets(self,
-                                   heatmaps: Tensor,
+                                   preds: Dict[str, Tensor],
                                    **kwargs) -> Tensor:
-        return self._flatten_heatmaps(heatmaps)
+        return self._flatten_heatmaps(preds['heatmaps'])

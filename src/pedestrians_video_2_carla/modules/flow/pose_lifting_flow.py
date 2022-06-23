@@ -1,7 +1,5 @@
 from typing import Dict
-from pedestrians_video_2_carla.modules.trajectory.zero import ZeroTrajectory
 import torch
-from torchmetrics import MetricCollection
 from pedestrians_video_2_carla.metrics.fb.fb_mpjpe import FB_MPJPE
 from pedestrians_video_2_carla.metrics.fb.fb_mpjve import FB_MPJVE
 from pedestrians_video_2_carla.metrics.fb.fb_n_mpjpe import FB_N_MPJPE
@@ -9,9 +7,9 @@ from pedestrians_video_2_carla.metrics.fb.fb_pa_mpjpe import FB_PA_MPJPE
 from pedestrians_video_2_carla.metrics.fb.fb_weighted_mpjpe import FB_WeightedMPJPE
 from pedestrians_video_2_carla.metrics.mpjpe import MPJPE
 from pedestrians_video_2_carla.metrics.mrpe import MRPE
-from pedestrians_video_2_carla.modules.flow.base import LitBaseFlow
+from pedestrians_video_2_carla.modules.flow.base_flow import LitBaseFlow
+from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
 from pedestrians_video_2_carla.modules.layers.projection import ProjectionModule
-from pedestrians_video_2_carla.utils.world import calculate_world_from_changes
 
 # available models
 from pedestrians_video_2_carla.modules.movements.zero import ZeroMovements
@@ -28,13 +26,8 @@ class LitPoseLiftingFlow(LitBaseFlow):
         super().__init__(*args, **kwargs)
 
         self.projection = ProjectionModule(
-            movements_output_type=self.movements_model.output_type,
-            trajectory_output_type=self.trajectory_model.output_type,
+            movements_output_type=self.models[self.model_key].output_type
         )
-
-    @property
-    def needs_graph(self):
-        return self.movements_model.needs_graph
 
     @classmethod
     def get_available_models(cls) -> Dict[str, Dict[str, torch.nn.Module]]:
@@ -42,7 +35,7 @@ class LitPoseLiftingFlow(LitBaseFlow):
         Returns a dictionary with available/required models.
         """
         return {
-            'movements': {
+            cls.model_key: {
                 m.__name__: m
                 for m in [
                     # For testing
@@ -67,12 +60,6 @@ class LitPoseLiftingFlow(LitBaseFlow):
                     PoseFormer,
                     PoseFormerRot,
                 ]
-            },
-            'trajectory': {
-                m.__name__: m
-                for m in [
-                    ZeroTrajectory
-                ]
             }
         }
 
@@ -82,20 +69,19 @@ class LitPoseLiftingFlow(LitBaseFlow):
         Returns a dictionary with default models.
         """
         return {
-            'trajectory': ZeroTrajectory,
-            'movements': LSTM,
+            cls.model_key: LSTM,
         }
 
     def get_metrics(self):
         return [
             MPJPE(
                 dist_sync_on_step=True,
-                input_nodes=self.movements_model.input_nodes
+                input_nodes=self.models[self.model_key].input_nodes
             ),
             MRPE(
                 dist_sync_on_step=True,
-                input_nodes=self.movements_model.input_nodes,
-                output_nodes=self.movements_model.output_nodes
+                input_nodes=self.models[self.model_key].input_nodes,
+                output_nodes=self.models[self.model_key].output_nodes
             ),
             FB_MPJPE(dist_sync_on_step=True),
             # FB_WeightedMPJPE should be same as FB_MPJPE since we provide no weights:
@@ -112,85 +98,52 @@ class LitPoseLiftingFlow(LitBaseFlow):
             'relative_pose_rot',
             'absolute_pose_loc',
             'absolute_pose_rot',
-            'world_loc',
-            'world_rot',
+            'pose_changes'
         ]
 
     def _on_batch_start(self, batch, batch_idx):
         self.projection.on_batch_start(batch, batch_idx)
 
     def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor = None, batch_vector: torch.Tensor = None):
-        pose_inputs = self.movements_model(
+        pose_inputs = self.models[self.model_key](
             frames,
-            targets if self.training and self.movements_model.needs_targets else None,
+            targets if self.training and self.models[self.model_key].needs_targets else None,
             edge_index=edge_index.to(
-                self.device) if self.movements_model.needs_graph else None,
+                self.device) if self.needs_graph else None,
             batch_vector=batch_vector.to(
-                self.device) if self.movements_model.needs_graph else None
+                self.device) if self.needs_graph else None
         )
 
-        world_loc_inputs, world_rot_inputs = self.trajectory_model(
-            frames,
-            targets if self.training and self.trajectory_model.needs_targets else None
-        )
-
+        # projection without trajectory
         projection_outputs = self.projection(
-            pose_inputs,
-            world_loc_inputs,
-            world_rot_inputs
+            pose_inputs
         )
 
-        return self._get_sliced_data(frames, targets,
-                                     pose_inputs, world_loc_inputs, world_rot_inputs,
-                                     projection_outputs)
+        return self._get_sliced_data(
+            frames=frames,
+            targets=targets,
+            pose_inputs=pose_inputs,
+            projection_outputs=projection_outputs)
 
-    def _get_sliced_data(self,
-                         frames,
-                         targets,
-                         pose_inputs,
-                         world_loc_inputs,
-                         world_rot_inputs,
-                         projection_outputs
-                         ):
-        # TODO: this should take into account both movements and trajectory models
-        eval_slice = (slice(None), self.movements_model.eval_slice)
-
+    def _get_preds(self, pose_inputs, projection_outputs, **kwargs) -> Dict[str, torch.Tensor]:
         # unpack projection outputs
         (projection_2d, projection_outputs_dict) = projection_outputs
 
-        # get all inputs/outputs properly sliced
-        sliced = {}
+        preds = {}
 
-        sliced['pose_inputs'] = tuple([v[eval_slice] for v in pose_inputs]) if isinstance(
-            pose_inputs, tuple) else pose_inputs[eval_slice]
-        sliced['projection_2d'] = projection_2d[eval_slice]
+        if self.models[self.model_key].output_type == MovementsModelOutputType.pose_changes:
+            preds['pose_changes'] = pose_inputs
+
+        preds['projection_2d'] = projection_2d
 
         dm = self.trainer.datamodule
         if dm.transform_callable is not None:
-            sliced['projection_2d_transformed'] = dm.transform_callable(
-                projection_2d[eval_slice])
+            preds['projection_2d_transformed'] = dm.transform_callable(projection_2d)
 
-        sliced['world_loc_inputs'] = world_loc_inputs[eval_slice]
-        sliced['world_rot_inputs'] = world_rot_inputs[eval_slice]
-        sliced['inputs'] = frames[eval_slice]
-        sliced['targets'] = {k: v[eval_slice] for k, v in targets.items()}
-
-        keys_of_intrest = list(
+        keys_of_interest = list(
             set(list(projection_outputs_dict.keys()) + self._crucial_keys))
-        for k in keys_of_intrest:
-            if k not in sliced:
-                sliced[k] = projection_outputs_dict[k][eval_slice] if k in projection_outputs_dict and projection_outputs_dict[k] is not None else None
+        for k in keys_of_interest:
+            if k not in preds:
+                preds[k] = projection_outputs_dict[k] if k in projection_outputs_dict and projection_outputs_dict[k] is not None else None
 
-        # sometimes we need absolute target world loc/rot, which is not saved in data
-        # so we need to compute it here and then slice appropriately
-        # caveat - dataset needst to provide those targets in the first place
-        try:
-            target_world_loc, target_world_rot = calculate_world_from_changes(
-                projection_2d.shape, projection_2d.device,
-                targets['world_loc_changes'], targets['world_rot_changes']
-            )
-            sliced['targets']['world_loc'] = target_world_loc[eval_slice]
-            sliced['targets']['world_rot'] = target_world_rot[eval_slice]
-        except KeyError:
-            pass
-        return sliced
+        return preds

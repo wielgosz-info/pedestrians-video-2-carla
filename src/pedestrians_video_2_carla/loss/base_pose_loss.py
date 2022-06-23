@@ -13,8 +13,8 @@ from pedestrians_video_2_carla.utils.tensors import get_missing_joints_mask
 class BasePoseLoss(object):
     def __init__(self,
                  criterion: loss._Loss,
-                 input_nodes: Type[Skeleton],
-                 output_nodes: Type[Skeleton],
+                 input_nodes: Type[Skeleton] = None,
+                 output_nodes: Type[Skeleton] = None,
                  mask_missing_joints: bool = True,
                  sum_per_joint: bool = False,
                  sum_per_frame: bool = False,
@@ -23,14 +23,20 @@ class BasePoseLoss(object):
             "sum_per_joint and sum_per_frame are mutually exclusive"
 
         self._criterion = criterion
-        self._output_indices, self._input_indices = get_common_indices(
-            input_nodes, output_nodes)
 
         self._mask_missing_joints = mask_missing_joints
         self._sum_per_joint = sum_per_joint
         self._sum_per_frame = sum_per_frame
-        self._input_hips = input_nodes.get_hips_point()
-        if isinstance(self._input_hips, (list, tuple)):
+        
+        if input_nodes is not None and output_nodes is not None:
+            self._output_indices, self._input_indices = get_common_indices(
+                input_nodes, output_nodes)
+            self._input_hips = input_nodes.get_hips_point()
+            if isinstance(self._input_hips, (list, tuple)):
+                self._input_hips = None
+        else:
+            self._output_indices = slice(None)
+            self._input_indices = slice(None)
             self._input_hips = None
 
     def __call__(self, **kwargs) -> Tensor:

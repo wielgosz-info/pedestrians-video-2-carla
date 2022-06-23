@@ -14,10 +14,12 @@ class MovementsModel(BaseModel):
     def __init__(self,
                  input_nodes: Union[Type[Skeleton], str] = CARLA_SKELETON,
                  output_nodes: Union[Type[Skeleton], str] = CARLA_SKELETON,
-                 *args,
                  **kwargs
                  ):
-        super().__init__(prefix='movements', *args, **kwargs)
+        super().__init__(**{
+            'prefix': 'movements',
+            **kwargs
+        })
 
         self.input_nodes = get_skeleton_type_by_name(
             input_nodes) if isinstance(input_nodes, str) else input_nodes
@@ -50,8 +52,23 @@ class MovementsModel(BaseModel):
         return slice(None)
 
     @staticmethod
-    def add_model_specific_args(parent_parser):
-        BaseModel.add_model_specific_args(parent_parser, 'movements')
+    def add_model_specific_args(parent_parser, prefix='movements'):
+        BaseModel.add_model_specific_args(parent_parser, prefix)
+
+        parser = parent_parser.add_argument_group('Movements Model')
+
+        parser.add_argument(
+            f'--{prefix}_input_nodes',
+            dest='input_nodes',  # not prefixed for compatibility, since input_nodes are used elsewhere in code too
+            type=get_skeleton_type_by_name,
+            default=CARLA_SKELETON
+        )
+        parser.add_argument(
+            f'--{prefix}_output_nodes',
+            type=get_skeleton_type_by_name,
+            default=CARLA_SKELETON
+        )
+
         return parent_parser
 
     def forward(self, x, *args, **kwargs):

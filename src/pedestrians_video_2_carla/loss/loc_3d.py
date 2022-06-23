@@ -9,7 +9,7 @@ from torch import Tensor
 from torch.nn.modules import loss
 
 
-def calculate_loss_loc_3d(criterion: loss._Loss, input_nodes: Type[Skeleton], output_nodes: Type[Skeleton], absolute_pose_loc: Tensor, targets: Dict[str, Tensor], **kwargs) -> Tensor:
+def calculate_loss_loc_3d(criterion: loss._Loss, input_nodes: Type[Skeleton], output_nodes: Type[Skeleton], preds: Dict[str, Tensor], targets: Dict[str, Tensor], **kwargs) -> Tensor:
     """
     Calculates the loss for the 3D pose.
 
@@ -19,8 +19,8 @@ def calculate_loss_loc_3d(criterion: loss._Loss, input_nodes: Type[Skeleton], ou
     :type input_nodes: Type[Skeleton]
     :param output_nodes: Type of the output skeleton, e.g. BODY_25_SKELETON or CARLA_SKELETON.
     :type output_nodes: Type[Skeleton]
-    :param absolute_pose_loc: Absolute pose location coordinates as calculates by the projection module.
-    :type absolute_pose_loc: Tensor
+    :param preds: Dictionary containing absolute pose location coordinates as calculates by the projection module.
+    :type preds: Tensor
     :param targets: Dictionary returned from dataset that contains the target absolute poses.
     :type targets: Dict[str, Tensor]
     :return: Calculated loss.
@@ -28,6 +28,7 @@ def calculate_loss_loc_3d(criterion: loss._Loss, input_nodes: Type[Skeleton], ou
     """
     try:
         output_indices, input_indices = get_common_indices(input_nodes, output_nodes)
+        absolute_pose_loc = preds['absolute_pose_loc']
 
         # TODO: reuse transform from DataModule? in theory it is provided for 2D points...
         transform = Normalizer(HipsNeckExtractor(input_nodes))

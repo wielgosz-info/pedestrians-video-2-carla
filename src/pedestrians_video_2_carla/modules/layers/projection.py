@@ -1,13 +1,8 @@
 from typing import Dict, Tuple, Union
-from importlib_metadata import re
 
-from scipy.fftpack import shift
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModelOutputType
 from pedestrians_video_2_carla.modules.flow.output_types import TrajectoryModelOutputType
 
-from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
-from pedestrians_video_2_carla.transforms.normalization import Normalizer
 from pedestrians_video_2_carla.transforms.reference_skeletons import ReferenceSkeletonsDenormalize
 from pedestrians_video_2_carla.walker_control.controlled_pedestrian import ControlledPedestrian
 from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose

@@ -40,16 +40,16 @@ class BaseModel(torch.nn.Module):
     @property
     def hparams(self):
         return {
-            f'{self._prefix}_model_name': self.__class__.__name__,
-            f'{self._prefix}_output_type': self.output_type.name,
-            f'{self._prefix}_enable_lr_scheduler': self.enable_lr_scheduler,
-            f'{self._prefix}_lr': self.learning_rate,
-            f'{self._prefix}_scheduler_type': self.lr_scheduler_type,
-            f'{self._prefix}_scheduler_gamma': self.lr_scheduler_gamma,
-            f'{self._prefix}_scheduler_step_size': self.lr_scheduler_step_size,
-            f'{self._prefix}_scheduler_min_lr': self.lr_scheduler_min_lr,
-            f'{self._prefix}_scheduler_patience': self.lr_scheduler_patience,
-            f'{self._prefix}_scheduler_cooldown': self.lr_scheduler_cooldown,
+            'model_name': self.__class__.__name__,
+            'output_type': self.output_type.name,
+            'enable_lr_scheduler': self.enable_lr_scheduler,
+            'lr': self.learning_rate,
+            'scheduler_type': self.lr_scheduler_type,
+            'scheduler_gamma': self.lr_scheduler_gamma,
+            'scheduler_step_size': self.lr_scheduler_step_size,
+            'scheduler_min_lr': self.lr_scheduler_min_lr,
+            'scheduler_patience': self.lr_scheduler_patience,
+            'scheduler_cooldown': self.lr_scheduler_cooldown,
             **self._hparams
         }
 
