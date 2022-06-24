@@ -18,14 +18,14 @@ from pedestrians_video_2_carla.data.base.skeleton import get_skeleton_name_by_ty
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.metrics.multiinput_wrapper import MultiinputWrapper
 
-# from pedestrians_video_2_carla.modules.classification.gnn.dcrnn import DCRNNModel
-# from pedestrians_video_2_carla.modules.classification.gnn.gconv_gru import GConvGRUModel
-# from pedestrians_video_2_carla.modules.classification.gnn.gconv_lstm import GConvLSTMModel
-# from pedestrians_video_2_carla.modules.classification.gnn.tgcn import TGCNModel
+from pedestrians_video_2_carla.modules.classification.gnn.dcrnn import DCRNNModel
+from pedestrians_video_2_carla.modules.classification.gnn.gconv_gru import GConvGRUModel
+from pedestrians_video_2_carla.modules.classification.gnn.gconv_lstm import GConvLSTMModel
+from pedestrians_video_2_carla.modules.classification.gnn.tgcn import TGCNModel
 from pedestrians_video_2_carla.modules.classification.lstm import LSTM
 from pedestrians_video_2_carla.modules.classification.gru import GRU
-# from pedestrians_video_2_carla.modules.classification.gnn.gcn_best_paper import GCNBestPaper
-# from pedestrians_video_2_carla.modules.classification.gnn.gcn_best_paper_transformer import GCNBestPaperTransformer
+from pedestrians_video_2_carla.modules.classification.gnn.gcn_best_paper import GCNBestPaper
+from pedestrians_video_2_carla.modules.classification.gnn.gcn_best_paper_transformer import GCNBestPaperTransformer
 from pedestrians_video_2_carla.modules.flow.output_types import ClassificationModelOutputType
 
 from pedestrians_video_2_carla.utils.printing import print_metrics
