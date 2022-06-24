@@ -121,7 +121,7 @@ RUN /venv/bin/python -m pip install --no-cache-dir \
     tqdm==4.62.3 \
     transforms3d==0.3.1 \
     trimesh==3.9.36 \
-    wandb==0.12.16 \
+    wandb==0.12.19 \
     xmltodict==0.12.0 \
     git+https://github.com/nghorbani/human_body_prior.git@0278cb45180992e4d39ba1a11601f5ecc53ee148#egg=human-body-prior \
     git+https://github.com/nghorbani/body_visualizer@be9cf756f8d1daed870d4c7ad1aa5cc3478a546c#egg=body-visualizer \
