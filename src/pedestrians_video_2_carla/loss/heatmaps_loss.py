@@ -15,14 +15,16 @@ class HeatmapsLoss(BasePoseLoss):
             **kwargs,
             'input_nodes': input_nodes,
             'output_nodes': output_nodes,
-            # always force sum_per_joint to True
-            'sum_per_joint': True
+            # always force sum_per_frame to True
+            # TODO: this us to match UniPose, but should probably be configurable in the future
+            'sum_per_frame': True
         })
 
         if self._input_indices != slice(None):
             # add bg headmap index to the end
             self._input_indices = tuple(self._input_indices) + (len(input_nodes) - 1,)
-            self._output_indices = tuple(self._output_indices) + (len(output_nodes) - 1,)
+            self._output_indices = tuple(
+                self._output_indices) + (len(output_nodes) - 1,)
 
     def _flatten_heatmaps(self,
                           heatmaps: Tensor) -> Tensor:
