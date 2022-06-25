@@ -7,6 +7,7 @@ from pedestrians_video_2_carla.modules.flow.output_types import PoseEstimationMo
 
 # available models
 from pedestrians_video_2_carla.modules.pose_estimation.unipose.unipose_lstm import UniPoseLSTM
+from pedestrians_video_2_carla.modules.pose_estimation.linear import Linear
 from pedestrians_video_2_carla.utils.unravel_index import unravel_index
 
 
@@ -20,8 +21,12 @@ class LitPoseEstimationFlow(LitAutoencoderFlow):
             'movements': {
                 m.__name__: m
                 for m in [
+                    # For testing
+                    Linear,
+
                     # For pose estimation
                     UniPoseLSTM,
+
                 ]
             }
         }
@@ -83,7 +88,7 @@ class LitPoseEstimationFlow(LitAutoencoderFlow):
                 # since center pooling won't accept a batch of sequences,
                 # we're doing batch*sequence and then back
                 h = sliced['targets']['heatmaps']
-                rh = self.movements_model.unipose.pool_center(
+                rh = self.movements_model.pool_center(
                     h.view((-1, *h.shape[2:])))
                 rh = rh.view((h.shape[0], h.shape[1], *rh.shape[1:]))
                 sliced['targets']['heatmaps'] = rh

@@ -26,7 +26,7 @@ from torch.utils.data import DataLoader
 try:
     from torch_geometric.loader import DataLoader as GraphDataLoader
 except ImportError:
-    GraphDataLoader=None
+    GraphDataLoader = None
 
 from tqdm.auto import tqdm
 import itertools
@@ -89,7 +89,7 @@ class BaseDataModule(LightningDataModule):
         # used for debugging; will save additional setting value
         # to prevent mixing up of 'debugging' data with real data
         # this is NOT saved automatically to settings, it should be saved in subclasses if needed
-        self._fast_dev_run = kwargs.get('fast_dev_run', False)
+        self._fast_dev_run = kwargs.get('fast_dev_run', False) != False
 
         if self.uses_clip_offset():
             self.clip_offset = kwargs.get('clip_offset', self.clip_length)
