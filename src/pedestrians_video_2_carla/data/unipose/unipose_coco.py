@@ -18,7 +18,7 @@ class UniPoseCOCO(unipose):
                          sync_bn=True, freeze_bn=False, stride=8)
 
         if unipose_model_path is not None:
-            pretrained_weights = torch.load(unipose_model_path)
+            pretrained_weights = torch.load(unipose_model_path, map_location='cpu')
             state_dict = self.state_dict()
             model_dict = {}
 
