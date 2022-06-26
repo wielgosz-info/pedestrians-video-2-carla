@@ -88,8 +88,12 @@ class LitPoseEstimationFlow(LitAutoencoderFlow):
                 # since center pooling won't accept a batch of sequences,
                 # we're doing batch*sequence and then back
                 h = sliced['targets']['heatmaps']
-                rh = self.movements_model.pool_center(
-                    h.view((-1, *h.shape[2:])))
+                rh = torch.nn.functional.avg_pool2d(
+                    h.view((-1, *h.shape[2:])),
+                    kernel_size=9,
+                    stride=8,
+                    padding=1
+                )
                 rh = rh.view((h.shape[0], h.shape[1], *rh.shape[1:]))
                 sliced['targets']['heatmaps'] = rh
 
