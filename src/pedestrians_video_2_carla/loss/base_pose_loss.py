@@ -75,7 +75,7 @@ class BasePoseLoss(object):
                                       common_pred: Tensor,
                                       common_gt: Tensor,
                                       mask: Tensor = None) -> Tensor:
-        losses = []
+        losses = torch.zeros((common_pred.shape[1],))
         for i in range(common_pred.shape[1]):  # for each frame
             cp = common_pred[:, i]
             cg = common_gt[:, i]
@@ -86,15 +86,15 @@ class BasePoseLoss(object):
 
             loss = self._criterion(cp, cg)
             if not torch.isnan(loss):
-                losses.append(loss)
+                losses[i] = loss
 
-        return torch.sum(torch.stack(losses))
+        return torch.sum(losses)
 
     def _calculate_sum_per_joint_loss(self,
                                       common_pred: Tensor,
                                       common_gt: Tensor,
                                       mask: Tensor = None) -> Tensor:
-        losses = []
+        losses = torch.zeros((common_pred.shape[-2],))
         for i in range(common_pred.shape[-2]):
             cp = common_pred[..., i, :]
             cg = common_gt[..., i, :]
@@ -105,9 +105,9 @@ class BasePoseLoss(object):
 
             loss = self._criterion(cp, cg)
             if not torch.isnan(loss):
-                losses.append(loss)
+                losses[i] = loss
 
-        return torch.sum(torch.stack(losses))
+        return torch.sum(losses)
 
     def _extract_gt_targets(self, **kwargs) -> Tensor:
         raise NotImplementedError

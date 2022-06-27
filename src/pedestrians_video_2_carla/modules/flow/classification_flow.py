@@ -5,11 +5,6 @@ from pedestrians_video_2_carla.modules.classification.classification import Clas
 import pytorch_lightning as pl
 import platform
 
-try:
-    from torch_geometric.data import Batch
-except ImportError:
-    Batch=None
-
 import torch
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from torchmetrics import AUROC, ROC, ConfusionMatrix, F1Score, MetricCollection, Accuracy, Precision, PrecisionRecallCurve, Recall
@@ -17,19 +12,30 @@ import torchmetrics
 from pedestrians_video_2_carla.data.base.skeleton import get_skeleton_name_by_type, get_skeleton_type_by_name, Skeleton
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.metrics.multiinput_wrapper import MultiinputWrapper
+from pedestrians_video_2_carla.loss import LossModes
 
-from pedestrians_video_2_carla.modules.classification.gnn.dcrnn import DCRNNModel
-from pedestrians_video_2_carla.modules.classification.gnn.gconv_gru import GConvGRUModel
-from pedestrians_video_2_carla.modules.classification.gnn.gconv_lstm import GConvLSTMModel
-from pedestrians_video_2_carla.modules.classification.gnn.tgcn import TGCNModel
 from pedestrians_video_2_carla.modules.classification.lstm import LSTM
 from pedestrians_video_2_carla.modules.classification.gru import GRU
-from pedestrians_video_2_carla.modules.classification.gnn.gcn_best_paper import GCNBestPaper
-from pedestrians_video_2_carla.modules.classification.gnn.gcn_best_paper_transformer import GCNBestPaperTransformer
 from pedestrians_video_2_carla.modules.flow.output_types import ClassificationModelOutputType
 
 from pedestrians_video_2_carla.utils.printing import print_metrics
 from pytorch_lightning.utilities import rank_zero_only
+from .base_flow import LitBaseFlow
+
+try:
+    from pedestrians_video_2_carla.modules.classification.gnn.dcrnn import DCRNNModel
+    from pedestrians_video_2_carla.modules.classification.gnn.gconv_gru import GConvGRUModel
+    from pedestrians_video_2_carla.modules.classification.gnn.gconv_lstm import GConvLSTMModel
+    from pedestrians_video_2_carla.modules.classification.gnn.tgcn import TGCNModel
+    from pedestrians_video_2_carla.modules.classification.gnn.gcn_best_paper import GCNBestPaper
+    from pedestrians_video_2_carla.modules.classification.gnn.gcn_best_paper_transformer import GCNBestPaperTransformer
+except ImportError:
+    DCRNNModel=None
+    GConvGRUModel=None
+    GConvLSTMModel=None
+    TGCNModel=None
+    GCNBestPaper=None
+    GCNBestPaperTransformer=None
 
 try:
     import wandb
@@ -37,39 +43,58 @@ except ImportError:
     pass
 
 
-class LitClassificationFlow(pl.LightningModule):
-    # TODO: potentially update to re-use base flow when feasible
+class LitClassificationFlow(LitBaseFlow):
+    model_key = 'classification'
 
     def __init__(self,
-                 classification_model: ClassificationModel,
                  classification_targets_key: str,
                  classification_average: str = 'macro',
                  **kwargs: Any) -> None:
-        super().__init__()
-
-        self.classification_model = classification_model
+        super().__init__(**kwargs)
 
         self._targets_key = classification_targets_key
         self._outputs_key = classification_targets_key + '_logits'
-
-        # TODO: get it from somewhere - datamodule only knows this after setup has been called
-        self._num_classes = 2
         self._average = classification_average
 
-        if self._num_classes == 2 and classification_model.output_type == ClassificationModelOutputType.binary:
-            self.criterion = torch.nn.BCEWithLogitsLoss()
-        else:
-            self.criterion = torch.nn.CrossEntropyLoss()
-
-        self.metrics = MetricCollection(self.get_metrics())
-
+        # TODO: verify this will save additional params, not replace
         self.save_hyperparameters({
-            'host': platform.node(),
             'classification_targets_key': self._targets_key,
             'classification_average': self._average,
-            'num_classes': self._num_classes,
-            **self.classification_model.hparams,
         })
+
+    @property
+    def num_classes(self) -> int:
+        return self.models['classification'].num_classes
+
+    def _get_models(self, **kwargs) -> Dict[str, ClassificationModel]:
+        # default, since a lot of flows already use it
+        return {
+            self.model_key: kwargs.get('classification_model', self.get_default_models()['classification']()),
+        }
+
+    @property
+    def binary_classification(self) -> bool:
+        return self.num_classes == 2 and self.models['classification'].output_type == ClassificationModelOutputType.binary
+
+    def _get_default_loss_modes(self):
+        loss_modes = [LossModes.cross_entropy]
+
+        if self.binary_classification:
+            loss_modes = [LossModes.binary_cross_entropy]
+            
+        return loss_modes
+
+    def _get_loss_kwargs(self):
+        return {
+            'pred_key': self._outputs_key,
+            'target_key': self._targets_key,
+            'binary': self.binary_classification,
+        }
+
+    def _get_crucial_keys(self):
+        return [
+            self._outputs_key,
+        ]
 
     def get_initial_metrics(self) -> Dict[str, torchmetrics.Metric]:
         """
@@ -79,14 +104,14 @@ class LitClassificationFlow(pl.LightningModule):
         return {}
 
     def get_metrics(self) -> Dict[str, torchmetrics.Metric]:
-        if self.classification_model.output_type == ClassificationModelOutputType.multiclass:
+        if self.models['classification'].output_type == ClassificationModelOutputType.multiclass:
             mc = {
-                'num_classes': self._num_classes,
+                'num_classes': self.num_classes,
                 'average': self._average,
                 'multiclass': True,
             }
             curve_mc = {
-                'num_classes': self._num_classes,
+                'num_classes': self.num_classes,
             }
         else:
             mc = {
@@ -96,60 +121,55 @@ class LitClassificationFlow(pl.LightningModule):
                 'num_classes': None,
             }
 
+        mikwargs = {
+            'pred_key': self._outputs_key,
+            'target_key': self._targets_key,
+            'input_nodes': None,
+            'output_nodes': None,
+        }
+
         return {
             'Accuracy': MultiinputWrapper(
                 Accuracy(dist_sync_on_step=True,
                          **mc),
-                self._outputs_key, self._targets_key,
-                input_nodes=None, output_nodes=None,
+                **mikwargs
             ),
             'Precision': MultiinputWrapper(
                 Precision(dist_sync_on_step=True,
                           **mc),
-                self._outputs_key, self._targets_key,
-                input_nodes=None, output_nodes=None,
+                **mikwargs
             ),
             'Recall': MultiinputWrapper(
                 Recall(dist_sync_on_step=True,
                        **mc),
-                self._outputs_key, self._targets_key,
-                input_nodes=None, output_nodes=None,
+                **mikwargs
             ),
             'F1Score': MultiinputWrapper(
                 F1Score(dist_sync_on_step=True,
                         **mc),
-                self._outputs_key, self._targets_key,
-                input_nodes=None, output_nodes=None,
+                **mikwargs
             ),
             'ConfusionMatrix': MultiinputWrapper(
                 ConfusionMatrix(dist_sync_on_step=True,
-                                num_classes=self._num_classes,
+                                num_classes=self.num_classes,
                                 normalize=None),
-                self._outputs_key, self._targets_key,
-                input_nodes=None, output_nodes=None,
+                **mikwargs
             ),
             'AUROC': MultiinputWrapper(
                 AUROC(dist_sync_on_step=True,
                       **curve_mc),
-                self._outputs_key, self._targets_key,
-                input_nodes=None, output_nodes=None,
+                **mikwargs
             ),
             'ROCCurve': MultiinputWrapper(
                 ROC(dist_sync_on_step=True, **curve_mc),
-                self._outputs_key, self._targets_key,
-                input_nodes=None, output_nodes=None,
+                **mikwargs
             ),
             'PRCurve': MultiinputWrapper(
                 PrecisionRecallCurve(dist_sync_on_step=True,
                                      **curve_mc),
-                self._outputs_key, self._targets_key,
-                input_nodes=None, output_nodes=None,
+                **mikwargs
             ),
         }
-
-    @property
-    def needs_graph(self):
-        return self.classification_model.needs_graph
 
     @cached_property
     def class_labels(self):
@@ -160,18 +180,25 @@ class LitClassificationFlow(pl.LightningModule):
         """
         Returns a dictionary with available/required models.
         """
-        return {
+        models = {
             'classification': {
+                "LSTM": LSTM,
+                "GRU": GRU,
+            }
+        }
+
+        if DCRNNModel is not None:
+            models['classification'].update({
                 "GConvLSTM": GConvLSTMModel,
                 "DCRNN": DCRNNModel,
                 "TGCN": TGCNModel,
                 "GConvGRU": GConvGRUModel,
-                "LSTM": LSTM,
-                "GRU": GRU,
+                
                 "GCNBestPaper": GCNBestPaper,
                 "GCNBestPaperTransformer": GCNBestPaperTransformer
-            }
-        }
+            })
+        
+        return models
 
     @classmethod
     def get_default_models(cls) -> Dict[str, torch.nn.Module]:
@@ -190,12 +217,9 @@ class LitClassificationFlow(pl.LightningModule):
         By default, this method adds parameters for projection layer and loss modes.
         If overriding, remember to call super().
         """
+        parent_parser = LitBaseFlow.add_model_specific_args(parent_parser)
+
         parser = parent_parser.add_argument_group("Classification Module")
-        parser.add_argument(
-            '--input_nodes',
-            type=get_skeleton_type_by_name,
-            default=CARLA_SKELETON
-        )
         parser.add_argument(
             '--classification_targets_key',
             type=str,
@@ -209,44 +233,6 @@ class LitClassificationFlow(pl.LightningModule):
         )
 
         return parent_parser
-
-    def configure_optimizers(self) -> Dict[str, Union[torch.optim.Optimizer, '_LRScheduler']]:
-        return self.classification_model.configure_optimizers()
-
-    @rank_zero_only
-    def on_fit_start(self) -> None:
-        initial_metrics = self._calculate_initial_metrics()
-        self._update_hparams(initial_metrics)
-
-    def _update_hparams(self, initial_metrics: Dict[str, float] = None):
-        # We need to manually add the datamodule hparams,
-        # because the merge is automatically handled only for initial_hparams
-        # additionally, store info on train set size for easy access
-        additional_config = {
-            **self.trainer.datamodule.hparams,
-            'train_set_size': getattr(
-                self.trainer.datamodule.train_set,
-                '__len__',
-                lambda: self.trainer.limit_train_batches*self.trainer.datamodule.batch_size
-            )(),
-            'val_set_size': getattr(
-                self.trainer.datamodule.val_set,
-                '__len__',
-                lambda: self.trainer.limit_val_batches*self.trainer.datamodule.batch_size
-            )(),
-            **(initial_metrics or {}),
-        }
-
-        self.hparams.update(additional_config)
-
-        if len(self.trainer.loggers) and isinstance(self.trainer.loggers[0], TensorBoardLogger):
-            # TensorBoard requires 'special' updating to log multiple metrics
-            self.trainer.loggers[0].log_hyperparams(
-                self.hparams,
-                self._unwrap_nested_metrics(self.metrics, ['hp'], nans=True)
-            )
-        else:
-            self.trainer.loggers[0].log_hyperparams(self.hparams)
 
     def _calculate_initial_metrics(self) -> Dict[str, float]:
         dl = self.trainer.datamodule.val_dataloader()
@@ -273,10 +259,10 @@ class LitClassificationFlow(pl.LightningModule):
             (inputs, targets, *_) = self._unwrap_batch(batch)
             d_targets = {k: v.to(self.device) for k, v in targets.items()}
 
-            if self.classification_model.output_type == ClassificationModelOutputType.multiclass:
+            if self.models['classification'].output_type == ClassificationModelOutputType.multiclass:
                 one_hot = torch.nn.functional.one_hot(
                     torch.ones_like(d_targets[self._targets_key]) * prevalent_class,
-                    num_classes=self._num_classes
+                    num_classes=self.num_classes
                 )
 
                 if one_hot.ndim > 2:
@@ -305,21 +291,6 @@ class LitClassificationFlow(pl.LightningModule):
             print_metrics(unwrapped, 'Initial metrics:')
 
         return unwrapped
-
-    def training_step(self, batch, batch_idx):
-        return self._step(batch, batch_idx, 'train')
-
-    def validation_step(self, batch, batch_idx):
-        return self._step(batch, batch_idx, 'val')
-
-    def test_step(self, batch, batch_idx):
-        return self._step(batch, batch_idx, 'test')
-
-    def validation_step_end(self, outputs):
-        self._eval_step_end(outputs, 'val')
-
-    def test_step_end(self, outputs):
-        self._eval_step_end(outputs, 'test')
 
     def _log_curve(self, key: str, title: str, col_names: List[str], x: Tuple[torch.Tensor], y: Tuple[torch.Tensor], axis_names: List[str] = None):
         # copied part of code from W&B, since we already have curve(s)
@@ -397,8 +368,8 @@ class LitClassificationFlow(pl.LightningModule):
         # copied part of code from W&B, since we already have confusion matrix
         # but not raw data to calculate it
         data = []
-        for i in range(self._num_classes):
-            for j in range(self._num_classes):
+        for i in range(self.num_classes):
+            for j in range(self.num_classes):
                 data.append([self.class_labels[i], self.class_labels[j], v[i, j]])
 
         fields = {
@@ -417,10 +388,6 @@ class LitClassificationFlow(pl.LightningModule):
             "trainer/global_step": self.trainer.global_step,
         })
 
-    def _eval_step_end(self, outputs, stage):
-        # update metrics
-        self.metrics.update(outputs['preds'], outputs['targets'])
-
     # TODO: somehow this is not working
     def _on_eval_epoch_end(self):
         try:
@@ -431,11 +398,13 @@ class LitClassificationFlow(pl.LightningModule):
                     if k.endswith('ConfusionMatrix'):
                         self._log_confusion_matrix(k, v)
                     elif k.endswith('ROCCurve'):
-                        # self._log_roc_curve(k, v)
-                        pass
+                        if not self.binary_classification:
+                            # TODO: fix so it works for binary classification too
+                            self._log_roc_curve(k, v)
                     elif k.endswith('PRCurve'):
-                        # self._log_pr_curve(k, v)
-                        pass
+                        if not self.binary_classification:
+                            # TODO: fix so it works for binary classification too
+                            self._log_pr_curve(k, v)
                     else:
                         self.log(k, v)
                 else:
@@ -452,27 +421,8 @@ class LitClassificationFlow(pl.LightningModule):
     def on_test_epoch_end(self) -> None:
         return self._on_eval_epoch_end()
 
-    def _unwrap_nested_metrics(self, items: Union[Dict, float], keys: List[str], zeros: bool = False, nans: bool = False):
-        r = {}
-        if hasattr(items, 'items'):
-            for k, v in items.items():
-                r.update(self._unwrap_nested_metrics(v, keys + [k], zeros, nans))
-        else:
-            r['/'.join(keys)] = 0.0 if zeros else (float('nan') if nans else items)
-        return r
-
-    def _step(self, batch, batch_idx, stage):
-        (frames, targets, meta, edge_index, batch_vector) = self._unwrap_batch(batch)
-        sliced = self._inner_step(frames, targets, edge_index, batch_vector)
-
-        loss_dict = self._calculate_lossess(stage, len(frames), sliced, meta)
-
-        self._log_videos(meta=meta, batch_idx=batch_idx, stage=stage, **sliced)
-
-        return self._get_outputs(stage, len(frames), sliced, meta, loss_dict)
-
     def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor, batch_vector: torch.Tensor) -> Dict[str, Union[Dict, torch.Tensor]]:
-        out = self.classification_model(frames, edge_index, batch_vector)
+        out = self.models['classification'](frames, edge_index, batch_vector)
 
         out_slice = slice(None, None, None)
         if self.needs_graph and frames.shape[0] != out.shape[0]:
@@ -486,83 +436,12 @@ class LitClassificationFlow(pl.LightningModule):
 
         return {
             'inputs': frames[out_slice],
-            self._outputs_key: out,
+            'preds': {
+                self._outputs_key: out,
+            },
             'targets': {
                 **targets,
                 self._targets_key: target,
             },
         }
 
-    def _unwrap_batch(self, batch):
-        if isinstance(batch, (Tuple, List)):
-            return (*batch, None, None)
-
-        if isinstance(batch, Batch):
-            return (
-                batch.x,
-                {
-                    k.replace('targets_', ''): batch.get(k)
-                    for k in batch.keys
-                    if k.startswith('targets_')
-                },
-                batch.meta,
-                batch.edge_index,
-                batch.batch,
-            )
-
-    def _get_outputs(self, stage, batch_size, sliced, meta, loss_dict):
-        if self.criterion.__class__.__name__ in loss_dict:
-            loss = loss_dict[self.criterion.__class__.__name__]
-            self.log('{}_loss/primary'.format(stage), loss, batch_size=batch_size)
-            return {
-                'loss': loss,
-                'preds': {
-                    self._outputs_key: sliced[self._outputs_key].detach(),
-                },
-                'targets': sliced['targets'],
-            }
-
-        raise RuntimeError("Couldn't calculate any loss.")
-
-    def _calculate_lossess(self, stage, batch_size, sliced, meta):
-        # TODO: for now this hardcodes the loss to be the cross entropy loss
-        loss_dict = {}
-
-        criterion_targets = torch.atleast_1d(sliced['targets'][self._targets_key])
-        if self.classification_model.output_type == ClassificationModelOutputType.binary:
-            criterion_targets = criterion_targets.to(torch.float32)
-
-        loss = self.criterion(
-            sliced[self._outputs_key],
-            criterion_targets,
-        )
-
-        if loss is not None and not torch.isnan(loss):
-            loss_dict[self.criterion.__class__.__name__] = loss
-
-        for k, v in loss_dict.items():
-            self.log('{}_loss/{}'.format(stage, k), v, batch_size=batch_size)
-        return loss_dict
-
-    def _log_videos(self,
-                    meta: torch.Tensor,
-                    batch_idx: int,
-                    stage: str,
-                    save_to_logger: bool = False,
-                    **kwargs
-                    ):
-        if save_to_logger:
-            vid_callback = self._video_to_logger
-        else:
-            vid_callback = None
-
-        if len(self.trainer.loggers) > 1:
-            self.trainer.loggers[1].experiment.log_videos(
-                meta=meta,
-                step=self.global_step,
-                batch_idx=batch_idx,
-                stage=stage,
-                vid_callback=vid_callback,
-                force=(stage != 'train' and batch_idx == 0),
-                **kwargs
-            )

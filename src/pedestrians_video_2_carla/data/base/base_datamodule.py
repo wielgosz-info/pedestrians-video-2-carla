@@ -25,8 +25,12 @@ from torch.utils.data import DataLoader
 
 try:
     from torch_geometric.loader import DataLoader as GraphDataLoader
-except ImportError:
-    GraphDataLoader = None
+except ModuleNotFoundError:
+    from pedestrians_video_2_carla.utils.exceptions import NotAvailableException
+    
+    class GraphDataLoader:
+        def __init__(self, *args, **kwargs):
+            raise NotAvailableException("GraphDataLoader", "gnn")
 
 from tqdm.auto import tqdm
 import itertools

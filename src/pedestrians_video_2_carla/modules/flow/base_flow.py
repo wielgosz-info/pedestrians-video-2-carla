@@ -20,8 +20,12 @@ from pedestrians_video_2_carla.utils.printing import print_metrics
 
 try:
     from torch_geometric.data import Batch
-except ImportError:
-    Batch = None
+except ModuleNotFoundError:
+    from pedestrians_video_2_carla.utils.exceptions import NotAvailableException
+
+    class Batch:
+        def __init__(self, *args, **kwargs):
+            raise NotAvailableException("Batch", "gnn")
 
 
 class LitBaseFlow(pl.LightningModule):
@@ -76,9 +80,12 @@ class LitBaseFlow(pl.LightningModule):
             self.model_key: kwargs.get('movements_model', ZeroMovements()),
         }
 
+    def _get_default_loss_modes(self):
+        return [LossModes.loc_2d]
+
     def _configure_losses(self, loss_modes, **kwargs):
         if loss_modes is None or len(loss_modes) == 0:
-            loss_modes = [LossModes.loc_2d]
+            loss_modes = self._get_default_loss_modes()
         self._loss_modes = [LossModes[lm] if isinstance(
             lm, str) else lm for lm in loss_modes]
 
@@ -207,7 +214,7 @@ class LitBaseFlow(pl.LightningModule):
         self._update_hparams(initial_metrics)
 
     def _unwrap_batch(self, batch):
-        if Batch is not None and isinstance(batch, Batch):
+        if isinstance(batch, Batch):
             return (
                 batch.x,
                 {

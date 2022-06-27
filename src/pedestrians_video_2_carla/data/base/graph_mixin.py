@@ -15,12 +15,14 @@ try:
             else:
                 return super().__cat_dim__(key, value, *args, **kwargs)
 
-except ImportError:
-    Data=None
-    Batch=None
+except ModuleNotFoundError:
+    from pedestrians_video_2_carla.utils.exceptions import NotAvailableException
+
+    Data = None
+    Batch = None
     class PedestrianData:
         def __init__(self, *args, **kwargs):
-            raise NotImplementedError()
+            raise NotAvailableException("PedestrianData", "gnn")
 
 
 class GraphMixin:

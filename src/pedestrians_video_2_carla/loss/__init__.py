@@ -2,6 +2,7 @@ from enum import Enum
 
 from torch import nn
 
+from .classification_loss import ClassificationLoss
 from .pose_changes import calculate_loss_pose_changes
 from .loc_3d import calculate_loss_loc_3d
 from .loc_2d import Loc2DPoseLoss
@@ -42,3 +43,8 @@ class LossModes(Enum):
 
     # for images
     heatmaps = (HeatmapsLoss, nn.MSELoss(reduction='mean'))
+
+    # classification losses
+    cross_entropy = (ClassificationLoss, nn.CrossEntropyLoss())
+    binary_cross_entropy = (ClassificationLoss, nn.BCEWithLogitsLoss())
+

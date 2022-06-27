@@ -21,16 +21,26 @@ class ClassificationModel(BaseModel):
         })
 
     @property
+    def num_classes(self) -> int:
+        return self._num_classes
+
+    @property
     def output_type(self):
         return ClassificationModelOutputType.multiclass
 
     @staticmethod
-    def add_model_specific_args(parent_parser):
-        BaseModel.add_model_specific_args(parent_parser, 'classification')
+    def add_model_specific_args(parent_parser, prefix='classification'):
+        BaseModel.add_model_specific_args(parent_parser, prefix)
 
         parser = parent_parser.add_argument_group("Classification Model")
         parser.add_argument(
-            '--num_classes',
+            f'--{prefix}_input_nodes',
+            dest='input_nodes',  # not prefixed for compatibility, since input_nodes are used elsewhere in code too
+            type=get_skeleton_type_by_name,
+            default=CARLA_SKELETON
+        )
+        parser.add_argument(
+            f'--{prefix}_num_classes',
             default=2,
             type=int,
         )
