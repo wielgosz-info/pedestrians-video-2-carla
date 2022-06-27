@@ -18,13 +18,23 @@ class VideoMixin:
     Mixin that returns raw video frame instead of the projection_2d as the input.
     """
 
-    def __init__(self, source_videos_dir: str, sigma: int = 1, target_size: int = 368, **kwargs):
+    def __init__(
+        self,
+        source_videos_dir: str,
+        sigma: int = 1,
+        target_size: int = 368,
+        needs_heatmaps: bool = False,
+        **kwargs
+    ):
         super().__init__(**kwargs)
 
         self.source_videos_dir = source_videos_dir
         self.target_size = target_size
-        self.sigma = sigma
         self.video_transform = VideoToResNet(target_size=self.target_size)
+
+        # TODO: heatmaps should be a separate mixin
+        self.needs_heatmaps = needs_heatmaps
+        self.sigma = sigma
 
         if kwargs.get('skip_metadata', False):
             raise ValueError("VideoMixin does not support skip_metadata")
@@ -54,10 +64,11 @@ class VideoMixin:
 
         clip_frames, original_shape = self._get_clip_frames(meta)
 
-        self._add_heatmaps_to_targets(targets, clip_frames.shape, original_shape)
+        if self.needs_heatmaps:
+            self._add_heatmaps_to_targets(targets, clip_frames.shape, original_shape)
 
-        # debug
-        # self.__debug_heatmaps(targets, clip_frames)
+            # debug
+            # self.__debug_heatmaps(targets, clip_frames)
 
         return (clip_frames, targets, meta)
 
