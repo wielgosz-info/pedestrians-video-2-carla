@@ -31,7 +31,6 @@ class GCNBestPaperTransformer(ClassificationModel):
             bias=True
             )
         self.relu = torch.nn.ReLU()
-        self.sign = torch.nn.Sigmoid()
         self.dropout = torch.nn.Dropout(p=0.5)
         self.linear = torch.nn.Linear(self._num_input_nodes, 1)
 

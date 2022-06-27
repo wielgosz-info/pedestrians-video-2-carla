@@ -41,3 +41,4 @@ class PoseEstimationModelOutputType(Enum):
     Enum for the different model types.
     """
     heatmaps = 100  # default
+    pose_2d = 4
