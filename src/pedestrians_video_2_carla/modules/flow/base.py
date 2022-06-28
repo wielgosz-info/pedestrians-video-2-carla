@@ -25,7 +25,7 @@ from torch import Tensor
 try:
     from torch_geometric.data import Batch
 except ImportError:
-    Batch=None
+    Batch = None
 
 from torchmetrics import MetricCollection
 from pedestrians_video_2_carla.utils.argparse import boolean
@@ -393,6 +393,11 @@ class LitBaseFlow(pl.LightningModule):
 
         loss_dict = self._calculate_lossess(stage, len(frames), sliced, meta)
 
+        # after losses are calculated, we will not need any gradients anymore
+        # so detach everything in sliced for the rest of the processing
+        sliced = {k: v.detach() if isinstance(v, torch.Tensor)
+                  else v for k, v in sliced.items()}
+
         self._log_videos(meta=meta, batch_idx=batch_idx, stage=stage, **sliced)
 
         return self._get_outputs(stage, len(frames), sliced, loss_dict)
@@ -412,12 +417,11 @@ class LitBaseFlow(pl.LightningModule):
                 return {
                     'loss': loss_dict[mode.name],
                     'preds': {
-                        'pose_changes': sliced['pose_inputs'].detach() if self.movements_model.output_type == MovementsModelOutputType.pose_changes else None,
-                        'world_rot_changes': sliced['world_rot_inputs'].detach() if self.trajectory_model.output_type == TrajectoryModelOutputType.changes and 'world_rot_inputs' in sliced else None,
-                        'world_loc_changes': sliced['world_loc_inputs'].detach() if self.trajectory_model.output_type == TrajectoryModelOutputType.changes and 'world_loc_inputs' in sliced else None,
+                        'pose_changes': sliced['pose_inputs'] if self.movements_model.output_type == MovementsModelOutputType.pose_changes else None,
+                        'world_rot_changes': sliced['world_rot_inputs'] if self.trajectory_model.output_type == TrajectoryModelOutputType.changes and 'world_rot_inputs' in sliced else None,
+                        'world_loc_changes': sliced['world_loc_inputs'] if self.trajectory_model.output_type == TrajectoryModelOutputType.changes and 'world_loc_inputs' in sliced else None,
                         **{
-                            k: sliced[k].detach(
-                            ) if k in sliced and sliced[k] is not None else None
+                            k: sliced[k] if k in sliced and sliced[k] is not None else None
                             for k in self._crucial_keys
                         }
                     },
@@ -449,6 +453,9 @@ class LitBaseFlow(pl.LightningModule):
             )
             if loss is not None and not torch.isnan(loss):
                 loss_dict[name] = loss
+
+                if LossModes[name] in self._loss_modes:
+                    break  # stop after first successfully requested calculated loss, since
 
         for k, v in loss_dict.items():
             self.log('{}_loss/{}'.format(stage, k), v, batch_size=batch_size)
