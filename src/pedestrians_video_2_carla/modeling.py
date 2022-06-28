@@ -266,7 +266,9 @@ def main(
         )
 
     # data
-    dm = data_module_cls(**dict_args, return_graph=flow_module.needs_graph)
+    dm = data_module_cls(**dict_args,
+                         return_graph=flow_module.needs_graph,
+                         needs_heatmaps=flow_module.needs_heatmaps)
 
     # training
     trainer = pl.Trainer.from_argparse_args(

@@ -6,3 +6,7 @@ class PoseEstimationModel(MovementsModel):
     @property
     def output_type(self) -> PoseEstimationModelOutputType:
         return PoseEstimationModelOutputType.heatmaps
+
+    @property
+    def needs_heatmaps(self):
+        return self.output_type == PoseEstimationModelOutputType.heatmaps

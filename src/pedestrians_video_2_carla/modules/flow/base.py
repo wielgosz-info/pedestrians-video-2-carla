@@ -226,6 +226,10 @@ class LitBaseFlow(pl.LightningModule):
     def needs_graph(self):
         return self.movements_model.needs_graph
 
+    @property
+    def needs_heatmaps(self):
+        return getattr(self.movements_model, 'needs_heatmaps', False)
+
     @rank_zero_only
     def on_fit_start(self) -> None:
         initial_metrics = self._calculate_initial_metrics()

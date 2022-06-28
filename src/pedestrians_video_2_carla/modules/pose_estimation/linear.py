@@ -32,10 +32,6 @@ class Linear(PoseEstimationModel):
     def output_type(self) -> PoseEstimationModelOutputType:
         return PoseEstimationModelOutputType.heatmaps
 
-    @property
-    def needs_confidence(self) -> bool:
-        return False
-
     def forward(self, x, *args, **kwargs):
         b, t, c, h, w = x.shape
         x = x.view(b * t, c, h, w)
