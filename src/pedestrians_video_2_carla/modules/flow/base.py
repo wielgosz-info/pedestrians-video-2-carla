@@ -308,18 +308,28 @@ class LitBaseFlow(pl.LightningModule):
         # We need to manually add the datamodule hparams,
         # because the merge is automatically handled only for initial_hparams
         # additionally, store info on train set size for easy access
+
+        sizes = {}
+        subsets = ['train', 'val', 'test']
+        for set_name in subsets:
+            try:
+                set_size = len(getattr(self.trainer.datamodule, f'{set_name}_set'))
+            except AttributeError:
+                set_size = None
+            
+            limit = getattr(self.trainer, f'limit_{set_name}_batches', None)
+            if limit is not None:
+                if isinstance(limit, int):
+                    set_size = limit * self.trainer.datamodule.batch_size
+                elif set_size is not None:
+                    set_size = limit * set_size
+
+            if set_size is not None:
+                sizes[f'used_{set_name}_set_size'] = set_size
+
         additional_config = {
             **self.trainer.datamodule.hparams,
-            'train_set_size': getattr(
-                self.trainer.datamodule.train_set,
-                '__len__',
-                lambda: self.trainer.limit_train_batches*self.trainer.datamodule.batch_size
-            )(),
-            'val_set_size': getattr(
-                self.trainer.datamodule.val_set,
-                '__len__',
-                lambda: self.trainer.limit_val_batches*self.trainer.datamodule.batch_size
-            )(),
+            **sizes,
             **(initial_metrics or {}),
         }
 
