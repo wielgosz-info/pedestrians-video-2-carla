@@ -103,7 +103,7 @@ class BaseDataModule(LightningDataModule):
         self.train_set = None
         self.val_set = None
         self.test_set = None
-        self.set_size = {}
+        self._set_size = {}
 
         self._predict_set_names = predict_sets if predict_sets is not None else []
         self._predict_sets = {}
@@ -138,7 +138,7 @@ class BaseDataModule(LightningDataModule):
         else:
             # we already have datasset prepared for this combination of settings
             # so only retrieve and store classification labels info/counts
-            self._load_class_info()
+            self._load_set_info()
 
         self.save_hyperparameters({
             **self.settings,
@@ -152,9 +152,6 @@ class BaseDataModule(LightningDataModule):
             'clip_length': self.clip_length,
             'clip_offset': self.clip_offset,
             'data_nodes': self.data_nodes.__name__,
-            'train_set_size': self.set_size.get('train', None),
-            'val_set_size': self.set_size.get('val', None),
-            'test_set_size': self.set_size.get('test', None),
         }
 
     @property
@@ -173,8 +170,11 @@ class BaseDataModule(LightningDataModule):
         return self._subsets_dir
 
     def _calculate_settings_digest(self):
+        # for digest, we always want to have alphabetic order of keys
+        settings = {k: self.settings[k] for k in sorted(self.settings.keys())}
+
         return hashlib.md5('-'.join(['{}={}'.format(k, str(s))
-                                     for k, s in self.settings.items()]).encode()).hexdigest()
+                                     for k, s in settings.items()]).encode()).hexdigest()
 
     def save_settings(self):
         """
@@ -182,6 +182,9 @@ class BaseDataModule(LightningDataModule):
         """
         with open(os.path.join(self._subsets_dir, 'dparams.yaml'), 'w') as f:
             settings = copy.deepcopy(self.settings)
+
+            settings.update(**{ f'{k}_set_size' : v for k, v in self._set_size.items() })
+
             if self.class_labels is not None:
                 settings['class_labels'] = self.class_labels
             if self._class_counts is not None:
@@ -393,13 +396,19 @@ class BaseDataModule(LightningDataModule):
         """
         raise NotImplementedError()
 
-    def _load_class_info(self):
+    def _load_set_info(self):
         with open(os.path.join(self._subsets_dir, 'dparams.yaml'), 'r') as f:
             settings = yaml.load(f, Loader=Loader)
             if 'class_labels' in settings:
                 self._class_labels = settings['class_labels']
             if 'class_counts' in settings:
                 self._class_counts = settings['class_counts']
+            if 'train_set_size' in settings:
+                self._set_size['train'] = settings['train_set_size']
+            if 'val_set_size' in settings:
+                self._set_size['val'] = settings['val_set_size']
+            if 'test_set_size' in settings:
+                self._set_size['test'] = settings['test_set_size']
 
     @property
     def class_labels(self) -> Dict[str, List[str]]:
@@ -434,7 +443,7 @@ class BaseDataModule(LightningDataModule):
         progress_bar.update(1)
 
         # save data
-        self.set_size = self._split_and_save_clips(filtered_clips)
+        self._set_size = self._split_and_save_clips(filtered_clips)
         progress_bar.update(1)
 
         # save subset settings

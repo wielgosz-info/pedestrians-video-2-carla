@@ -314,15 +314,15 @@ class LitBaseFlow(pl.LightningModule):
         for set_name in subsets:
             try:
                 set_size = len(getattr(self.trainer.datamodule, f'{set_name}_set'))
-            except AttributeError:
+            except (AttributeError, TypeError):
                 set_size = None
-            
+
             limit = getattr(self.trainer, f'limit_{set_name}_batches', None)
             if limit is not None:
                 if isinstance(limit, int):
                     set_size = limit * self.trainer.datamodule.batch_size
                 elif set_size is not None:
-                    set_size = limit * set_size
+                    set_size = int(limit * set_size)
 
             if set_size is not None:
                 sizes[f'used_{set_name}_set_size'] = set_size
@@ -480,7 +480,7 @@ class LitBaseFlow(pl.LightningModule):
         m = self.metrics(outputs['preds'], outputs['targets'])
         batch_size = len(outputs['preds'][self._outputs_key])
 
-        unwrapped_m = self._unwrap_nested_metrics(m, ['hp'])
+        unwrapped_m = self._unwrap_nested_metrics(m, [stage])
         for k, v in unwrapped_m.items():
             self.log(k, v, batch_size=batch_size, on_step=False, on_epoch=True)
 
