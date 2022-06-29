@@ -1,5 +1,5 @@
 import os
-from typing import Any, Callable, Dict, Iterator, List, Tuple, Type
+from typing import Any, Dict, Iterator, List, Tuple, Type
 
 import numpy as np
 import torch
@@ -12,13 +12,21 @@ from pedestrians_scenarios.karma.renderers.source_videos_renderer import \
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 from pedestrians_video_2_carla.renderers.carla_renderer import CarlaRenderer
 from pedestrians_video_2_carla.renderers.smpl_renderer import SMPLRenderer
-from pedestrians_video_2_carla.transforms.normalization import DeNormalizer, Extractor
+from pedestrians_video_2_carla.transforms.normalization import (DeNormalizer,
+                                                                Extractor)
 from pedestrians_video_2_carla.transforms.reference_skeletons import \
     ReferenceSkeletonsDenormalize
+from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
+from pytorch_lightning.loggers.base import LightningLoggerBase
 from torch import Tensor
 from tqdm.auto import tqdm
 
 from .enums import MergingMethod, PedestrianRenderers
+
+try:
+    import wandb
+except ModuleNotFoundError:
+    pass
 
 
 class PedestrianWriter(object):
@@ -28,20 +36,22 @@ class PedestrianWriter(object):
                  extractor: Extractor,
                  input_nodes: Type[Skeleton],
                  output_nodes: Type[Skeleton] = None,
-                 reduced_log_every_n_steps: int = 500,
                  fps: float = 30.0,
-                 max_videos: int = 10,
-                 merging_method: MergingMethod = MergingMethod.square,
-                 source_videos_dir: str = None,
+                 video_save_to_logger: bool = False,
+                 video_max_files: int = 10,
+                 video_merging_method: MergingMethod = MergingMethod.square,
+                 # smpl renderer
                  body_model_dir: str = None,
+                 # source videos renderer
+                 source_videos_dir: str = None,
                  source_videos_overlay_skeletons: bool = False,
                  source_videos_overlay_bboxes: bool = False,
                  **kwargs) -> None:
         self._log_dir = log_dir
+        self._save_to_logger = video_save_to_logger
 
-        self._reduced_log_every_n_steps = reduced_log_every_n_steps
         self._fps = fps
-        self._max_videos = max_videos
+        self._max_videos = video_max_files
 
         if self._max_videos > 0:
             self.__videos_slice = slice(0, self._max_videos)
@@ -49,9 +59,9 @@ class PedestrianWriter(object):
             self.__videos_slice = slice(None)
 
         self._used_renderers: List[PedestrianRenderers] = renderers[:]
-        if len(self._used_renderers) < 3 and merging_method == MergingMethod.square:
-            merging_method = MergingMethod.horizontal
-        self._merging_method = merging_method
+        if len(self._used_renderers) < 3 and video_merging_method == MergingMethod.square:
+            video_merging_method = MergingMethod.horizontal
+        self._merging_method = video_merging_method
 
         if self._merging_method == MergingMethod.square:
             # find how many videos we need per row and column
@@ -113,20 +123,15 @@ class PedestrianWriter(object):
 
     @torch.no_grad()
     def log_videos(self,
-                   meta: Dict[str, Tensor],
-                   step: int,
-                   batch_idx: int,
+                   global_step: int,
                    stage: str,
-                   vid_callback: Callable = None,
-                   force: bool = False,
+                   logger: LightningLoggerBase,
                    # data that is passed from various inputs/outputs:
+                   meta: Dict[str, Tensor],
                    inputs: Tensor = None,
                    targets: Dict[str, Tensor] = None,
                    preds: Dict[str, Tensor] = None,
                    **kwargs) -> None:
-        if step % self._reduced_log_every_n_steps != 0 and not force:
-            return
-
         projection_2d = preds.get("projection_2d", None)
         projection_2d_transformed = preds.get("projection_2d_transformed", None)
         relative_pose_loc = preds.get("relative_pose_loc", None)
@@ -137,7 +142,7 @@ class PedestrianWriter(object):
         # TODO: render videos in background so rendering is not blocking the main thread
 
         for vid_idx, (vid, meta) in tqdm(enumerate(self._render(
-                inputs[self.__videos_slice],
+                inputs[self.__videos_slice] if inputs is not None else None,
                 {k: v[self.__videos_slice] for k, v in targets.items()},
                 {k: v[self.__videos_slice] for k, v in meta.items()},
                 projection_2d[self.__videos_slice] if projection_2d is not None else None,
@@ -145,24 +150,32 @@ class PedestrianWriter(object):
                 relative_pose_loc[self.__videos_slice] if relative_pose_loc is not None else None,
                 relative_pose_rot[self.__videos_slice] if relative_pose_rot is not None else None,
                 world_loc[self.__videos_slice] if world_loc is not None else None,
-                world_rot[self.__videos_slice] if world_rot is not None else None,
-                batch_idx)), desc="Rendering clips", total=self._max_videos, leave=False):
+                world_rot[self.__videos_slice] if world_rot is not None else None)), desc="Rendering clips", total=self._max_videos, leave=False):
             video_dir = os.path.join(self._log_dir, stage, meta.get(
                 'set_name', ''), meta['video_id'])
             os.makedirs(video_dir, exist_ok=True)
 
+            vid_name = f"{meta['pedestrian_id']}-{meta['clip_id']:0>2d}"
+            video_filepath = os.path.join(video_dir,
+                                          f'{vid_name}-step={global_step:0>4d}.mp4')
+
             torchvision.io.write_video(
-                os.path.join(video_dir,
-                             '{pedestrian_id}-{clip_id:0>2d}-step={step:0>4d}.mp4'.format(
-                                 **meta,
-                                 step=step
-                             )),
+                video_filepath,
                 vid,
                 fps=self._fps
             )
 
-            if vid_callback is not None:
-                vid_callback(vid, vid_idx, self._fps, stage, meta)
+            if self._save_to_logger:
+                if isinstance(logger, TensorBoardLogger):
+                    vid = vid.permute(0, 3, 1, 2).unsqueeze(0)  # T,H,W,C -> 1,T,C,H,W
+                    logger.experiment.add_video(
+                        vid_name,
+                        vid, global_step, fps=self._fps
+                    )
+                else:
+                    logger.experiment.log({
+                        f"video/{vid_name}": wandb.data_types.Video(video_filepath, format='mp4'),
+                    })
 
     @torch.no_grad()
     def _render(self,
@@ -174,13 +187,12 @@ class PedestrianWriter(object):
                 relative_pose_loc: Tensor,
                 relative_pose_rot: Tensor,
                 world_loc: Tensor,
-                world_rot: Tensor,
-                batch_idx: int
+                world_rot: Tensor
                 ) -> Iterator[Tuple[Tensor, Tuple[str, str, int]]]:
         """
         Prepares video data. **It doesn't save anything!**
 
-        :param frames: Input frames
+        :param frames: Input frames (projection 2d)
         :type frames: Tensor
         :param targets: Target data
         :type targets: Dict[str, Tensor]
@@ -198,8 +210,6 @@ class PedestrianWriter(object):
         :type world_loc: Tensor
         :param world_rot: Output from the .forward converted to world rotations. May be None.
         :type world_rot: Tensor
-        :param batch_idx: Batch index
-        :type batch_idx: int
         :return: List of videos and metadata
         :rtype: Tuple[List[Tensor], Tuple[str]]
         """
@@ -208,12 +218,12 @@ class PedestrianWriter(object):
         # TODO: denormalization should be aware of the camera position if possible
         if 'projection_2d_transformed' in targets:
             denormalized_input_projection = self.__denormalize.from_projection(
-                frames, meta)
+                frames, meta) if frames is not None else None
             denormalized_target_projection = self.__denormalize.from_projection(
                 targets['projection_2d_transformed'], meta)
         else:
             denormalized_input_projection = self.__denormalize.from_projection(
-                frames, meta, autonormalize=True)
+                frames, meta, autonormalize=True) if frames is not None else None
             denormalized_target_projection = self.__denormalize.from_projection(
                 targets['projection_2d'], meta, autonormalize=True)
 
@@ -280,10 +290,7 @@ class PedestrianWriter(object):
             )
 
             vid_meta = {
-                'video_id': 'video_{:0>2d}_{:0>2d}'.format(
-                    batch_idx,
-                    vid_idx
-                ),
+                'video_id': 'video_{:0>2d}'.format(vid_idx),
                 'pedestrian_id': '{}_{}'.format(meta['age'][vid_idx], meta['gender'][vid_idx]),
                 'clip_id': 0
             }

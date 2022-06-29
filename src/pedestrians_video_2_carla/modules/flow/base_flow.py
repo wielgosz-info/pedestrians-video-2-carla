@@ -199,14 +199,18 @@ class LitBaseFlow(pl.LightningModule):
         return parent_parser
 
     @property
+    def first_model(self):
+        return list(self.models.values())[0]
+
+    @property
     def needs_graph(self):
         # check if first model needs graph as input;
         # it is up to child flow to handle passing data to other models
-        return list(self.models.values())[0].needs_graph
+        return getattr(self.first_model, 'needs_graph', False)
 
     @property
     def needs_heatmaps(self):
-        return getattr(self.movements_model, 'needs_heatmaps', False)
+        return getattr(self.first_model, 'needs_heatmaps', False)
 
     @rank_zero_only
     def on_fit_start(self) -> None:
@@ -316,7 +320,10 @@ class LitBaseFlow(pl.LightningModule):
             # TensorBoard requires 'special' updating to log multiple metrics
             self.trainer.loggers[0].log_hyperparams(
                 self.hparams,
-                self._unwrap_nested_metrics(self.metrics, ['hp'], nans=True)
+                {
+                    **self._unwrap_nested_metrics(self.metrics, ['val'], nans=True),
+                    **self._unwrap_nested_metrics(self.metrics, ['train'], nans=True),
+                }
             )
         else:
             self.trainer.loggers[0].log_hyperparams(self.hparams)
@@ -355,6 +362,9 @@ class LitBaseFlow(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         return self._step(batch, batch_idx, 'test')
 
+    def training_step_end(self, outputs):
+        self._eval_step_end(outputs, 'train')  # get train metrics for comparison
+
     def validation_step_end(self, outputs):
         self._eval_step_end(outputs, 'val')
 
@@ -364,12 +374,19 @@ class LitBaseFlow(pl.LightningModule):
     def training_epoch_end(self, outputs: Any) -> None:
         to_log = {}
 
-        if hasattr(self.movements_model, 'training_epoch_end'):
-            to_log.update(self.movements_model.training_epoch_end(outputs))
+        for model in self.models.values():
+            if hasattr(model, 'training_epoch_end'):
+                to_log.update(model.training_epoch_end(outputs))
 
         if len(to_log) > 0:
             batch_size = len(outputs[0]['preds'][self._outputs_key])
             self.log_dict(to_log, batch_size=batch_size)
+
+    def validation_epoch_end(self, outputs: Any) -> None:
+        self._eval_epoch_end(outputs, 'val')
+
+    def test_epoch_end(self, outputs: Any) -> None:
+        self._eval_epoch_end(outputs, 'test')
 
     def forward(self, batch, *args, **kwargs) -> Any:
         (frames, targets, meta, edge_index, batch_vector) = self._unwrap_batch(batch)
@@ -379,16 +396,9 @@ class LitBaseFlow(pl.LightningModule):
         (frames, targets, meta, edge_index, batch_vector) = self._unwrap_batch(batch)
         sliced = self._inner_step(frames, targets, edge_index, batch_vector)
 
-        loss_dict = self._calculate_lossess(stage, len(frames), sliced, meta)
+        loss_dict = self._calculate_lossess(stage, len(frames), sliced)
 
-        # after losses are calculated, we will not need any gradients anymore
-        # so detach everything in sliced for the rest of the processing
-        sliced = {k: v.detach() if isinstance(v, torch.Tensor)
-                  else v for k, v in sliced.items()}
-
-        self._log_videos(meta=meta, batch_idx=batch_idx, stage=stage, **sliced)
-
-        return self._get_outputs(stage, len(frames), sliced, loss_dict)
+        return self._get_outputs(stage, len(frames), sliced, loss_dict, meta)
 
     def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor, batch_vector: torch.Tensor) -> Dict[str, Union[Dict, torch.Tensor]]:
         raise NotImplementedError()
@@ -436,7 +446,7 @@ class LitBaseFlow(pl.LightningModule):
 
         return sliced
 
-    def _get_outputs(self, stage, batch_size, sliced, loss_dict):
+    def _get_outputs(self, stage, batch_size, sliced, loss_dict, meta):
         # return primary loss - the first one available from loss_modes list
         # also log it as 'primary' for monitoring purposes
         # TODO: monitoring should be done based on the metric, not the loss
@@ -448,16 +458,17 @@ class LitBaseFlow(pl.LightningModule):
                 return {
                     'loss': loss_dict[mode.name],
                     'preds': {
-                        k: sliced['preds'][k].detach(
-                        ) if k in sliced and sliced[k] is not None else None
+                        k: sliced['preds'][k].detach()
+                        # crucial keys are crucial, so we should fail if they are missing
                         for k in self._crucial_keys
                     },
-                    'targets': sliced['targets']
+                    'targets': sliced['targets'],
+                    'meta': meta
                 }
 
         raise RuntimeError("Couldn't calculate any loss.")
 
-    def _calculate_lossess(self, stage, batch_size, sliced, meta):
+    def _calculate_lossess(self, stage, batch_size, sliced):
         # TODO: this will work for mono-type batches, but not for mixed-type batches;
         # Figure if/how to do mixed-type batches - should we even support it?
         # Maybe force reduction='none' in criterions and then reduce here?
@@ -494,34 +505,13 @@ class LitBaseFlow(pl.LightningModule):
         for k, v in unwrapped_m.items():
             self.log(k, v, batch_size=batch_size, on_step=False, on_epoch=True)
 
-    def _video_to_logger(self, vid, vid_idx, fps, stage, meta):
-        if isinstance(self.trainer.loggers[0], TensorBoardLogger):
-            vid = vid.permute(0, 1, 4, 2, 3).unsqueeze(0)  # B,T,H,W,C -> B,T,C,H,W
-            self.trainer.loggers[0].experiment.add_video(
-                '{}_{}_render'.format(stage, vid_idx),
-                vid, self.global_step, fps=fps
-            )
-        # TODO: handle W&B too
-
-    def _log_videos(self,
-                    meta: Tensor,
-                    batch_idx: int,
-                    stage: str,
-                    save_to_logger: bool = False,
-                    **kwargs
-                    ):
-        if save_to_logger:
-            vid_callback = self._video_to_logger
-        else:
-            vid_callback = None
-
+    def _eval_epoch_end(self, outputs, stage):
         if len(self.trainer.loggers) > 1:
             self.trainer.loggers[1].experiment.log_videos(
-                meta=meta,
-                step=self.global_step,
-                batch_idx=batch_idx,
+                global_step=self.global_step,
                 stage=stage,
-                vid_callback=vid_callback,
-                force=(stage != 'train' and batch_idx == 0),
-                **kwargs
+                logger=self.trainer.loggers[0],
+                # only get the outputs from LOCAL_RANK=0;
+                # this will limit the number of videos to batch_size in addition to video_max_files
+                **outputs[0]
             )

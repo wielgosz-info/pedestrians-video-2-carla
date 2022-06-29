@@ -388,10 +388,9 @@ class LitClassificationFlow(LitBaseFlow):
             "trainer/global_step": self.trainer.global_step,
         })
 
-    # TODO: somehow this is not working
-    def _on_eval_epoch_end(self):
+    def _on_eval_epoch_end(self, stage: str):
         try:
-            unwrapped_m = self._unwrap_nested_metrics(self.metrics.compute(), ['hp'])
+            unwrapped_m = self._unwrap_nested_metrics(self.metrics.compute(), [stage])
             for k, v in unwrapped_m.items():
                 # special W&B plots
                 if not isinstance(self.trainer.loggers[0], TensorBoardLogger):
@@ -416,10 +415,10 @@ class LitClassificationFlow(LitBaseFlow):
         self.metrics.reset()
 
     def on_validation_epoch_end(self) -> None:
-        return self._on_eval_epoch_end()
+        return self._on_eval_epoch_end('val')
 
     def on_test_epoch_end(self) -> None:
-        return self._on_eval_epoch_end()
+        return self._on_eval_epoch_end('test')
 
     def _inner_step(self, frames: torch.Tensor, targets: Dict[str, torch.Tensor], edge_index: torch.Tensor, batch_vector: torch.Tensor) -> Dict[str, Union[Dict, torch.Tensor]]:
         out = self.models['classification'](frames, edge_index, batch_vector)

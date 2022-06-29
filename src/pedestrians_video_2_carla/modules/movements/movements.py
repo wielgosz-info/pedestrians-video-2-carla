@@ -59,12 +59,15 @@ class MovementsModel(BaseModel):
 
         parser.add_argument(
             f'--{prefix}_input_nodes',
-            dest='input_nodes',  # not prefixed for compatibility, since input_nodes are used elsewhere in code too
+            # TODO: not prefixed for compatibility, since input_nodes are used elsewhere in code too
+            dest='input_nodes',
             type=get_skeleton_type_by_name,
             default=CARLA_SKELETON
         )
         parser.add_argument(
             f'--{prefix}_output_nodes',
+            # TODO: not prefixed for compatibility, since output_nodes are used elsewhere in code too
+            dest='output_nodes',
             type=get_skeleton_type_by_name,
             default=CARLA_SKELETON
         )

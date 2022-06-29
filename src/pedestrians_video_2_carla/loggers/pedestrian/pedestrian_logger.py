@@ -12,6 +12,7 @@ from pytorch_lightning.loggers.base import rank_zero_experiment
 from pytorch_lightning.utilities import rank_zero_only, rank_zero_warn
 
 from pedestrians_video_2_carla.transforms.normalization import Extractor
+from pedestrians_video_2_carla.utils.argparse import boolean
 
 from .disabled_pedestrian_writer import DisabledPedestrianWriter
 from .enums import MergingMethod, PedestrianRenderers
@@ -27,9 +28,8 @@ class PedestrianLogger(LightningLoggerBase):
                  save_dir: str,
                  name: str,
                  version: Union[int, str] = 0,
-                 log_every_n_steps: int = 50,
-                 video_saving_frequency_reduction: int = 10,
-                 renderers: List[PedestrianRenderers] = None,
+                 video_enable_rendering: bool = False,
+                 video_renderers: List[PedestrianRenderers] = None,
                  extractor: Extractor = None,
                  movements_output_type: MovementsModelOutputType = MovementsModelOutputType.pose_changes,
                  **kwargs):
@@ -42,13 +42,10 @@ class PedestrianLogger(LightningLoggerBase):
         :type name: str
         :param version: Version of the experiment.
         :type version: Union[int, str]
-        :param log_every_n_steps: Log every n steps. This should match the Trainer setting,
-            the final value will be determined by multiplying it with video_saving_frequency_reduction. Default: 50.
-        :type log_every_n_steps: int
-        :param video_saving_frequency_reduction: Reduce the video saving frequency by this factor. Default: 10.
-        :type video_saving_frequency_reduction: int
-        :param renderers: List of used renderers. Default: [].
-        :type renderers: List[PedestrianRenderers]
+        :param video_enable_rendering: Should the videos actually be rendered. Default: False.
+        :type video_enable_rendering: bool
+        :param video_renderers: List of used renderers. Default: [].
+        :type video_renderers: List[PedestrianRenderers]
         :param extractor: Extractor used for denormalization. Default: HipsNeckExtractor().
         :type extractor: Extractor
         """
@@ -64,18 +61,15 @@ class PedestrianLogger(LightningLoggerBase):
         self._experiment = None
         self._writer_cls = PedestrianWriter
 
-        self._video_saving_frequency_reduction = video_saving_frequency_reduction
-        self._log_every_n_steps = log_every_n_steps
-        self._reduced_log_every_n_steps = self._log_every_n_steps * \
-            self._video_saving_frequency_reduction
+        self._video_enable_rendering = video_enable_rendering
 
-        if self._reduced_log_every_n_steps <= 1:
-            rank_zero_warn("Video logging interval set to 0. Disabling video output.")
+        if not self._video_enable_rendering:
+            rank_zero_warn("Video rendering is not enabled (set --video_enable_rendering=true if needed). Disabling video output.")
             self._writer_cls = DisabledPedestrianWriter
 
         # If renderers were not specified, use 'none'.
-        self._renderers = renderers if (
-            renderers is not None) and (len(renderers) > 0) else []
+        self._renderers = video_renderers if (
+            video_renderers is not None) and (len(video_renderers) > 0) else []
 
         # See if we can use CARLA renderer. It can still fail later if CARLA server is not available.
         # Here we only test if actual package or mock is used
@@ -123,28 +117,33 @@ class PedestrianLogger(LightningLoggerBase):
     def add_logger_specific_args(parent_parser):
         parser = parent_parser.add_argument_group("Pedestrian Logger")
         parser.add_argument(
-            "--video_saving_frequency_reduction",
-            dest="video_saving_frequency_reduction",
-            help="Set video saving frequency reduction to save them every REDUCTION * log_every_n_steps. If 0 or less disables saving videos.",
-            metavar="REDUCTION",
-            default=10,
-            type=lambda x: max(int(x), 0)
+            "--video_enable_rendering",
+            dest="video_enable_rendering",
+            default=False,
+            type=boolean
         )
         parser.add_argument(
-            "--max_videos",
-            dest="max_videos",
-            help="Set maximum number of videos to save from each batch. Set to -1 to save all videos in batch. Default: 10",
+            "--video_max_files",
+            dest="video_max_files",
+            help="Set maximum number of videos to save from each epoch. Set to -1 to save all videos in epoch. Default: 10",
             default=10,
             type=int
         )
         parser.add_argument(
-            "--renderers",
-            dest="renderers",
+            "--video_save_to_logger",
+            dest="video_save_to_logger",
+            help="Save videos to logger (TensorBoard or W&B). Default: False",
+            default=False,
+            type=boolean
+        )
+        parser.add_argument(
+            "--video_renderers",
+            dest="video_renderers",
             help="""
-                Set renderers to use for video output.
-                To disable rendering, 'none' renderer must be explicitly passed as the only renderer.
+                Set renderers to use for video output. This only select renderers,
+                but to actually enable rendering, set --video_enable_rendering.
+                By default, no renderers are used (which will disable video output).
                 Choices: {}.
-                Default: ['input_points', 'projection_points']
                 """.format(
                 set(PedestrianRenderers.__members__.keys())),
             metavar="RENDERER",
@@ -155,8 +154,8 @@ class PedestrianLogger(LightningLoggerBase):
             type=PedestrianRenderers.__getitem__
         )
         parser.add_argument(
-            "--merging_method",
-            dest="merging_method",
+            "--video_merging_method",
+            dest="video_merging_method",
             help="""
                 How to merge multiple videos into one.
                 Choices: {}.
@@ -168,6 +167,8 @@ class PedestrianLogger(LightningLoggerBase):
             choices=list(MergingMethod),
             type=MergingMethod.__getitem__
         )
+
+        # source videos renderer args
         parser.add_argument(
             "--source_videos_dir",
             dest="source_videos_dir",
@@ -206,7 +207,6 @@ class PedestrianLogger(LightningLoggerBase):
             self._experiment = self._writer_cls(
                 log_dir=self._save_dir,
                 renderers=self._renderers,
-                reduced_log_every_n_steps=self._reduced_log_every_n_steps,
                 extractor=self._extractor,
                 movements_output_type=self._movements_output_type,
                 **self._kwargs
