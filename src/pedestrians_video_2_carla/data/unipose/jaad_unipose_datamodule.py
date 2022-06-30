@@ -9,6 +9,7 @@ from pandas.core.frame import DataFrame
 import torch
 
 from tqdm.auto import tqdm
+from pedestrians_video_2_carla.data.base.video_mixin import VideoMixin
 from pedestrians_video_2_carla.transforms.video_to_resnet import VideoToResNet
 
 from pedestrians_video_2_carla.data.openpose.skeleton import COCO_SKELETON
@@ -99,28 +100,12 @@ class JAADUniPoseDataModule(JAADOpenPoseDataModule):
         bboxes = pedestrian_info[['x1', 'y1', 'x2', 'y2']
                                  ].to_numpy().reshape((-1, 2, 2))
 
-        canvas_size = (
-            bboxes[:, 1] - bboxes[:, 0]).max().astype(int)
-        canvas_size = max(canvas_size, self._target_size)
-        half_size = canvas_size // 2
-
-        canvas = np.zeros((end_frame - start_frame, canvas_size,
-                           canvas_size, 3), dtype=np.uint8)
-
         with pims.PyAVReaderIndexed(paths[0]) as video:
             clip = video[start_frame:end_frame]
-            clip_length = len(clip)
-            (clip_height, clip_width, _) = clip.frame_shape
+            clip_frames = np.array(clip)
 
-            centers = (bboxes.mean(axis=-2) + 0.5).round().astype(int)
-            shifts = np.zeros((clip_length, 2), dtype=int)
-
-            for idx in range(clip_length):
-                shifts[idx] = self._extract_bbox_from_frame(canvas[idx], clip[idx],
-                                                            (half_size, half_size),
-                                                            centers[idx],
-                                                            (clip_width, clip_height),
-                                                            )
+        canvas, shifts = VideoMixin.crop_bbox(
+            clip_frames, bboxes, target_size=self._target_size)
 
         # right now we have a canvas with all the frames of the clip
         # that hopefully contains the pedestrian in the center
@@ -133,7 +118,7 @@ class JAADUniPoseDataModule(JAADOpenPoseDataModule):
 
         clip_keypoints = self._keypoints_from_heatmaps(
             heatmaps.cpu().numpy(),
-            (canvas_size, canvas_size),
+            canvas.shape[-3:-1],
             shifts
         )
 
@@ -163,24 +148,6 @@ class JAADUniPoseDataModule(JAADOpenPoseDataModule):
 
         # everything went well, append the clip to the list
         return pedestrian_info
-
-    def _extract_bbox_from_frame(self, canvas, clip, half_size, bbox_center, clip_size):
-        (half_width, half_height) = half_size
-        (x_center, y_center) = bbox_center
-        (clip_width, clip_height) = clip_size
-
-        frame_x_min = int(max(0, x_center-half_width))
-        frame_x_max = int(min(clip_width, x_center+half_width))
-        frame_y_min = int(max(0, y_center-half_height))
-        frame_y_max = int(min(clip_height, y_center+half_height))
-        frame_width = frame_x_max - frame_x_min
-        frame_height = frame_y_max - frame_y_min
-        canvas_x_shift = max(0, half_width-x_center)
-        canvas_y_shift = max(0, half_height-y_center)
-        canvas[canvas_y_shift:canvas_y_shift+frame_height, canvas_x_shift:canvas_x_shift +
-               frame_width] = clip[frame_y_min:frame_y_max, frame_x_min:frame_x_max]
-
-        return frame_x_min - canvas_x_shift, frame_y_min - canvas_y_shift
 
     def _load_unipose_model(self, unipose_model_path):
         """
