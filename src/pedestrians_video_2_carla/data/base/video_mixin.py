@@ -92,7 +92,7 @@ class VideoMixin:
                 targets, clip_frames.shape, original_shape, shifts)
 
             # debug
-            self.__debug_heatmaps(targets, clip_frames)
+            # self.__debug_heatmaps(targets, clip_frames)
 
         return (clip_frames, targets, meta)
 
