@@ -19,6 +19,7 @@ from pedestrians_video_2_carla.modules.flow.pose_lifting import \
 from pedestrians_video_2_carla.modules.flow.pose_estimation import LitPoseEstimationFlow
 from pedestrians_video_2_carla.utils.paths import get_run_id_from_checkpoint_path, resolve_ckpt_path
 
+
 try:
     import wandb
     from pytorch_lightning.loggers.wandb import WandbLogger
@@ -268,7 +269,9 @@ def main(
     # data
     dm = data_module_cls(**dict_args,
                          return_graph=flow_module.needs_graph,
-                         needs_heatmaps=flow_module.needs_heatmaps)
+                         needs_heatmaps=flow_module.needs_heatmaps,
+                         needs_confidence=flow_module.needs_confidence,
+                         )
 
     # training
     trainer = pl.Trainer.from_argparse_args(

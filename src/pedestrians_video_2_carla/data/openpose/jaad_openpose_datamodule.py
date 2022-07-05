@@ -18,7 +18,7 @@ class JAADOpenPoseDataModule(YorkUOpenPoseDataModule):
             df_usecols=JAAD_USECOLS,
             df_filters=JAAD_ISIN,
             converters={
-                'crossing': lambda x: x == 'crossing',
+                'crossing': lambda x: x == '1',
             },
             **kwargs
         )

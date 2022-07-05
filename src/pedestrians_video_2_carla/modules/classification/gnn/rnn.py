@@ -9,7 +9,7 @@ class GRNNModel(ClassificationModel):
     def __init__(self,
                  hidden_size: int = 128,
                  p_dropout: float = 0.2,
-                 input_features: int =2, # (x, y) points
+                 input_features: int = 2, # (x, y) points
                  **kwargs
                  ):
         super().__init__(**kwargs)

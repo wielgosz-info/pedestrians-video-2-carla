@@ -62,6 +62,10 @@ class BaseModel(torch.nn.Module):
         return False
 
     @property
+    def needs_confidence(self) -> bool:
+        return False
+
+    @property
     def needs_graph(self) -> bool:
         return False
 

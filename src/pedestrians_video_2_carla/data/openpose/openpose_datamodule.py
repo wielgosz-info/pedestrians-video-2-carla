@@ -106,7 +106,7 @@ class OpenPoseDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseDataMo
         for clip in tqdm(clips, desc='Extracting skeleton data', leave=False):
             pedestrian_info = clip.reset_index().sort_values('frame')
 
-            set_name = pedestrian_info.iloc[0]['set_name']
+            set_name = pedestrian_info.iloc[0]['set_name'] if 'set_name' in pedestrian_info.columns else ''
             video_id = pedestrian_info.iloc[0]['video']
             start_frame = pedestrian_info.iloc[0]['frame']
             stop_frame = pedestrian_info.iloc[-1]['frame'] + 1

@@ -4,9 +4,6 @@ from typing import Any, Dict, Tuple
 import numpy as np
 import pandas
 from pandas.core.frame import DataFrame
-from pedestrians_video_2_carla.data.openpose.constants import (JAAD_ISIN,
-                                                               JAAD_USECOLS,
-                                                               JAAD_DIR)
 from pedestrians_video_2_carla.data.openpose.openpose_datamodule import OpenPoseDataModule
 
 
