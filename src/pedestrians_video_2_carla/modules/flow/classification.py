@@ -8,7 +8,7 @@ import platform
 try:
     from torch_geometric.data import Batch
 except ImportError:
-    Batch=None
+    Batch = None
 
 import torch
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
@@ -150,6 +150,14 @@ class LitClassificationFlow(pl.LightningModule):
     @property
     def needs_graph(self):
         return self.classification_model.needs_graph
+
+    @property
+    def needs_heatmaps(self):
+        return False
+
+    @property
+    def needs_confidence(self):
+        return self.classification_model.needs_confidence
 
     @cached_property
     def class_labels(self):
