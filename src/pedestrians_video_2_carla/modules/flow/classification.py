@@ -33,8 +33,9 @@ from pytorch_lightning.utilities import rank_zero_only
 
 try:
     import wandb
+    from pytorch_lightning.loggers.wandb import WandbLogger
 except ImportError:
-    pass
+    WandbLogger = None
 
 
 class LitClassificationFlow(pl.LightningModule):
@@ -330,6 +331,9 @@ class LitClassificationFlow(pl.LightningModule):
         self._eval_step_end(outputs, 'test')
 
     def _log_curve(self, key: str, title: str, col_names: List[str], x: Tuple[torch.Tensor], y: Tuple[torch.Tensor], axis_names: List[str] = None):
+        if not isinstance(self.trainer.loggers[0], WandbLogger):
+            return
+
         # copied part of code from W&B, since we already have curve(s)
         # but not raw data to calculate it
 
@@ -402,6 +406,9 @@ class LitClassificationFlow(pl.LightningModule):
         )
 
     def _log_confusion_matrix(self, k, v):
+        if not isinstance(self.trainer.loggers[0], WandbLogger):
+            return
+
         # copied part of code from W&B, since we already have confusion matrix
         # but not raw data to calculate it
         data = []

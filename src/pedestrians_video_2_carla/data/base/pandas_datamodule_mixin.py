@@ -276,15 +276,22 @@ class PandasDataModuleMixin:
 
             clips_set = clips.join(pandas.concat(sets[i]), how='right')
             clips_set.drop(['clips_count', 'clips_cumsum'], inplace=True, axis=1)
-            clips_set.reset_index(level=self.clips_index[-1], inplace=True, drop=False)
-            # shuffle the clips so that for val/test we have more variety when utilizing only part of the dataset
-            index = pandas.MultiIndex.from_frame(clips_set.index.to_frame(
-                index=False).drop_duplicates().sample(frac=1))
-            shuffled_clips = clips_set.loc[index.values, :]
-            grouped = shuffled_clips.groupby(level=list(
-                range(len(self.full_index) - 1)), sort=False)
-            self._set_class_counts(name, grouped)
-            projection_2d, targets, meta = self._get_raw_data(grouped)
-            set_size[name] = self._save_subset(name, projection_2d, targets, meta)
+
+            set_size[name] = self._process_clips_set(name, clips_set)
 
         return set_size
+
+    def _process_clips_set(self, name, clips_set):
+        clips_set.reset_index(level=self.clips_index[-1], inplace=True, drop=False)
+
+        # shuffle the clips so that for val/test we have more variety when utilizing only part of the dataset
+        index = pandas.MultiIndex.from_frame(clips_set.index.to_frame(
+            index=False).drop_duplicates().sample(frac=1))
+        shuffled_clips = clips_set.loc[index.values, :]
+
+        grouped = shuffled_clips.groupby(level=list(
+            range(len(self.full_index) - 1)), sort=False)
+        self._set_class_counts(name, grouped)
+        projection_2d, targets, meta = self._get_raw_data(grouped)
+
+        return self._save_subset(name, projection_2d, targets, meta)

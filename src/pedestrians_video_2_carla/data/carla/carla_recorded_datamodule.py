@@ -27,10 +27,10 @@ def convert_to_list(x):
 
 class CarlaRecordedDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseDataModule):
     def __init__(self,
-                 carla_rec_set_name: str = CARLA_RECORDED_DEFAULT_SET_NAME,
+                 data_variant: str = CARLA_RECORDED_DEFAULT_SET_NAME,
                  **kwargs):
-        self.set_name = carla_rec_set_name
-        source_videos_dir = os.path.join(CARLA_RECORDED_DIR, self.set_name)
+        self.data_variant = data_variant
+        source_videos_dir = os.path.join(CARLA_RECORDED_DIR, self.data_variant)
 
         super().__init__(
             cross_label='frame.pedestrian.is_crossing',
@@ -59,13 +59,13 @@ class CarlaRecordedDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseD
     def settings(self):
         return {
             **super().settings,
-            'carla_rec_set_name': self.set_name,
+            'data_variant': self.data_variant,
         }
 
     @classmethod
     def add_subclass_specific_args(cls, parent_parser):
         parser = parent_parser.add_argument_group('CarlaRec Data Module')
-        parser.add_argument('--carla_rec_set_name', type=str,
+        parser.add_argument('--data_variant', type=str,
                             default=CARLA_RECORDED_DEFAULT_SET_NAME)
         return parent_parser
 
