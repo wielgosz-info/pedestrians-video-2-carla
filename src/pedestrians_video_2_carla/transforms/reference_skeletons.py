@@ -8,6 +8,24 @@ from pedestrians_video_2_carla.transforms.normalization import (
 from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
 from torch import Tensor
 
+AGE_MAPPINGS = {
+    # available in CARLA
+    'adult': 'adult',
+    'child': 'child',
+    # substitutions
+    'senior': 'adult',
+    'young': 'child',
+}
+
+GENDER_MAPPINGS = {
+    # available in CARLA
+    'female': 'female',
+    'male': 'male',
+    # substitutions
+    'neutral': 'female',
+    float('nan'): 'female'
+}
+
 
 class ReferenceSkeletonsDenormalize(object):
     """
@@ -30,7 +48,7 @@ class ReferenceSkeletonsDenormalize(object):
         reference_projections = get_projections(frames.device, as_dict=True)
 
         frame_projections = torch.stack([
-            reference_projections[(age, gender)]
+            reference_projections[(AGE_MAPPINGS[age], GENDER_MAPPINGS[gender])]
             for (age, gender) in zip(meta['age'], meta['gender'])
         ], dim=0)
 
@@ -43,7 +61,7 @@ class ReferenceSkeletonsDenormalize(object):
         reference_abs = get_absolute_tensors(frames.device, as_dict=True)
 
         frame_abs = torch.stack([
-            reference_abs[(age, gender)][0]
+            reference_abs[(AGE_MAPPINGS[age], GENDER_MAPPINGS[gender])][0]
             for (age, gender) in zip(meta['age'], meta['gender'])
         ], dim=0)
 

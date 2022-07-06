@@ -9,19 +9,15 @@ from pedestrians_video_2_carla.data.openpose.openpose_datamodule import OpenPose
 
 class YorkUOpenPoseDataModule(OpenPoseDataModule):
     def __init__(self, **kwargs):
-        super().__init__(**{
-            **kwargs,
-            'label_frames': -1,  # in JAAD and PIE 'crossing' label is set the same for the whole video
-        })
-
-    def _clean_filter_sort_data(self, annotations_df: DataFrame) -> DataFrame:
-        # There is no 'senior' or 'young' in CARLA, so replace with 'adult' and 'child'
-        annotations_df['age'].replace(
-            ['senior', 'young'], ['adult', 'child'], inplace=True)
-        annotations_df['gender'].replace(
-            float('nan'), 'female', inplace=True)
-
-        return super()._clean_filter_sort_data(annotations_df)
+        super().__init__(
+            cross_label='crossing',
+            converters={
+                'crossing': lambda x: x == '1',
+            },
+            **{
+                **kwargs,
+                'label_frames': -1,  # in JAAD and PIE 'crossing' label is set the same for the whole video
+            })
 
     def _get_raw_data(self, grouped: pandas.DataFrame) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, Any]]:
         # projections
