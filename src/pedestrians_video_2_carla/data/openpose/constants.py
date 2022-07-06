@@ -18,7 +18,8 @@ JAAD_USECOLS = [
     'gender',
     'age',
     'crossing',
-    'action'
+    'action',
+    'crossing_point'
 ]
 
 PIE_DIR = 'PIE'
@@ -35,5 +36,6 @@ PIE_USECOLS = [
     'gender',
     'age',
     'crossing',
-    'action'
+    'action',
+    'crossing_point'
 ]

@@ -218,9 +218,11 @@ class PedestrianWriter(object):
         if projection_2d_transformed is not None:
             denormalized_output_projection = self.__denormalize.from_projection(
                 projection_2d_transformed, meta)
-        else:
+        elif projection_2d is not None:
             denormalized_output_projection = self.__denormalize.from_projection(
                 projection_2d, meta, autonormalize=True)
+        else:
+            denormalized_output_projection = None
 
         output_videos = []
 

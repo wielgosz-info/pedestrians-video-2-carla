@@ -64,6 +64,7 @@ class BaseDataModule(LightningDataModule):
                  subsets_dir: Optional[str] = None,
                  source_videos_dir: Optional[str] = None,
                  outputs_dir: Optional[str] = None,
+                 min_video_length: Optional[int] = None,
                  **kwargs):
         super().__init__()
 
@@ -77,6 +78,7 @@ class BaseDataModule(LightningDataModule):
                 self.datasets_dir, self.source_videos_dir)
 
         self.clip_length = clip_length
+        self.min_video_length = min_video_length if min_video_length is not None else clip_length
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.data_nodes = data_nodes if data_nodes is not None else input_nodes
@@ -183,7 +185,7 @@ class BaseDataModule(LightningDataModule):
         with open(os.path.join(self._subsets_dir, 'dparams.yaml'), 'w') as f:
             settings = copy.deepcopy(self.settings)
 
-            settings.update(**{ f'{k}_set_size' : v for k, v in self._set_size.items() })
+            settings.update(**{f'{k}_set_size': v for k, v in self._set_size.items()})
 
             if self.class_labels is not None:
                 settings['class_labels'] = self.class_labels

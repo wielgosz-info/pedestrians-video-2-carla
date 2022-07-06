@@ -1,5 +1,6 @@
 import os
 from random import choices
+from typing import Tuple
 import pandas
 from tqdm.auto import tqdm
 
@@ -24,10 +25,22 @@ class JAADBenchmarkDataModule(JAADOpenPoseDataModule):
     https://github.com/ykotseruba/PedestrianActionBenchmark
     """
 
-    def __init__(self, data_variant='default', **kwargs):
+    def __init__(self,
+                 data_variant='default',
+                 tte: Tuple[int, int] = (30, 60),
+                 overlap: float = 0.8,
+                 clip_length: int = 16,
+                 **kwargs
+                 ):
         self.data_variant = data_variant
+        self.tte = sorted(tte) if len(tte) else [30, 60]
 
-        super().__init__(**kwargs)
+        super().__init__(**{
+            **kwargs,
+            'clip_length': clip_length,
+            'clip_offset': int((1 - overlap) * clip_length),
+            'min_video_length': clip_length + self.tte[1],
+        })
 
         self._splits_dir = os.path.join(
             self.datasets_dir, JAAD_DIR, 'split_ids', self.data_variant)
@@ -37,6 +50,7 @@ class JAADBenchmarkDataModule(JAADOpenPoseDataModule):
         return {
             **super().settings,
             'data_variant': self.data_variant,
+            'tte': self.tte,
         }
 
     @classmethod
@@ -46,7 +60,28 @@ class JAADBenchmarkDataModule(JAADOpenPoseDataModule):
         parser.add_argument('--data_variant', type=str,
                             choices=['default', 'high_visibility', 'all_videos'],
                             default='default')
+        parser.add_argument('--tte', type=int, nargs='+', default=[],
+                            help='Time to event. Values are in frames. Clips will be generated if they end in this window. Default is [30, 60].')
         return parent_parser
+
+    def _get_video(self, annotations_df, idx):
+        video = annotations_df.loc[idx].sort_values(self.clips_index[-1])
+
+        video = video.loc[(video.frame <= video.crossing_point)
+                          | (video.crossing_point < 0)]
+
+        # leave only relevant frames
+        event_frame = video.iloc[-1].frame
+        start_frame = max(0, event_frame - self.clip_length - self.tte[1])
+        end_frame = event_frame - self.tte[0]
+
+        video = video[(video.frame >= start_frame) & (video.frame <= end_frame)]
+
+        # if video is too short, skip it
+        if len(video) < self.clip_length:
+            return None
+
+        return video
 
     def _split_and_save_clips(self, clips):
         """

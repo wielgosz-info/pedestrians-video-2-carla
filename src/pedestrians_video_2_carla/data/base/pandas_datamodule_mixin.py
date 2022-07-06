@@ -158,9 +158,18 @@ class PandasDataModuleMixin:
         ).assign(frame_count_eq_diff=lambda x: x.frame_count == x.frame_diff)
 
         # drop clips that are too short for sure
-        frame_counts = frame_counts[frame_counts.frame_count >= self.clip_length]
+        frame_counts = frame_counts[frame_counts.frame_count >= self.min_video_length]
 
         return frame_counts
+
+    def _get_video(self, annotations_df, idx):
+        video = annotations_df.loc[idx].sort_values(self.clips_index[-1])
+
+        # if video is too short, skip it
+        if len(video) < self.min_video_length:
+            return None
+
+        return video
 
     def _extract_clips(self, annotations_df: pandas.DataFrame) -> List[pandas.DataFrame]:
         frame_counts = self._get_frame_counts(annotations_df)
@@ -169,31 +178,42 @@ class PandasDataModuleMixin:
 
         # handle continuous clips first
         for idx in tqdm(frame_counts[frame_counts.frame_count_eq_diff == True].index, desc='Extracting from continuous data', leave=False):
-            video = annotations_df.loc[idx].sort_values(self.clips_index[-1])
+            video = self._get_video(annotations_df, idx)
+            if video is None:
+                continue
+
             ci = 0
-            while (ci*self.clip_offset + self.clip_length) <= frame_counts.loc[idx].frame_count:
-                clips.append(video.iloc[ci * self.clip_offset:ci *
-                                        self.clip_offset + self.clip_length].reset_index().loc[:, self.copied_columns].assign(clip=ci))
+
+            while (ci*self.clip_offset + self.clip_length) <= len(video):
+                clip = video.iloc[ci * self.clip_offset:ci *
+                                  self.clip_offset + self.clip_length].reset_index().loc[:, self.copied_columns].assign(clip=ci)
                 ci += 1
+                clips.append(clip)
 
         # then try to extract from non-continuos
         for idx in tqdm(frame_counts[frame_counts.frame_count_eq_diff == False].index, desc='Extracting from non-continuous data', leave=False):
-            video = annotations_df.loc[idx].sort_values(self.clips_index[-1])
+            video = self._get_video(annotations_df, idx)
+            if video is None:
+                continue
+
             frame_diffs_min = video[1:][[self.clips_index[-1]]].assign(
                 frame_diff=video[1:].frame - video[0:-1].frame)
-            frame_min = [frame_counts.loc[idx].frame_min] + \
+            frame_min = [video.frame[0]] + \
                 list(frame_diffs_min[frame_diffs_min.frame_diff > 1]
                      [self.clips_index[-1]].values)
             frame_diffs_max = video[0:-1][[self.clips_index[-1]]
                                           ].assign(frame_diff=video[1:].frame - video[0:-1].frame)
             frame_max = list(frame_diffs_max[frame_diffs_max.frame_diff > 1]
-                             [self.clips_index[-1]].values) + [frame_counts.loc[idx].frame_max]
+                             [self.clips_index[-1]].values) + [video.frame[-1]]
+
             ci = 0  # continuous for all clips
+
             for (fmin, fmax) in zip(frame_min, frame_max):
-                while (ci*self.clip_offset + self.clip_length + fmin) <= fmax:
-                    clips.append(video.loc[video.frame >= ci*self.clip_offset + fmin]
-                                 [:self.clip_length].reset_index().loc[:, self.copied_columns].assign(clip=ci))
+                while (fmin + ci*self.clip_offset + self.clip_length) <= fmax:
+                    clip = video.loc[video.frame >= ci*self.clip_offset +
+                                     fmin][:self.clip_length].reset_index().loc[:, self.copied_columns].assign(clip=ci)
                     ci += 1
+                    clips.append(clip)
 
         return clips
 
