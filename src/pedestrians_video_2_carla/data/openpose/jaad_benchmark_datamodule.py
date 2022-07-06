@@ -1,8 +1,13 @@
 import os
+import pickle
 from random import choices
-from typing import Tuple
+from typing import List, Tuple
+import numpy as np
 import pandas
 from tqdm.auto import tqdm
+from pedestrians_video_2_carla import data
+
+from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON, COCO_SKELETON
 
 from .constants import JAAD_DIR
 from .jaad_openpose_datamodule import JAADOpenPoseDataModule
@@ -28,22 +33,26 @@ class JAADBenchmarkDataModule(JAADOpenPoseDataModule):
     def __init__(self,
                  data_variant='default',
                  tte: Tuple[int, int] = (30, 60),
-                 overlap: float = 0.8,
-                 clip_length: int = 16,
+                 pose_data: str = 'pickle',
                  **kwargs
                  ):
         self.data_variant = data_variant
         self.tte = sorted(tte) if len(tte) else [30, 60]
+        self.pose_data = pose_data
 
         super().__init__(**{
             **kwargs,
-            'clip_length': clip_length,
-            'clip_offset': int((1 - overlap) * clip_length),
-            'min_video_length': clip_length + self.tte[1],
+            'data_nodes': COCO_SKELETON if self.pose_data == 'pickle' else BODY_25_SKELETON,
+            'min_video_length': kwargs.get('clip_length', 16) + self.tte[1],
         })
 
         self._splits_dir = os.path.join(
             self.datasets_dir, JAAD_DIR, 'split_ids', self.data_variant)
+        self._pose_pickles_dir = os.path.join(
+            self.datasets_dir, JAAD_DIR, 'poses')
+
+        if self.pose_data == 'pickle':
+            self._extract_additional_data = self._extract_additional_data_pickle
 
     @property
     def settings(self):
@@ -51,17 +60,29 @@ class JAADBenchmarkDataModule(JAADOpenPoseDataModule):
             **super().settings,
             'data_variant': self.data_variant,
             'tte': self.tte,
+            'pose_data': self.pose_data,
         }
 
     @classmethod
     def add_subclass_specific_args(cls, parent_parser):
-        # TODO: call super?
         parser = parent_parser.add_argument_group('JAADBenchmark Data Module')
         parser.add_argument('--data_variant', type=str,
                             choices=['default', 'high_visibility', 'all_videos'],
                             default='default')
         parser.add_argument('--tte', type=int, nargs='+', default=[],
                             help='Time to event. Values are in frames. Clips will be generated if they end in this window. Default is [30, 60].')
+        parser.add_argument('--pose_data', type=str, choices=['pickle', 'json'], default='pickle',
+                            help='''Type of pose data to use.
+                                    "pickle" are data provided in https://github.com/ykotseruba/PedestrianActionBenchmark,
+                                    "json" are our OpenPose JSON files. Default is "pickle".
+                            ''')
+
+        # update default settings
+        parser.set_defaults(
+            clip_length=16,
+            clip_offset=3,
+        )
+
         return parent_parser
 
     def _get_video(self, annotations_df, idx):
@@ -71,7 +92,8 @@ class JAADBenchmarkDataModule(JAADOpenPoseDataModule):
                           | (video.crossing_point < 0)]
 
         # leave only relevant frames
-        event_frame = video.iloc[-1].frame
+        event_frame = video.iloc[-1].frame - \
+            3 if video.iloc[-1].crossing_point < 0 else video.iloc[-1].crossing_point
         start_frame = max(0, event_frame - self.clip_length - self.tte[1])
         end_frame = event_frame - self.tte[0]
 
@@ -82,6 +104,49 @@ class JAADBenchmarkDataModule(JAADOpenPoseDataModule):
             return None
 
         return video
+
+    def _extract_additional_data_pickle(self, clips: List[pandas.DataFrame]):
+        """
+        Extract skeleton data from keypoint files. This potentially modifies data in place!
+
+        :param clips: List of DataFrames
+        :type clips: List[DataFrame]
+        """
+        pose_data = {}
+        for file in os.listdir(self._pose_pickles_dir):
+            with open(os.path.join(self._pose_pickles_dir, file), 'rb') as fid:
+                set_name = os.path.splitext(file)[0].split('_')[1]
+                try:
+                    data = pickle.load(fid)
+                except:
+                    data = pickle.load(fid, encoding='bytes')
+                pose_data[set_name] = data
+
+        updated_clips = []
+        for clip in tqdm(clips, desc='Extracting skeleton data', leave=False):
+            pedestrian_info = clip.reset_index().sort_values('frame')
+
+            set_name = pedestrian_info.iloc[0]['set_name'] if 'set_name' in pedestrian_info.columns else 'set01'
+            video_id = pedestrian_info.iloc[0]['video']
+            pedestrian_id = pedestrian_info.iloc[0]['id']
+            start_frame = pedestrian_info.iloc[0]['frame']
+            stop_frame = pedestrian_info.iloc[-1]['frame'] + 1
+
+            # get the pose data for this clip
+            for i, f in enumerate(range(start_frame, stop_frame, 1)):
+                ped_frame_id = f'{f:05d}_{pedestrian_id}'
+                try:
+                    frame_pose_data = np.array(
+                        pose_data[set_name][video_id][ped_frame_id]).reshape(-1, 2)  # COCO_SKELETON
+                    # TODO: this pose data is normalized - how to convert back to pixels for display?
+                except KeyError:
+                    frame_pose_data = np.zeros((len(self.data_nodes), 2))
+                pedestrian_info.at[pedestrian_info.index[i],
+                                   'keypoints'] = frame_pose_data.tolist()
+
+            updated_clips.append(pedestrian_info)
+
+        return updated_clips
 
     def _split_and_save_clips(self, clips):
         """

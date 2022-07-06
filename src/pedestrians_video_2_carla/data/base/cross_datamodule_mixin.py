@@ -10,13 +10,13 @@ class CrossDataModuleMixin:
 
     def __init__(
         self,
-        cross_label: str = 'cross',
+        cross_label: str = 'crossing',
         label_frames: float = -1,
         **kwargs
     ):
         self._cross_label = cross_label
         self._label_frames = label_frames
-        
+
         super().__init__(**kwargs)
 
     @property
