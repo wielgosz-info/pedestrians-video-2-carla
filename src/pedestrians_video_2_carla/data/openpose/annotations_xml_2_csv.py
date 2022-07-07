@@ -44,16 +44,6 @@ class AnnotationsXml2Csv():
         )
         self._check_and_add_to_dict(
             dictionary=processing_dict,
-            key="occluded",
-            value=box["@occluded"],
-        )
-        self._check_and_add_to_dict(
-            dictionary=processing_dict,
-            key="outside",
-            value=box["@outside"],
-        )
-        self._check_and_add_to_dict(
-            dictionary=processing_dict,
             key="x2",
             value=float(box["@xbr"]),
         )
@@ -73,14 +63,14 @@ class AnnotationsXml2Csv():
             value=float(box["@ytl"]),
         )
         for attribute in box["attribute"]:
-            self._check_and_add_to_dict(
-                dictionary=processing_dict,
-                key=attribute["@name"],
-                value=attribute["#text"],
-            )
-
             # add attributes of the pedestrian
             if attribute["@name"] == "id":
+                self._check_and_add_to_dict(
+                    dictionary=processing_dict,
+                    key=attribute["@name"],
+                    value=attribute["#text"],
+                )
+
                 if attribute["#text"] in self.dict_aggregated_attributes.keys():
                     for key, value in self.dict_aggregated_attributes[
                         attribute["#text"]
@@ -90,6 +80,14 @@ class AnnotationsXml2Csv():
                             key=key,
                             value=value,
                         )
+                else:
+                    for key, value in self._extract_pedestrian_attributes(None).items():
+                        self._check_and_add_to_dict(
+                            dictionary=processing_dict,
+                            key=key,
+                            value=value,
+                        )
+                break
 
     def _process_folder(self, folder: str, file_processing_callback: Callable):
         print(f"Processing: {folder} ")
@@ -118,17 +116,14 @@ class AnnotationsXml2Csv():
         return processing_dict
 
     def _extract_annotations_attributes(self, track, video_id, set_name, processing_dict):
-        if (
-            track["@label"] == "pedestrian"
-        ):  # only for pedestian not bypassers (denoted as peds)
-            # iterate over boxes within each track
-            for box in track["box"]:
-                self._process_box(
-                    box=box,
-                    video=video_id,
-                    set_name=set_name,
-                    processing_dict=processing_dict,
-                )
+        # iterate over boxes within each track
+        for box in track["box"]:
+            self._process_box(
+                box=box,
+                video=video_id,
+                set_name=set_name,
+                processing_dict=processing_dict,
+            )
 
     def _process_annotations_file(self, file, root, set_name, processing_dict):
         # if there are no pedestians in the video -> skip the video
@@ -145,21 +140,29 @@ class AnnotationsXml2Csv():
             root["annotations"]["track"], List
         ):  # there are multiple predestians (tracks)
             for track in root["annotations"]["track"]:
-                self._extract_annotations_attributes(track, video_id, set_name, processing_dict)
+                self._extract_annotations_attributes(
+                    track, video_id, set_name, processing_dict)
 
         else:  # there is only one track
             track = root["annotations"]["track"]
-            self._extract_annotations_attributes(track, video_id, set_name, processing_dict)
+            self._extract_annotations_attributes(
+                track, video_id, set_name, processing_dict)
 
-    def _extract_pedestrian_attributes(self, pedestrian):
-        return {
-            "age": pedestrian["@age"],
-            "crossing": pedestrian["@crossing"],
-            "crossing_point": int(pedestrian["@crossing_point"]),
-            "gender": pedestrian["@gender"],
-            "intersection": pedestrian["@intersection"],
-            "num_lanes": int(pedestrian["@num_lanes"]),
-        }
+    def _extract_pedestrian_attributes(self, pedestrian=None):
+        if pedestrian is not None:
+            return {
+                "age": pedestrian["@age"],
+                "crossing": int(pedestrian["@crossing"]),
+                "crossing_point": int(pedestrian["@crossing_point"]),
+                "gender": pedestrian["@gender"],
+            }
+        else:
+            return {
+                "age": "n/a",
+                "crossing": -1,
+                "crossing_point": -1,
+                "gender": "n/a",
+            }
 
     def _process_annotations_attributes_file(self, file, root, set_name, processing_dict):
         # there are no pedestians
@@ -223,10 +226,11 @@ class AnnotationsXml2Csv():
 
         dfs = []
         for folder, (file_processing_callback, index) in self._annotations.items():
-            df = pd.DataFrame.from_dict(self._process_folder(
+            folder_dict = self._process_folder(
                 folder=folder,
                 file_processing_callback=file_processing_callback,
-            ))
+            )
+            df = pd.DataFrame.from_dict(folder_dict)
             df.set_index(list(index), inplace=True)
             dfs.append(df)
 

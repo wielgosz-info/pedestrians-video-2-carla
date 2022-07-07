@@ -1,7 +1,6 @@
 import os
 from typing import Dict, List, Literal
-from pedestrians_video_2_carla.data.openpose.constants import (PIE_ISIN,
-                                                               PIE_USECOLS,
+from pedestrians_video_2_carla.data.openpose.constants import (PIE_USECOLS,
                                                                PIE_DIR)
 from .yorku_benchmark_datamodule import YorkUBenchmarkDataModule
 
@@ -15,7 +14,6 @@ class PIEBenchmarkDataModule(YorkUBenchmarkDataModule):
             primary_index=['set_name', 'video', 'id'],
             clips_index=['clip', 'frame'],
             df_usecols=PIE_USECOLS,
-            df_filters=PIE_ISIN,
             **kwargs
         )
 

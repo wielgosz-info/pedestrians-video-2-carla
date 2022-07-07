@@ -50,7 +50,6 @@ class YorkUOpenPoseDataModule(OpenPoseDataModule):
             'clip_id': grouped_tail.loc[:, 'clip'].to_numpy().astype(np.int32),
             'age': grouped_tail.loc[:, 'age'].to_list(),
             'gender': grouped_tail.loc[:, 'gender'].to_list(),
-            'action': grouped_tail.loc[:, 'action'].to_list(),
             'start_frame': grouped_head.loc[:, 'frame'].to_numpy().astype(np.int32),
             'end_frame': grouped_tail.loc[:, 'frame'].to_numpy().astype(np.int32) + 1,
         }
@@ -61,14 +60,12 @@ class YorkUOpenPoseDataModule(OpenPoseDataModule):
 
     def _set_class_labels(self, df: pandas.DataFrame) -> None:
         """
-        Sets classification labels for 'action' and 'cross' columns.
+        Sets classification labels for 'crossing' column.
 
         :param df: DataFrame with labels
         :type df: pandas.DataFrame
         """
         self._class_labels = {
-            'action': sorted(df.loc[:, 'action'].unique().tolist()),
-
             # explicitly set crossing to be 1, so it potentially can be used in a binary classifier
             self._cross_label: ['not-crossing', 'crossing'],
         }

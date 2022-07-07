@@ -1,6 +1,5 @@
 import os
-from pedestrians_video_2_carla.data.openpose.constants import (PIE_ISIN,
-                                                               PIE_USECOLS,
+from pedestrians_video_2_carla.data.openpose.constants import (PIE_USECOLS,
                                                                PIE_DIR)
 from pedestrians_video_2_carla.data.openpose.yorku_openpose_datamodule import YorkUOpenPoseDataModule
 
@@ -16,7 +15,6 @@ class PIEOpenPoseDataModule(YorkUOpenPoseDataModule):
             primary_index=['set_name', 'video', 'id'],
             clips_index=['clip', 'frame'],
             df_usecols=PIE_USECOLS,
-            df_filters=PIE_ISIN,
             converters={
                 'crossing': lambda x: x == '1',
             },
