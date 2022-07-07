@@ -1,13 +1,8 @@
 OPENPOSE_DIR = 'openpose'
 
 JAAD_DIR = 'JAAD'
-JAAD_ISIN = None
-# JAAD_ISIN = {
-#     'action': ['walking'],
-#     'speed': ['stopped'],
-#     'group_size': [1]
-# }
 JAAD_USECOLS = [
+    'beh',
     'video',
     'frame',
     'x1',
@@ -18,12 +13,10 @@ JAAD_USECOLS = [
     'gender',
     'age',
     'crossing',
-    'action',
     'crossing_point'
 ]
 
 PIE_DIR = 'PIE'
-PIE_ISIN = None
 PIE_USECOLS = [
     'set_name',
     'video',
@@ -36,6 +29,5 @@ PIE_USECOLS = [
     'gender',
     'age',
     'crossing',
-    'action',
     'crossing_point'
 ]
