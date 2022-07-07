@@ -473,7 +473,16 @@ class LitClassificationFlow(pl.LightningModule):
             for k, v in items.items():
                 r.update(self._unwrap_nested_metrics(v, keys + [k], zeros, nans))
         else:
-            r['/'.join(keys)] = 0.0 if zeros else (float('nan') if nans else items)
+            if zeros:
+                v = 0.0
+            elif nans:
+                v = float('nan')
+            # for binary case
+            elif self._average == 'none' and isinstance(items, torch.Tensor) and items.numel() == 2:
+                v = items[1]
+            else:
+                v = items
+            r['/'.join(keys)] = v
         return r
 
     def _step(self, batch, batch_idx, stage):
