@@ -24,7 +24,7 @@ class PIEBenchmarkDataModule(YorkUBenchmarkDataModule):
         Get the splits for the dataset.
         """
         return {
-            'train': ['set01', 'set02', 'set06'],
-            'val': ['set04', 'set05'],
+            'train': ['set01', 'set02', 'set04'],
+            'val': ['set05', 'set06'],
             'test': ['set03']
         }
