@@ -354,8 +354,8 @@ def setup_flow(args, parser: argparse.ArgumentParser):
 
     parser = pl.Trainer.add_argparse_args(parser)
 
-    parser = data_module_cls.add_data_specific_args(parser)
     parser = flow_module_cls.add_model_specific_args(parser)
+    parser = data_module_cls.add_data_specific_args(parser)
 
     for model_cls in models_cls.values():
         parser = model_cls.add_model_specific_args(parser)

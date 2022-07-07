@@ -14,7 +14,7 @@ import torch
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from torchmetrics import AUROC, ROC, ConfusionMatrix, F1Score, MetricCollection, Accuracy, Precision, PrecisionRecallCurve, Recall
 import torchmetrics
-from pedestrians_video_2_carla.data.base.skeleton import get_skeleton_name_by_type, get_skeleton_type_by_name, Skeleton
+from pedestrians_video_2_carla.data.base.skeleton import get_skeleton_type_by_name
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.metrics.multiinput_wrapper import MultiinputWrapper
 
@@ -44,7 +44,7 @@ class LitClassificationFlow(pl.LightningModule):
     def __init__(self,
                  classification_model: ClassificationModel,
                  classification_targets_key: str,
-                 classification_average: str = 'macro',
+                 classification_average: Union[str, Dict[str,str]] = 'macro',
                  **kwargs: Any) -> None:
         super().__init__()
 
@@ -55,7 +55,16 @@ class LitClassificationFlow(pl.LightningModule):
 
         # TODO: get it from somewhere - datamodule only knows this after setup has been called
         self._num_classes = 2
-        self._average = classification_average
+
+        if isinstance(classification_average, str):
+            self._average = {
+                'Accuracy': classification_average,
+                'Precision': classification_average,
+                'Recall': classification_average,
+                'F1Score': classification_average,
+            }
+        else:
+            self._average = classification_average
 
         if self._num_classes == 2 and classification_model.output_type == ClassificationModelOutputType.binary:
             self.criterion = torch.nn.BCEWithLogitsLoss()
@@ -83,7 +92,6 @@ class LitClassificationFlow(pl.LightningModule):
         if self.classification_model.output_type == ClassificationModelOutputType.multiclass:
             mc = {
                 'num_classes': self._num_classes,
-                'average': self._average,
                 'multiclass': True,
             }
             curve_mc = {
@@ -100,24 +108,28 @@ class LitClassificationFlow(pl.LightningModule):
         return {
             'Accuracy': MultiinputWrapper(
                 Accuracy(dist_sync_on_step=True,
+                         average=self._average['Accuracy'],
                          **mc),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'Precision': MultiinputWrapper(
                 Precision(dist_sync_on_step=True,
+                          average=self._average['Precision'],
                           **mc),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'Recall': MultiinputWrapper(
                 Recall(dist_sync_on_step=True,
+                       average=self._average['Recall'],
                        **mc),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'F1Score': MultiinputWrapper(
                 F1Score(dist_sync_on_step=True,
+                        average=self._average['F1Score'],
                         **mc),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
@@ -264,11 +276,15 @@ class LitClassificationFlow(pl.LightningModule):
 
         # get class counts
         class_counts = self.trainer.datamodule.class_counts
-        prevalent_class = torch.argmax(
-            torch.Tensor([
-                class_counts['train'][self._targets_key][n]
-                for n in self.class_labels
-            ])).item()
+        if self._num_classes > 2:
+            prevalent_class = torch.argmax(
+                torch.Tensor([
+                    class_counts['train'][self._targets_key][n]
+                    for n in self.class_labels
+                ])).item()
+        else:
+            # binary classification
+            prevalent_class = 1
 
         initial_metrics = MetricCollection({
             **self.get_metrics(),
@@ -478,10 +494,11 @@ class LitClassificationFlow(pl.LightningModule):
             elif nans:
                 v = float('nan')
             # for binary case
-            elif self._average == 'none' and isinstance(items, torch.Tensor) and items.numel() == 2:
-                v = items[1]
+            elif keys[-1] in self._average and self._average[keys[-1]] == 'none' and self._num_classes == 2 and isinstance(items, torch.Tensor) and items.numel() == 2:
+                v = items[1]  # positive class in binary classification
             else:
                 v = items
+
             r['/'.join(keys)] = v
         return r
 

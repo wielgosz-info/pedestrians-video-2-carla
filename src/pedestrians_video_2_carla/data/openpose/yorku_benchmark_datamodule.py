@@ -70,6 +70,12 @@ class YorkUBenchmarkDataModule(YorkUOpenPoseDataModule):
         parser.set_defaults(
             clip_length=16,
             clip_offset=6,
+            classification_average={
+                'Accuracy': 'micro',
+                'Precision': 'none',  # binary
+                'Recall': 'none',  # binary
+                'F1Score': 'none',  # binary
+            }
         )
 
         return parent_parser
