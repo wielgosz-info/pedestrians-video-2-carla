@@ -89,48 +89,39 @@ class LitClassificationFlow(pl.LightningModule):
         return {}
 
     def get_metrics(self) -> Dict[str, torchmetrics.Metric]:
-        if self.classification_model.output_type == ClassificationModelOutputType.multiclass:
-            mc = {
-                'num_classes': self._num_classes,
-                'multiclass': True,
-            }
-            curve_mc = {
-                'num_classes': self._num_classes,
-            }
-        else:
-            mc = {
-                'num_classes': None,
-            }
-            curve_mc = {
-                'num_classes': None,
-            }
+        multiclass = self.classification_model.output_type == ClassificationModelOutputType.multiclass
+        num_classes = self._num_classes if multiclass else None
 
         return {
             'Accuracy': MultiinputWrapper(
                 Accuracy(dist_sync_on_step=True,
                          average=self._average['Accuracy'],
-                         **mc),
+                         num_classes=num_classes if self._average['Accuracy'] != 'none' else self._num_classes,
+                         multiclass=multiclass if self._average['Accuracy'] != 'none' else True),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'Precision': MultiinputWrapper(
                 Precision(dist_sync_on_step=True,
                           average=self._average['Precision'],
-                          **mc),
+                          num_classes=num_classes if self._average['Precision'] != 'none' else self._num_classes,
+                          multiclass=multiclass if self._average['Precision'] != 'none' else True),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'Recall': MultiinputWrapper(
                 Recall(dist_sync_on_step=True,
                        average=self._average['Recall'],
-                       **mc),
+                       num_classes=num_classes if self._average['Recall'] != 'none' else self._num_classes,
+                       multiclass=multiclass if self._average['Recall'] != 'none' else True),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'F1Score': MultiinputWrapper(
                 F1Score(dist_sync_on_step=True,
                         average=self._average['F1Score'],
-                        **mc),
+                        num_classes=num_classes if self._average['F1Score'] != 'none' else self._num_classes,
+                        multiclass=multiclass if self._average['F1Score'] != 'none' else True),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
@@ -143,18 +134,18 @@ class LitClassificationFlow(pl.LightningModule):
             ),
             'AUROC': MultiinputWrapper(
                 AUROC(dist_sync_on_step=True,
-                      **curve_mc),
+                      num_classes=num_classes),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'ROCCurve': MultiinputWrapper(
-                ROC(dist_sync_on_step=True, **curve_mc),
+                ROC(dist_sync_on_step=True, num_classes=num_classes),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
             'PRCurve': MultiinputWrapper(
                 PrecisionRecallCurve(dist_sync_on_step=True,
-                                     **curve_mc),
+                                     num_classes=num_classes),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
             ),
