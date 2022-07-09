@@ -16,7 +16,6 @@ class Projection2DMixin:
                  noise_param: Optional[float] = 1.0,
                  augment_flip: Optional[bool] = False,
                  augment_rotate: Optional[bool] = False,
-                 augment_scale: Optional[bool] = False,
                  **kwargs):
         """
         Mixing to handle common operations on 2D input data.
@@ -45,7 +44,6 @@ class Projection2DMixin:
 
         self.augment_flip = augment_flip
         self.augment_rotate = augment_rotate
-        self.augment_scale = augment_scale
         self._max_rotation_angle = math.pi / 18.0  # 10 degrees
         self._min_scale = 0.2
         self._max_scale = 5.0
@@ -124,14 +122,6 @@ class Projection2DMixin:
                 Randomly rotate the skeleton around the bounding box center.
             """
         )
-        parser.add_argument(
-            "--augment_scale",
-            type=boolean,
-            default=False,
-            help="""
-                Randomly scale the skeleton. Doesn't make sense if normalization is enabled.
-            """
-        )
         return parser
 
     @staticmethod
@@ -142,7 +132,6 @@ class Projection2DMixin:
             'noise_param': kwargs.get('noise_param', 1.0),
             'augment_flip': kwargs.get('augment_flip', False),
             'augment_rotate': kwargs.get('augment_rotate', False),
-            'augment_scale': kwargs.get('augment_scale', False),
         }
 
     def apply_deform(self, projection_2d: torch.Tensor) -> torch.Tensor:
