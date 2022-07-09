@@ -31,6 +31,10 @@ class VideoMixin:
     ):
         super().__init__(**kwargs)
 
+        augment_args = [v for k, v in kwargs.items() if k.startswith('augment_')]
+        if any(augment_args):
+            raise ValueError("VideoMixin does not support augment_* args.")
+
         self.source_videos_dir = source_videos_dir
         self.target_size = frames_target_size
         self.video_transform = VideoToResNet(target_size=self.target_size)

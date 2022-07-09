@@ -4,6 +4,8 @@ import torch
 from torch import Tensor
 from pedestrians_scenarios.karma.pose.skeleton import Skeleton
 
+from pedestrians_video_2_carla.utils.tensors import nan_to_zero
+
 
 class Extractor(object):
     def __init__(self, input_nodes: Type[Skeleton], near_zero: float = 1e-5) -> None:
@@ -57,14 +59,7 @@ class Normalizer(object):
         if dim == 2 and sample.shape[-1] > 2:
             normalized_sample[..., 2] = sample[..., 2]
 
-        if getattr(torch, 'nan_to_num', False):
-            normalized_sample = torch.nan_to_num(
-                normalized_sample, nan=0, posinf=0, neginf=0)
-        else:
-            normalized_sample = torch.where(torch.isnan(
-                normalized_sample), torch.tensor(0.0, device=normalized_sample.device), normalized_sample)
-            normalized_sample = torch.where(torch.isinf(
-                normalized_sample), torch.tensor(0.0, device=normalized_sample.device), normalized_sample)
+        normalized_sample = nan_to_zero(normalized_sample)
 
         # if confidence is 0, we will assume the point overlaps with hips
         # so that values that were originally 0,0 (not detected)

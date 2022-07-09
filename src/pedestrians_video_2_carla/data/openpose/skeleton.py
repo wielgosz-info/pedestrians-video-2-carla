@@ -71,6 +71,36 @@ class BODY_25_SKELETON(Skeleton):
         return BODY_25_SKELETON.MidHip
 
     @classmethod
+    def get_flip_mask(cls) -> Tuple[int]:
+        return (
+            BODY_25_SKELETON.Nose.value,
+            BODY_25_SKELETON.Neck.value,
+            BODY_25_SKELETON.LShoulder.value,
+            BODY_25_SKELETON.LElbow.value,
+            BODY_25_SKELETON.LWrist.value,
+            BODY_25_SKELETON.RShoulder.value,
+            BODY_25_SKELETON.RElbow.value,
+            BODY_25_SKELETON.RWrist.value,
+            BODY_25_SKELETON.MidHip.value,
+            BODY_25_SKELETON.LHip.value,
+            BODY_25_SKELETON.LKnee.value,
+            BODY_25_SKELETON.LAnkle.value,
+            BODY_25_SKELETON.RHip.value,
+            BODY_25_SKELETON.RKnee.value,
+            BODY_25_SKELETON.RAnkle.value,
+            BODY_25_SKELETON.LEye.value,
+            BODY_25_SKELETON.REye.value,
+            BODY_25_SKELETON.LEar.value,
+            BODY_25_SKELETON.REar.value,
+            BODY_25_SKELETON.RBigToe.value,
+            BODY_25_SKELETON.RSmallToe.value,
+            BODY_25_SKELETON.RHeel.value,
+            BODY_25_SKELETON.LBigToe.value,
+            BODY_25_SKELETON.LSmallToe.value,
+            BODY_25_SKELETON.LHeel.value,
+        )
+
+    @classmethod
     def get_edges(cls) -> List[Tuple['BODY_25_SKELETON', 'BODY_25_SKELETON']]:
         return [
             (BODY_25_SKELETON.Nose, BODY_25_SKELETON.Neck),
@@ -153,6 +183,29 @@ class COCO_SKELETON(Skeleton):
     @classmethod
     def get_hips_point(cls) -> List['COCO_SKELETON']:
         return [COCO_SKELETON.LHip, COCO_SKELETON.RHip]
+
+    @classmethod
+    def get_flip_mask(cls) -> Tuple[int]:
+        return (
+            COCO_SKELETON.Nose.value,
+            COCO_SKELETON.Neck.value,
+            COCO_SKELETON.LShoulder.value,
+            COCO_SKELETON.LElbow.value,
+            COCO_SKELETON.LWrist.value,
+            COCO_SKELETON.RShoulder.value,
+            COCO_SKELETON.RElbow.value,
+            COCO_SKELETON.RWrist.value,
+            COCO_SKELETON.LHip.value,
+            COCO_SKELETON.LKnee.value,
+            COCO_SKELETON.LAnkle.value,
+            COCO_SKELETON.RHip.value,
+            COCO_SKELETON.RKnee.value,
+            COCO_SKELETON.RAnkle.value,
+            COCO_SKELETON.LEye.value,
+            COCO_SKELETON.REye.value,
+            COCO_SKELETON.LEar.value,
+            COCO_SKELETON.REar.value,
+        )
 
     @classmethod
     def get_edges(cls) -> List[Tuple['COCO_SKELETON', 'COCO_SKELETON']]:

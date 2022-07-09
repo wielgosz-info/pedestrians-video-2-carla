@@ -33,6 +33,7 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
         data_nodes: Type[Skeleton] = None,
         skip_metadata: bool = False,
         class_labels: Dict[str, Iterable[str]] = None,
+        is_training: bool = False,
         **kwargs
     ) -> None:
         """
@@ -58,6 +59,7 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
 
         self._set_filepath = set_filepath
         self._skip_metadata = skip_metadata
+        self._is_training = is_training
 
         self._load_data()
 
@@ -214,7 +216,7 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
             meta = self._get_meta(idx)
 
             projection_2d, projection_targets = self.process_projection_2d(
-                raw_projection_2d)
+                raw_projection_2d, targets, (meta['clip_width'], meta['clip_height']))
             projection_2d = self.process_confidence(projection_2d)
 
             if self.data_nodes != self.input_nodes:
@@ -222,8 +224,8 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
                     projection_2d, projection_targets, targets)
 
             out = (projection_2d, {
+                **targets,
                 **projection_targets,
-                **targets
             }, meta)
 
             return self.process_graph(out)

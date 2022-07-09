@@ -38,3 +38,16 @@ def get_missing_joints_mask(common_gt, hips, input_indices):
         mask[..., common_hips_idx] = 1
 
     return mask
+
+
+def nan_to_zero(sample: torch.Tensor) -> torch.Tensor:
+    if getattr(torch, 'nan_to_num', False):
+        sample = torch.nan_to_num(
+            sample, nan=0, posinf=0, neginf=0)
+    else:
+        sample = torch.where(torch.isnan(
+            sample), torch.tensor(0.0, device=sample.device), sample)
+        sample = torch.where(torch.isinf(
+            sample), torch.tensor(0.0, device=sample.device), sample)
+
+    return sample

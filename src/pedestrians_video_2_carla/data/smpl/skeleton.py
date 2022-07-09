@@ -102,6 +102,33 @@ class SMPL_SKELETON(Skeleton):
     def get_hips_point(cls) -> 'SMPL_SKELETON':
         return SMPL_SKELETON.Pelvis
 
+    @classmethod
+    def get_flip_mask(cls) -> Tuple[int]:
+        return (
+            SMPL_SKELETON.Pelvis.value,
+            SMPL_SKELETON.Spine1.value,
+            SMPL_SKELETON.Spine2.value,
+            SMPL_SKELETON.Spine3.value,
+            SMPL_SKELETON.R_Collar.value,
+            SMPL_SKELETON.R_Shoulder.value,
+            SMPL_SKELETON.R_Elbow.value,
+            SMPL_SKELETON.R_Wrist.value,
+            SMPL_SKELETON.Neck.value,
+            SMPL_SKELETON.Head.value,
+            SMPL_SKELETON.L_Collar.value,
+            SMPL_SKELETON.L_Shoulder.value,
+            SMPL_SKELETON.L_Elbow.value,
+            SMPL_SKELETON.L_Wrist.value,
+            SMPL_SKELETON.L_Hip.value,
+            SMPL_SKELETON.L_Knee.value,
+            SMPL_SKELETON.L_Ankle.value,
+            SMPL_SKELETON.L_Foot.value,
+            SMPL_SKELETON.R_Hip.value,
+            SMPL_SKELETON.R_Knee.value,
+            SMPL_SKELETON.R_Ankle.value,
+            SMPL_SKELETON.R_Foot.value,
+        )
+
     @staticmethod
     def map_from_original(tensor: Tensor) -> Tensor:
         assert tensor.ndim >= 2

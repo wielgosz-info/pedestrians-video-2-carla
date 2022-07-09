@@ -234,8 +234,9 @@ class PedestrianWriter(object):
                 frames
             ),
             PedestrianRenderers.source_videos: lambda: self.__renderers[PedestrianRenderers.source_videos].render(
+                # TODO: all data needs to be inverse_augmented before rendering
                 meta,
-                targets['bboxes'] if 'bboxes' in targets else None,
+                targets['bboxes'] if 'bboxes' in targets else None
             ),
             PedestrianRenderers.source_carla: lambda: self.__renderers[PedestrianRenderers.source_carla].render(
                 targets['relative_pose_loc'], targets['relative_pose_rot'],

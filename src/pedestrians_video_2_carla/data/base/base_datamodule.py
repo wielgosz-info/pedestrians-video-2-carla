@@ -520,6 +520,7 @@ class BaseDataModule(LightningDataModule):
         if stage == "fit" or stage is None:
             self.train_set = dataset_creator(
                 set_filepath=os.path.join(self._subsets_dir, f'train.{set_ext}'),
+                is_training=True,
                 **common_kwargs,
             )
             self.val_set = dataset_creator(

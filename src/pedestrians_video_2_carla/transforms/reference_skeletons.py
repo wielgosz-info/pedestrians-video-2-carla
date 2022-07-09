@@ -23,7 +23,8 @@ GENDER_MAPPINGS = {
     'male': 'male',
     # substitutions
     'neutral': 'female',
-    float('nan'): 'female'
+    float('nan'): 'female',
+    'nan': 'female'
 }
 
 

@@ -158,6 +158,7 @@ class Carla2D3DDataModule(BaseDataModule):
                 transform=self.transform_callable,
                 return_graph=self.return_graph,
                 clip_length=self.clip_length,
+                is_training=True,
                 **self.kwargs,
             )
             self.val_set = Carla2D3DDataset(

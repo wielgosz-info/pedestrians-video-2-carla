@@ -1,20 +1,18 @@
-import os
 from typing import Any, Dict, Tuple
 
 import numpy as np
 import pandas
-from pandas.core.frame import DataFrame
 from pedestrians_video_2_carla.data.openpose.openpose_datamodule import OpenPoseDataModule
 
 
 class YorkUOpenPoseDataModule(OpenPoseDataModule):
-    def __init__(self, **kwargs):
+    def __init__(self, converters=None, **kwargs):
         super().__init__(
-            cross_label='crossing',
-            converters={
+            converters=converters if converters is not None else {
                 'crossing': lambda x: x == '1',
             },
             **{
+                'cross_label': 'crossing',
                 **kwargs,
                 'label_frames': -1,  # in JAAD and PIE 'crossing' label is set the same for the whole video
             })
@@ -52,6 +50,8 @@ class YorkUOpenPoseDataModule(OpenPoseDataModule):
             'gender': grouped_tail.loc[:, 'gender'].to_list(),
             'start_frame': grouped_head.loc[:, 'frame'].to_numpy().astype(np.int32),
             'end_frame': grouped_tail.loc[:, 'frame'].to_numpy().astype(np.int32) + 1,
+            'clip_width': grouped_tail.loc[:, 'video_width'].to_numpy().astype(np.int32),
+            'clip_height': grouped_tail.loc[:, 'video_height'].to_numpy().astype(np.int32),
         }
 
         self._add_cross_to_meta(grouped, grouped_tail, meta)

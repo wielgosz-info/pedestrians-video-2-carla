@@ -13,7 +13,9 @@ JAAD_USECOLS = [
     'gender',
     'age',
     'crossing',
-    'crossing_point'
+    'crossing_point',
+    'video_width',
+    'video_height'
 ]
 
 PIE_DIR = 'PIE'
@@ -29,5 +31,7 @@ PIE_USECOLS = [
     'gender',
     'age',
     'crossing',
-    'crossing_point'
+    'crossing_point',
+    'video_width',
+    'video_height'
 ]
