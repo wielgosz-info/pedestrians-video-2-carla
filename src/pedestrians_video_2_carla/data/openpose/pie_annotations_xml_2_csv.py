@@ -8,10 +8,16 @@ class PIEAnnotationsXml2Csv(AnnotationsXml2Csv):
 
     def _extract_pedestrian_attributes(self, pedestrian):
         attrs = super()._extract_pedestrian_attributes(pedestrian)
-        attrs.update({
-            "critical_point": int(pedestrian["@critical_point"]),
-            "exp_start_point": int(pedestrian["@exp_start_point"]),
-        })
+        if pedestrian is not None:
+            attrs.update({
+                "critical_point": int(pedestrian["@critical_point"]),
+                "exp_start_point": int(pedestrian["@exp_start_point"]),
+            })
+        else:
+            attrs.update({
+                "critical_point": -1,
+                "exp_start_point": 0,
+            })
         return attrs
 
     def _extract_vehicle_attributes(self, vehicle_frame):

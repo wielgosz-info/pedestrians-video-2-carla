@@ -12,7 +12,7 @@ class JAADAnnotationsXml2Csv(AnnotationsXml2Csv):
 
         self._sets = ['']  # JAAD doesn't have sets
 
-    def _extract_annotations_attributes(self, track, video_id, set_name, processing_dict):
+    def _extract_annotations_attributes(self, track, video_id, set_name, processing_dict, video_width, video_height):
         # iterate over boxes within each track
         for box in track["box"]:
             self._check_and_add_to_dict(
@@ -23,6 +23,8 @@ class JAADAnnotationsXml2Csv(AnnotationsXml2Csv):
                 video=video_id,
                 set_name=set_name,
                 processing_dict=processing_dict,
+                video_width=video_width,
+                video_height=video_height,
             )
 
     def _extract_appearance_attributes(self, track, processing_dict):

@@ -143,6 +143,8 @@ class CarlaRecordedDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseD
             'gender': grouped_tail.loc[:, 'pedestrian.gender'].to_list(),
             'start_frame': grouped_head.loc[:, 'frame.idx'].to_numpy().astype(np.int32),
             'end_frame': grouped_tail.loc[:, 'frame.idx'].to_numpy().astype(np.int32) + 1,
+            'clip_width': grouped_head.loc[:, 'camera.width'].to_numpy().astype(np.int32),
+            'clip_height': grouped_head.loc[:, 'camera.height'].to_numpy().astype(np.int32),
         }
 
         self._add_cross_to_meta(grouped, grouped_tail, meta)

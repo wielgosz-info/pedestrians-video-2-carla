@@ -30,9 +30,15 @@ class AnnotationsXml2Csv():
 
         return dictionary
 
-    def _process_box(self, box, video, set_name, processing_dict):
+    def _process_box(self, box, video, set_name, processing_dict, video_width, video_height):
         self._check_and_add_to_dict(
             dictionary=processing_dict, key="video", value=video
+        )
+        self._check_and_add_to_dict(
+            dictionary=processing_dict, key="video_width", value=video_width
+        )
+        self._check_and_add_to_dict(
+            dictionary=processing_dict, key="video_height", value=video_height
         )
         self._check_and_add_to_dict(
             dictionary=processing_dict, key="set_name", value=set_name
@@ -62,18 +68,21 @@ class AnnotationsXml2Csv():
             key="y1",
             value=float(box["@ytl"]),
         )
-        for attribute in box["attribute"]:
+        attrs = box["attribute"] if isinstance(box["attribute"], list) else [box["attribute"]]
+        for attribute in attrs:
+            name, value = attribute["@name"], attribute["#text"]
+
             # add attributes of the pedestrian
-            if attribute["@name"] == "id":
+            if name == "id":
                 self._check_and_add_to_dict(
                     dictionary=processing_dict,
-                    key=attribute["@name"],
-                    value=attribute["#text"],
+                    key=name,
+                    value=value,
                 )
 
-                if attribute["#text"] in self.dict_aggregated_attributes.keys():
+                if value in self.dict_aggregated_attributes.keys():
                     for key, value in self.dict_aggregated_attributes[
-                        attribute["#text"]
+                        value
                     ].items():
                         self._check_and_add_to_dict(
                             dictionary=processing_dict,
@@ -115,7 +124,7 @@ class AnnotationsXml2Csv():
 
         return processing_dict
 
-    def _extract_annotations_attributes(self, track, video_id, set_name, processing_dict):
+    def _extract_annotations_attributes(self, track, video_id, set_name, processing_dict, video_width, video_height):
         # iterate over boxes within each track
         for box in track["box"]:
             self._process_box(
@@ -123,6 +132,8 @@ class AnnotationsXml2Csv():
                 video=video_id,
                 set_name=set_name,
                 processing_dict=processing_dict,
+                video_width=video_width,
+                video_height=video_height,
             )
 
     def _process_annotations_file(self, file, root, set_name, processing_dict):
@@ -132,6 +143,9 @@ class AnnotationsXml2Csv():
             return
 
         video_id = root["annotations"]["meta"]["task"]["name"]
+        video_width = int(root["annotations"]["meta"]["task"]["original_size"]["width"])
+        video_height = int(root["annotations"]["meta"]["task"]
+                           ["original_size"]["height"])
         if set_name:
             video_id = video_id.replace(f"{set_name}_", "")
 
@@ -141,12 +155,12 @@ class AnnotationsXml2Csv():
         ):  # there are multiple predestians (tracks)
             for track in root["annotations"]["track"]:
                 self._extract_annotations_attributes(
-                    track, video_id, set_name, processing_dict)
+                    track, video_id, set_name, processing_dict, video_width, video_height)
 
         else:  # there is only one track
             track = root["annotations"]["track"]
             self._extract_annotations_attributes(
-                track, video_id, set_name, processing_dict)
+                track, video_id, set_name, processing_dict, video_width, video_height)
 
     def _extract_pedestrian_attributes(self, pedestrian=None):
         if pedestrian is not None:
