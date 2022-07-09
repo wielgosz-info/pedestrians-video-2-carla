@@ -66,3 +66,6 @@ models/**/*.pth
 models/**/*.tar
 
 core.*
+
+# Trace
+*.trace.json
