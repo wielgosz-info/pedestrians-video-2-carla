@@ -33,7 +33,7 @@ class AtrousModule(nn.Module):
 
 
 
-class AvPedestrianPoseTransformer(PoseEstimationModel):
+class P0(PoseEstimationModel):
     """
     The simplest dummy model used to debug the flow.
     """
@@ -55,7 +55,17 @@ class AvPedestrianPoseTransformer(PoseEstimationModel):
         # self.linear_second = nn.Linear(256, self.__output_nodes_len * 2)
 
         # this is for large resnets
-        self.linear_first = nn.Linear(2048, 256)
+        BatchNorm = nn.BatchNorm2d
+        dilations = [24, 18, 12, 6, 3] 
+        # taken from 
+        # https://github.com/bmartacho/UniPose/blob/bf5363260d9aa4f816071d6c0fcf41f057803874/model/modules/wasp.py#L106 
+    
+        self.aspp1 = AtrousModule(2048, 256, 1, padding=0, dilation=dilations[0], BatchNorm=BatchNorm)
+        self.aspp2 = AtrousModule(256, 256, 1, padding=0, dilation=dilations[1], BatchNorm=BatchNorm)
+        self.aspp3 = AtrousModule(256, 256, 1, padding=0, dilation=dilations[2], BatchNorm=BatchNorm)
+        self.aspp4 = AtrousModule(256, 256, 1, padding=0, dilation=dilations[3], BatchNorm=BatchNorm)
+        self.aspp5 = AtrousModule(256, 256, 1, padding=0, dilation=dilations[4], BatchNorm=BatchNorm)
+
         self.linear_second = nn.Linear(256, self.__output_nodes_len * 2)
         
         # self.linear_first = nn.Linear(512, 128)
@@ -74,7 +84,6 @@ class AvPedestrianPoseTransformer(PoseEstimationModel):
         self.linear_after_transformer = nn.Linear(self.__output_nodes_len * 2, self.__output_nodes_len * 2)
 
 
-
     @property
     def output_type(self) -> PoseEstimationModelOutputType:
         return PoseEstimationModelOutputType.pose_2d
@@ -89,29 +98,16 @@ class AvPedestrianPoseTransformer(PoseEstimationModel):
 
         # change here
         x = self.reduced_resnet(x)
-        x = x.view(b, t, -1)
+        x = self.aspp1(x)
+        x = self.aspp2(x)
+        x = self.aspp3(x)
+        x = self.aspp4(x)
 
-        x = self.linear_first(x)
-        x = self.dropout(x)
-        x = self.relu(x)
+        x = x.view(b, t, -1)
 
         x = self.linear_second(x)
         x = self.dropout(x)
         x = self.relu(x)
- 
-        orig_shape = x.shape
-        x = x.view(orig_shape[0], orig_shape[1], -1)
-        # print("input shape: ", x.shape)
-        x = self.encoder(x)
-        x = x.view(orig_shape)
-
-        # to be removed
-        x = self.dropout(x)
-        x = self.relu(x)
-        # to be removed
-
-        x = self.linear_after_transformer(x)
-
         x = x.view(b, t, self.__output_nodes_len, 2)
 
         return x

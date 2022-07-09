@@ -8,6 +8,8 @@ from pedestrians_video_2_carla.modules.flow.output_types import PoseEstimationMo
 # available models
 from pedestrians_video_2_carla.modules.pose_estimation.unipose.unipose_lstm import UniPoseLSTM
 from pedestrians_video_2_carla.modules.pose_estimation.transformers.avpedestrian_pose_transformer import AvPedestrianPoseTransformer
+from pedestrians_video_2_carla.modules.pose_estimation.regular.p0 import P0
+
 from pedestrians_video_2_carla.modules.pose_estimation.linear import Linear
 from pedestrians_video_2_carla.utils.unravel_index import unravel_index
 
@@ -29,7 +31,10 @@ class LitPoseEstimationFlow(LitAutoencoderFlow):
                     UniPoseLSTM,
 
                     # transformer
-                    AvPedestrianPoseTransformer
+                    AvPedestrianPoseTransformer,
+
+                    # regular
+                    P0
 
                 ]
             }
