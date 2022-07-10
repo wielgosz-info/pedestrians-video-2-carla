@@ -1,7 +1,6 @@
 
 import argparse
 import copy
-import glob
 import logging
 import os
 import shutil
@@ -12,13 +11,10 @@ from pedestrians_video_2_carla.data.base.base_transforms import BaseTransforms
 from pedestrians_video_2_carla.loggers.pedestrian.enums import PedestrianRenderers
 from pedestrians_video_2_carla.modeling import discover_available_classes, main as modeling_main, setup_flow
 from pedestrians_video_2_carla.modules.flow.output_types import MovementsModelOutputType
-from pedestrians_video_2_carla.utils.paths import get_run_id_from_checkpoint_path, get_run_id_from_log_dir, resolve_ckpt_path
-from pedestrians_video_2_carla.utils.printing import print_metrics
+from pedestrians_video_2_carla.utils.paths import get_run_id_from_checkpoint_path, resolve_ckpt_path
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
-from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON
 
 import randomname
-from torch import gt
 
 
 def setup_args() -> argparse.ArgumentParser:
@@ -57,7 +53,8 @@ def main(args: List[str]):
 
     # do a sanity check on the flow arguments
     if flow_args.ckpt_path is None:
-        raise ValueError("You must provide a classifier checkpoint path for fine-tuning!")
+        raise ValueError(
+            "You must provide a classifier checkpoint path for fine-tuning!")
 
     # Gather JAAD predictions from the AE
     ae_ckpt_path = flow_args.ae_ckpt_path
@@ -65,7 +62,7 @@ def main(args: List[str]):
         'flow': 'autoencoder',
         'mode': 'predict',
         'predict_sets': ['train', 'val', 'test'],
-        'renderers':[PedestrianRenderers.none],
+        'renderers': [PedestrianRenderers.none],
         'overfit_batches': False,
         'skip_metadata': False,
         #
@@ -92,7 +89,8 @@ def main(args: List[str]):
         'ckpt_path': ae_ckpt_path,
         'hidden_size': 191,
         'num_layers': 2,
-        'transform': BaseTransforms.hips_neck_bbox,  # fixed, since the important thing is what AE was trained with
+        # fixed, since the important thing is what AE was trained with
+        'transform': BaseTransforms.hips_neck_bbox,
         'movements_model_name': 'LSTM',
         'movements_output_type': MovementsModelOutputType.pose_2d,
         'input_nodes': CARLA_SKELETON,
@@ -123,7 +121,8 @@ def main(args: List[str]):
             ae_trainer.datamodule._data_modules[0].__class__.__name__,
             ae_trainer.datamodule.__class__.__name__
         )
-        next_data_module_name = ae_trainer.datamodule._data_modules[0].__class__.__name__.replace('DataModule', '')
+        next_data_module_name = ae_trainer.datamodule._data_modules[0].__class__.__name__.replace(
+            'DataModule', '')
 
     del ae_trainer
 
@@ -136,7 +135,8 @@ def main(args: List[str]):
     # are done with the same AE checkpoint
     os.rename(orig_ae_data_subsets_dir, ae_data_subsets_dir)
 
-    logging.getLogger(__name__).info(f'Data after autoencoder saved in {ae_data_subsets_dir}')
+    logging.getLogger(__name__).info(
+        f'Data after autoencoder saved in {ae_data_subsets_dir}')
 
     # Load the classifier from checkpoint and fine-tune it
 
@@ -159,7 +159,8 @@ def main(args: List[str]):
 
     # if recurrent GNNs are used, batch_size should be 1; TODO: make this smarter instead of listing all possible models here
     if flow_args.classification_model_name in ['GConvLSTM', 'DCRNN', 'TGCN', 'GConvGRU']:
-        classifier_train_args.log_every_n_steps = classifier_train_args.batch_size * classifier_train_args.log_every_n_steps
+        classifier_train_args.log_every_n_steps = classifier_train_args.batch_size * \
+            classifier_train_args.log_every_n_steps
         classifier_train_args.batch_size = 1
 
     modeling_main(
