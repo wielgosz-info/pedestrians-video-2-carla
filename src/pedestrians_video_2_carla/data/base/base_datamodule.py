@@ -23,6 +23,8 @@ from pedestrians_video_2_carla.transforms.pose.normalization import Normalizer, 
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 
+from pedestrians_video_2_carla.utils.term import TERM_COLORS, TERM_CONTROLS
+
 try:
     from torch_geometric.loader import DataLoader as GraphDataLoader
 except ImportError:
@@ -121,7 +123,7 @@ class BaseDataModule(LightningDataModule):
         else:
             self._subsets_dir = subsets_dir
 
-        print('Subsets dir: {}'.format(self._subsets_dir))
+        print(f'{TERM_CONTROLS.BOLD}Subsets dir: {TERM_COLORS.CYAN}{self._subsets_dir}{TERM_CONTROLS.ENDC}')
 
         # each dataset may provide its own classification labels
         # they are saved in a settings file during the subsets creation

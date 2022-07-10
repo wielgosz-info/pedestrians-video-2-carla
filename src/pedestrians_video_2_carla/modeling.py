@@ -18,7 +18,7 @@ from pedestrians_video_2_carla.modules.flow.pose_lifting import \
     LitPoseLiftingFlow
 from pedestrians_video_2_carla.modules.flow.pose_estimation import LitPoseEstimationFlow
 from pedestrians_video_2_carla.utils.paths import get_run_id_from_checkpoint_path, resolve_ckpt_path
-
+from pedestrians_video_2_carla.utils.term import TERM_COLORS, TERM_CONTROLS
 
 try:
     import wandb
@@ -224,7 +224,7 @@ def main(
         )
         log_dir = logger.log_dir
 
-    print(f"Logging dir: {log_dir}")
+    print(f"{TERM_CONTROLS.BOLD}Logging dir: {TERM_COLORS.MAGENTA}{log_dir}{TERM_CONTROLS.ENDC}")
 
     # some models support this as a CLI option
     # so we only add it if it's not already set

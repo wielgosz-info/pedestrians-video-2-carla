@@ -62,3 +62,6 @@ class RandomRotation:
             bboxes[:] = new_bboxes
 
         return rotation
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(max_rotation_angle={})'.format(self.max_rotation_angle)

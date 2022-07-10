@@ -66,6 +66,8 @@ class AugmentPose:
 
         if 'bboxes' in targets:
             new_targets['bboxes'] = bboxes[orig_shape]
+            # new bboxes are bigger than original bboxes due to rotation, so save original bboxes too
+            new_targets['orig_bboxes'] = targets['bboxes'] if 'bboxes' in targets else None
 
         return augmented_pose[orig_shape], new_targets
 
@@ -94,6 +96,9 @@ class AugmentPose:
                       is_flipped=torch.atleast_1d(targets['is_flipped']))
 
         if 'bboxes' in targets:
-            new_targets['bboxes'] = bboxes[orig_shape]
+            if 'orig_bboxes' in targets:
+                new_targets['bboxes'] = targets['orig_bboxes']
+            else:
+                new_targets['bboxes'] = bboxes[orig_shape]
 
         return recovered_pose[orig_shape], new_targets

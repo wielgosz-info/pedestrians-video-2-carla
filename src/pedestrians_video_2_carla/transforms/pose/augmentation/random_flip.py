@@ -48,7 +48,7 @@ class RandomFlip:
         flip_mul = torch.ones_like(pose)
         flip_mul[..., 0] *= -1.0
 
-        pose[:] = atleast_4d(pose[is_flipped][..., self.flip_mask, :])
+        pose[is_flipped] = atleast_4d(pose[is_flipped][..., self.flip_mask, :])
         pose[is_flipped, ..., 0] = pose[is_flipped, ..., 0].sub_(
             centers[is_flipped, ..., 0]).mul_(flip_mul[is_flipped, ..., 0])
 
@@ -56,7 +56,7 @@ class RandomFlip:
         # so it reflects where flipped skeleton would be
         # if it was extracted from the flipped image
         if bboxes is not None and clip_size is not None and torch.all(clip_size):
-            half_clip_widths = (clip_size[..., 0] / 2.0)[:, None, None]
+            half_clip_widths = (clip_size[is_flipped, 0] / 2.0)[:, None, None]
             bboxes[is_flipped, ..., 0] = bboxes[is_flipped, ..., 0].sub_(
                 half_clip_widths).mul_(-1.0).add_(half_clip_widths)
             bboxes[is_flipped, ..., 0] = torch.flip(
