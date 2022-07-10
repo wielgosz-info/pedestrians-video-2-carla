@@ -1,7 +1,7 @@
 from typing import Union
 import numpy as np
 import torch
-from torchvision.transforms.functional import equalize, normalize, resize, center_crop
+from torchvision.transforms.functional import equalize, normalize, resize
 
 
 class VideoToResNet:

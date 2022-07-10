@@ -1,5 +1,5 @@
 import torch
-from pedestrians_video_2_carla.transforms.normalization import Extractor
+from .extractor import Extractor
 from pedestrians_video_2_carla.utils.tensors import get_bboxes
 
 

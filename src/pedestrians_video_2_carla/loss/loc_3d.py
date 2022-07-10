@@ -2,8 +2,8 @@ from typing import Dict, Type
 
 from pedestrians_video_2_carla.data.base.skeleton import (Skeleton,
                                                           get_common_indices)
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
-from pedestrians_video_2_carla.transforms.normalization import Normalizer
+from pedestrians_video_2_carla.transforms.pose.normalization.hips_neck_extractor import HipsNeckExtractor
+from pedestrians_video_2_carla.transforms.pose.normalization.normalizer import Normalizer
 from pytorch_lightning.utilities.warnings import rank_zero_warn
 from torch import Tensor
 from torch.nn.modules import loss

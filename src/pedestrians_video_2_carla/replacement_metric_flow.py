@@ -23,9 +23,9 @@ from pedestrians_video_2_carla.loggers.pedestrian.enums import \
 from pedestrians_video_2_carla.modeling import main as modeling_main, setup_flow, discover_available_classes
 from pedestrians_video_2_carla.modules.movements.movements import \
     MovementsModel
-from pedestrians_video_2_carla.transforms.hips_neck_bbox_fallback import \
+from pedestrians_video_2_carla.transforms.pose.normalization.hips_neck_bbox_fallback_extractor import \
     HipsNeckBBoxFallbackExtractor
-from pedestrians_video_2_carla.transforms.normalization import Normalizer
+from pedestrians_video_2_carla.transforms.pose.normalization.normalizer import Normalizer
 from pedestrians_video_2_carla.utils.paths import get_run_id_from_log_dir
 from pedestrians_video_2_carla.utils.printing import print_metrics
 

@@ -10,7 +10,7 @@ import torch
 
 from tqdm.auto import tqdm
 from pedestrians_video_2_carla.data.base.video_mixin import VideoMixin
-from pedestrians_video_2_carla.transforms.video_to_resnet import VideoToResNet
+from pedestrians_video_2_carla.transforms.video.video_to_resnet import VideoToResNet
 
 from pedestrians_video_2_carla.data.openpose.skeleton import COCO_SKELETON
 from pedestrians_video_2_carla.data.openpose.jaad_openpose_datamodule import JAADOpenPoseDataModule

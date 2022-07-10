@@ -12,9 +12,9 @@ from pedestrians_scenarios.karma.renderers.source_videos_renderer import \
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 from pedestrians_video_2_carla.renderers.carla_renderer import CarlaRenderer
 from pedestrians_video_2_carla.renderers.smpl_renderer import SMPLRenderer
-from pedestrians_video_2_carla.transforms.normalization import DeNormalizer, Extractor
-from pedestrians_video_2_carla.transforms.reference_skeletons import \
-    ReferenceSkeletonsDenormalize
+from pedestrians_video_2_carla.transforms.pose.normalization.denormalizer import DeNormalizer, Extractor
+from pedestrians_video_2_carla.transforms.pose.normalization.reference_skeletons_denormalizer import \
+    ReferenceSkeletonsDeNormalizer
 from torch import Tensor
 from tqdm.auto import tqdm
 
@@ -78,7 +78,7 @@ class PedestrianWriter(object):
             assert self._output_nodes == self._extractor.input_nodes, "Configuration mismatch, Extractor and PointsRenderer need to use the same Skeleton."
 
         # TODO: there should be two, one for the input and one for the output
-        self.__denormalize = ReferenceSkeletonsDenormalize(
+        self.__denormalize = ReferenceSkeletonsDeNormalizer(
             extractor=self._extractor
         )
 

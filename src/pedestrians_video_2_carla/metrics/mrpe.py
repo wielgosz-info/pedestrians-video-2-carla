@@ -1,7 +1,7 @@
 from typing import Dict, Type
 from torchmetrics import Metric
 import torch
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
+from pedestrians_video_2_carla.transforms.pose.normalization.hips_neck_extractor import HipsNeckExtractor
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.utils.world import calculate_world_from_changes
 

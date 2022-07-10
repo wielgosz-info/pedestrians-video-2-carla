@@ -26,7 +26,7 @@ def get_bboxes(sample, near_zero=1e-5) -> torch.Tensor:
     return torch.stack((minimums, maximums), dim=-2)
 
 
-def get_missing_joints_mask(common_gt, hips, input_indices):
+def get_missing_joints_mask(common_gt, hips=None, input_indices=None):
     mask = torch.all(common_gt != 0, dim=-1)  # missing joints are 'perfect' zeros
 
     # do not mask hips joint if it exists
@@ -50,4 +50,11 @@ def nan_to_zero(sample: torch.Tensor) -> torch.Tensor:
         sample = torch.where(torch.isinf(
             sample), torch.tensor(0.0, device=sample.device), sample)
 
+    return sample
+
+
+def atleast_4d(sample: torch.Tensor) -> torch.Tensor:
+    if sample.ndim < 4:
+        shape_4d = (None, None, None, None, *((slice(None),)*sample.ndim))[-4:]
+        sample = sample[shape_4d]
     return sample

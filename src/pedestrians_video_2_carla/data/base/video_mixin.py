@@ -10,7 +10,7 @@ import torch
 import matplotlib
 
 from pedestrians_video_2_carla.utils.gaussian_kernel import gaussian_kernel
-from pedestrians_video_2_carla.transforms.video_to_resnet import VideoToResNet
+from pedestrians_video_2_carla.transforms.video.video_to_resnet import VideoToResNet
 from pedestrians_video_2_carla.utils.argparse import boolean
 
 

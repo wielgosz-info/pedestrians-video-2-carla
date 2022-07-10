@@ -6,12 +6,12 @@ import numpy as np
 from pedestrians_video_2_carla.modules.flow.output_types import \
     MovementsModelOutputType
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
+from pedestrians_video_2_carla.transforms.pose.normalization.hips_neck_extractor import HipsNeckExtractor
 from pytorch_lightning.loggers import LightningLoggerBase
 from pytorch_lightning.loggers.base import rank_zero_experiment
 from pytorch_lightning.utilities import rank_zero_only, rank_zero_warn
 
-from pedestrians_video_2_carla.transforms.normalization import Extractor
+from pedestrians_video_2_carla.transforms.pose.normalization import Extractor
 
 from .disabled_pedestrian_writer import DisabledPedestrianWriter
 from .enums import MergingMethod, PedestrianRenderers

@@ -2,7 +2,7 @@ import copy
 import logging
 from typing import Any, Dict, Iterable, Optional, Tuple, Type
 import numpy as np
-from pedestrians_scenarios.karma.pose.skeleton import Skeleton
+from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 from torch.utils.data import Dataset, IterableDataset
 from pedestrians_video_2_carla.data.base.confidence_mixin import ConfidenceMixin
 from pedestrians_video_2_carla.data.base.graph_mixin import GraphMixin
@@ -216,7 +216,7 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
             meta = self._get_meta(idx)
 
             projection_2d, projection_targets = self.process_projection_2d(
-                raw_projection_2d, targets, (meta['clip_width'], meta['clip_height']))
+                raw_projection_2d, targets, meta)
             projection_2d = self.process_confidence(projection_2d)
 
             if self.data_nodes != self.input_nodes:

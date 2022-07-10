@@ -3,7 +3,7 @@ from typing import Dict, Type
 import torch
 from pedestrians_video_2_carla.loss.base_pose_loss import BasePoseLoss
 from torch import Tensor
-from pedestrians_scenarios.karma.pose.skeleton import Skeleton
+from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 
 
 class HeatmapsLoss(BasePoseLoss):

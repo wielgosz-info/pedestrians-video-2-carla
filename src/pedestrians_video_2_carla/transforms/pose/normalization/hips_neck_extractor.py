@@ -1,5 +1,6 @@
 import torch
-from pedestrians_video_2_carla.transforms.normalization import Extractor
+
+from .extractor import Extractor
 
 
 class HipsNeckExtractor(Extractor):

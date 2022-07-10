@@ -1,5 +1,5 @@
 import argparse
-import distutils
+from distutils.util import strtobool
 
 
 class MinMaxAction(argparse.Action):
@@ -34,7 +34,14 @@ class DictAction(argparse.Action):
 
 
 def boolean(x):
-    return bool(distutils.util.strtobool(x))
+    return bool(strtobool(x))
+
+
+def boolean_or_float(x):
+    try:
+        return boolean(x)
+    except ValueError:
+        return float(x)
 
 
 def list_arg_as_flat_args(parser, name, max_length, defaults=None, value_type=float, help=None):
@@ -45,12 +52,14 @@ def list_arg_as_flat_args(parser, name, max_length, defaults=None, value_type=fl
     for i in range(max_length):
         parser.add_argument(
             f'--{name}_{i}',
-            default=defaults[i] if (defaults is not None and i < len(defaults)) else None,
+            default=defaults[i] if (defaults is not None and i <
+                                    len(defaults)) else None,
             type=value_type,
             help=help if (help is not None and i == 0) else None
         )
 
     return parser
+
 
 def flat_args_as_list_arg(kwargs, name, pop=False):
     """
@@ -64,7 +73,7 @@ def flat_args_as_list_arg(kwargs, name, pop=False):
         ) if kw.startswith(f'{name}_')]
         flat_kwargs.sort(key=lambda x: int(x[len(name) + 1:]))
         values = [kwargs[kw] for kw in flat_kwargs if kwargs[kw] is not None]
-        
+
     if pop:
         for kw in flat_kwargs:
             kwargs.pop(kw)

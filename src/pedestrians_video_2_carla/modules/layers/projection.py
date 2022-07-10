@@ -1,23 +1,19 @@
 from typing import Dict, Tuple, Union
-from importlib_metadata import re
 
-from scipy.fftpack import shift
-from pedestrians_video_2_carla.modules.movements.movements import MovementsModelOutputType
-from pedestrians_video_2_carla.modules.flow.output_types import TrajectoryModelOutputType
-
-from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
-from pedestrians_video_2_carla.transforms.normalization import Normalizer
-from pedestrians_video_2_carla.transforms.reference_skeletons import ReferenceSkeletonsDenormalize
-from pedestrians_video_2_carla.walker_control.controlled_pedestrian import ControlledPedestrian
+import torch
+from pedestrians_video_2_carla.modules.flow.output_types import \
+    TrajectoryModelOutputType
+from pedestrians_video_2_carla.modules.movements.movements import \
+    MovementsModelOutputType
+from pedestrians_video_2_carla.transforms.pose.normalization.reference_skeletons_denormalizer import \
+    ReferenceSkeletonsDeNormalizer
+from pedestrians_video_2_carla.utils.world import calculate_world_from_changes
+from pedestrians_video_2_carla.walker_control.controlled_pedestrian import \
+    ControlledPedestrian
 from pedestrians_video_2_carla.walker_control.p3d_pose import P3dPose
 from pedestrians_video_2_carla.walker_control.p3d_pose_projection import \
     P3dPoseProjection
-from pedestrians_video_2_carla.utils.world import calculate_world_from_changes
-
-import torch
-from torch import nn
-from torch import Tensor
+from torch import Tensor, nn
 
 
 class ProjectionModule(nn.Module):
@@ -34,7 +30,7 @@ class ProjectionModule(nn.Module):
         if self.movements_output_type == MovementsModelOutputType.pose_changes:
             self.__calculate_abs = self._calculate_abs_from_pose_changes
         elif self.movements_output_type == MovementsModelOutputType.absolute_loc or self.movements_output_type == MovementsModelOutputType.absolute_loc_rot:
-            self.__denormalize = ReferenceSkeletonsDenormalize()
+            self.__denormalize = ReferenceSkeletonsDeNormalizer()
             if self.movements_output_type == MovementsModelOutputType.absolute_loc:
                 self.__calculate_abs = self._calculate_abs_from_abs_loc_output
             else:

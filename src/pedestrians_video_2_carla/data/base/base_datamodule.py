@@ -15,11 +15,11 @@ from pedestrians_video_2_carla.data.base.projection_2d_mixin import \
     Projection2DMixin
 from pedestrians_video_2_carla.data.base.skeleton import (
     Skeleton, get_skeleton_type_by_name)
-from pedestrians_video_2_carla.transforms.bbox import BBoxExtractor
-from pedestrians_video_2_carla.transforms.hips_neck import HipsNeckExtractor
-from pedestrians_video_2_carla.transforms.hips_neck_bbox_fallback import \
+from pedestrians_video_2_carla.transforms.pose.normalization.bbox_extractor import BBoxExtractor
+from pedestrians_video_2_carla.transforms.pose.normalization.hips_neck_extractor import HipsNeckExtractor
+from pedestrians_video_2_carla.transforms.pose.normalization.hips_neck_bbox_fallback_extractor import \
     HipsNeckBBoxFallbackExtractor
-from pedestrians_video_2_carla.transforms.normalization import DeNormalizer, Normalizer
+from pedestrians_video_2_carla.transforms.pose.normalization import Normalizer, DeNormalizer
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 
