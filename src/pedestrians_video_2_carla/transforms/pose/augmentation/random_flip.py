@@ -2,7 +2,7 @@ from typing import Type
 import torch
 
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
-from pedestrians_video_2_carla.utils.tensors import get_missing_joints_mask
+from pedestrians_video_2_carla.utils.tensors import atleast_4d, get_missing_joints_mask
 
 
 class RandomFlip:
@@ -35,9 +35,12 @@ class RandomFlip:
             is_flipped = torch.rand(
                 (pose.shape[0],), device=pose.device, generator=self.generator) < self.prob
 
+        if not is_flipped.any():
+            return is_flipped
+
         if centers is None:
             centers = torch.zeros(
-                (pose.shape[0], pose.shape[1], 1), device=pose.device, dtype=pose.dtype)
+                (*pose.shape[:1], 1), device=pose.device, dtype=pose.dtype)
 
         # remember undetected joints
         pose_mask = ~get_missing_joints_mask(pose)
@@ -45,7 +48,7 @@ class RandomFlip:
         flip_mul = torch.ones_like(pose)
         flip_mul[..., 0] *= -1.0
 
-        pose[:] = torch.where(is_flipped, pose[..., self.flip_mask, :], pose)
+        pose[:] = atleast_4d(pose[is_flipped][..., self.flip_mask, :])
         pose[is_flipped, ..., 0] = pose[is_flipped, ..., 0].sub_(
             centers[is_flipped, ..., 0]).mul_(flip_mul[is_flipped, ..., 0])
 
@@ -53,7 +56,7 @@ class RandomFlip:
         # so it reflects where flipped skeleton would be
         # if it was extracted from the flipped image
         if bboxes is not None and clip_size is not None and torch.all(clip_size):
-            half_clip_widths = clip_size[..., 0] / 2.0
+            half_clip_widths = (clip_size[..., 0] / 2.0)[:, None, None]
             bboxes[is_flipped, ..., 0] = bboxes[is_flipped, ..., 0].sub_(
                 half_clip_widths).mul_(-1.0).add_(half_clip_widths)
             bboxes[is_flipped, ..., 0] = torch.flip(

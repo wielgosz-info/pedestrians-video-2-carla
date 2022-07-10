@@ -189,7 +189,7 @@ class Projection2DMixin:
 
     @property
     def needs_augmentation(self) -> bool:
-        return self.augmentation is not None
+        return self._is_training and self.augmentation is not None
 
     def apply_augmentation(self, projection_2d: torch.Tensor, targets: Dict, meta: Dict) -> torch.Tensor:
         """

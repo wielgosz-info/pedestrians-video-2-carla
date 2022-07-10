@@ -41,7 +41,7 @@ class RandomRotation:
         rotation_matrix = torch.stack((
             torch.stack((rotation_cos, -rotation_sin)),
             torch.stack((rotation_sin, rotation_cos)))
-        ).permute(2, 0, 1)
+        ).permute(2, 0, 1).unsqueeze_(1)
 
         pose[..., :2] = pose[..., :2].sub_(
             centers).matmul(rotation_matrix).add_(centers)

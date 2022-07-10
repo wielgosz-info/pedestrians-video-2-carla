@@ -30,7 +30,6 @@ class PedestrianLogger(LightningLoggerBase):
                  log_every_n_steps: int = 50,
                  video_saving_frequency_reduction: int = 10,
                  renderers: List[PedestrianRenderers] = None,
-                 extractor: Extractor = None,
                  movements_output_type: MovementsModelOutputType = MovementsModelOutputType.pose_changes,
                  **kwargs):
         """
@@ -49,8 +48,6 @@ class PedestrianLogger(LightningLoggerBase):
         :type video_saving_frequency_reduction: int
         :param renderers: List of used renderers. Default: [].
         :type renderers: List[PedestrianRenderers]
-        :param extractor: Extractor used for denormalization. Default: HipsNeckExtractor().
-        :type extractor: Extractor
         """
         super().__init__(
             agg_key_funcs=kwargs.get('agg_key_funcs', None),
@@ -112,10 +109,6 @@ class PedestrianLogger(LightningLoggerBase):
         if len(self._renderers) == 0:
             rank_zero_warn("No renderers specified. Disabling video output.")
             self._writer_cls = DisabledPedestrianWriter
-
-        if extractor is None:
-            extractor = HipsNeckExtractor(kwargs.get('output_nodes', CARLA_SKELETON))
-        self._extractor = extractor
 
         self._movements_output_type = movements_output_type
 
@@ -207,7 +200,6 @@ class PedestrianLogger(LightningLoggerBase):
                 log_dir=self._save_dir,
                 renderers=self._renderers,
                 reduced_log_every_n_steps=self._reduced_log_every_n_steps,
-                extractor=self._extractor,
                 movements_output_type=self._movements_output_type,
                 **self._kwargs
             )

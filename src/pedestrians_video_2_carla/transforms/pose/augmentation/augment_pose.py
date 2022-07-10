@@ -28,15 +28,24 @@ class AugmentPose:
                 rotate, float) else 10.0
         ) if rotate else None
 
+    def _meta_to_clip_size(self, meta: Dict[str, Iterable]) -> torch.Tensor:
+        widths = torch.tensor(meta['clip_width']) if not isinstance(
+            meta['clip_width'], torch.Tensor) else meta['clip_width']
+        heights = torch.tensor(meta['clip_height']) if not isinstance(
+            meta['clip_height'], torch.Tensor) else meta['clip_height']
+        clip_size = torch.atleast_2d(nan_to_zero(torch.stack(
+            (widths, heights),
+            dim=-1)))
+
+        return clip_size
+
     def __call__(
         self,
         pose: torch.Tensor,
         targets: Dict[str, torch.Tensor],
         meta: Dict[str, Iterable],
     ):
-        clip_size = torch.atleast_2d(nan_to_zero(torch.stack(
-            (torch.tensor(meta['clip_width']), torch.tensor(meta['clip_height'])),
-            dim=-1)))
+        clip_size = self._meta_to_clip_size(meta)
         orig_shape = (0, 0, *((slice(None),)*pose.ndim))[-4:-3]
 
         augmented_pose = atleast_4d(pose.clone())
@@ -59,3 +68,32 @@ class AugmentPose:
             new_targets['bboxes'] = bboxes[orig_shape]
 
         return augmented_pose[orig_shape], new_targets
+
+    def invert(self,
+               pose: torch.Tensor,
+               targets: Dict[str, torch.Tensor],
+               meta: Dict[str, Iterable]
+               ):
+        clip_size = self._meta_to_clip_size(meta)
+        orig_shape = (0, 0, *((slice(None),)*pose.ndim))[-4:-3]
+
+        recovered_pose = atleast_4d(pose.clone())
+        new_targets = {}
+
+        # bboxes and centers will be updated in-place
+        bboxes = atleast_4d(targets['bboxes'].clone()
+                            if 'bboxes' in targets else get_bboxes(pose))
+        centers = bboxes.mean(dim=-2, keepdim=True)
+
+        if self.rotate is not None and 'rotation' in targets:
+            self.rotate(recovered_pose, centers, bboxes,
+                        rotation=torch.atleast_1d(-targets['rotation']))
+
+        if self.flip is not None and 'is_flipped' in targets:
+            self.flip(recovered_pose, centers, bboxes, clip_size,
+                      is_flipped=torch.atleast_1d(targets['is_flipped']))
+
+        if 'bboxes' in targets:
+            new_targets['bboxes'] = bboxes[orig_shape]
+
+        return recovered_pose[orig_shape], new_targets
