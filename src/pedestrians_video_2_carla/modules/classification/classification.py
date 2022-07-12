@@ -39,12 +39,3 @@ class ClassificationModel(BaseModel):
 
         return parent_parser
 
-    def configure_optimizers(self) -> Dict[str, Union[torch.optim.Optimizer, '_LRScheduler']]:
-        optimizer = torch.optim.AdamW(
-            self.parameters(), lr=self.learning_rate, weight_decay=0.01)
-
-        config = {
-            'optimizer': optimizer,
-        }
-
-        return config
