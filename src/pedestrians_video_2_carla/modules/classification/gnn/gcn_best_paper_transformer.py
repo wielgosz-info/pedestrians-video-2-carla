@@ -51,19 +51,6 @@ class GCNBestPaperTransformer(ClassificationModel):
         
         return x
 
-    def configure_optimizers(self) -> Dict[str, Union[torch.optim.Optimizer, '_LRScheduler']]:
-        optimizer = torch.optim.AdamW(
-            self.parameters(), lr=self.learning_rate, weight_decay=1e-8)
-
-        config = {
-            'optimizer': optimizer,
-            'lr_scheduler': {
-                'scheduler': StepLR(optimizer, step_size=5, gamma=0.6)
-            }
-        }
-
-        return config
-
     @property
     def needs_graph(self):
         return True
