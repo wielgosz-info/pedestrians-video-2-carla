@@ -36,6 +36,7 @@ class BaseModel(torch.nn.Module):
             f'{self._prefix}_scheduler_patience', 50)
         self.lr_scheduler_cooldown = kwargs.get(
             f'{self._prefix}_scheduler_cooldown', 20)
+        self.lr_weight_decay = kwargs.get(f'{self._prefix}_weight_decay', 1e-8)
 
     @property
     def hparams(self):
@@ -50,6 +51,7 @@ class BaseModel(torch.nn.Module):
             f'{self._prefix}_scheduler_min_lr': self.lr_scheduler_min_lr,
             f'{self._prefix}_scheduler_patience': self.lr_scheduler_patience,
             f'{self._prefix}_scheduler_cooldown': self.lr_scheduler_cooldown,
+            f'{self._prefix}_weight_decay': self.lr_weight_decay,
             **self._hparams
         }
 
@@ -116,10 +118,15 @@ class BaseModel(torch.nn.Module):
             default=20,
             type=int,
         )
+        parser.add_argument(
+            f'--{prefix}_weight_decay',
+            default=1e-8,
+            type=float,
+        )
         return parent_parser
 
     def configure_optimizers(self) -> Tuple[List[torch.optim.Optimizer], List[Dict[str, '_LRScheduler']]]:
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate, weight_decay=self.lr_weight_decay)
 
         config = {
             'optimizer': optimizer,
