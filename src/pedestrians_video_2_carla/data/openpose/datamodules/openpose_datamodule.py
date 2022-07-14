@@ -7,8 +7,8 @@ import numpy as np
 import pandas
 from pandas.core.frame import DataFrame
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
-from pedestrians_video_2_carla.data.base.cross_datamodule_mixin import CrossDataModuleMixin
-from pedestrians_video_2_carla.data.base.pandas_datamodule_mixin import PandasDataModuleMixin
+from pedestrians_video_2_carla.data.base.mixins.datamodule.cross_datamodule_mixin import CrossDataModuleMixin
+from pedestrians_video_2_carla.data.base.mixins.datamodule.pandas_datamodule_mixin import PandasDataModuleMixin
 from pedestrians_video_2_carla.data.openpose.constants import OPENPOSE_DIR
 from pedestrians_video_2_carla.data.openpose.openpose_dataset import \
     OpenPoseDataset

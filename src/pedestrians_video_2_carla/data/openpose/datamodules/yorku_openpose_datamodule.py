@@ -2,7 +2,7 @@ from typing import Any, Dict, Tuple
 
 import numpy as np
 import pandas
-from pedestrians_video_2_carla.data.openpose.openpose_datamodule import OpenPoseDataModule
+from .openpose_datamodule import OpenPoseDataModule
 
 
 class YorkUOpenPoseDataModule(OpenPoseDataModule):

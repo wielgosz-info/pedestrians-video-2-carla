@@ -13,7 +13,7 @@ from torchmetrics import MetricCollection
 from tqdm.auto import tqdm
 
 from pedestrians_video_2_carla import __version__
-from pedestrians_video_2_carla.data.carla.carla_recorded_dataset import \
+from pedestrians_video_2_carla.data.carla.datasets.carla_recorded_dataset import \
     CarlaRecordedDataset
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON

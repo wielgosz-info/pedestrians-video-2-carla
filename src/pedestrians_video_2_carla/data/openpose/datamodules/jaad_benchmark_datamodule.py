@@ -1,9 +1,9 @@
 import os
 from typing import Dict, List, Literal
 
-from pedestrians_video_2_carla.data.openpose.yorku_benchmark_datamodule import YorkUBenchmarkDataModule
+from .yorku_benchmark_datamodule import YorkUBenchmarkDataModule
 
-from .constants import JAAD_DIR, JAAD_USECOLS
+from ..constants import JAAD_DIR, JAAD_USECOLS
 
 
 class JAADBenchmarkDataModule(YorkUBenchmarkDataModule):

@@ -1,7 +1,7 @@
 import os
 from typing import Dict, List, Literal
-from pedestrians_video_2_carla.data.openpose.constants import (PIE_USECOLS,
-                                                               PIE_DIR)
+from ..constants import (PIE_USECOLS,
+                         PIE_DIR)
 from .yorku_benchmark_datamodule import YorkUBenchmarkDataModule
 
 

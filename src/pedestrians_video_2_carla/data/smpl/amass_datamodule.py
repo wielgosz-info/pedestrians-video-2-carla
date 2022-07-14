@@ -5,7 +5,7 @@ import pandas
 import torch
 
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
-from pedestrians_video_2_carla.data.base.pandas_datamodule_mixin import PandasDataModuleMixin
+from pedestrians_video_2_carla.data.base.mixins.datamodule.pandas_datamodule_mixin import PandasDataModuleMixin
 from pedestrians_video_2_carla.data.smpl.constants import AMASS_DIR
 from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON
 from pedestrians_video_2_carla.data.smpl.smpl_dataset import \

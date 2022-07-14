@@ -6,12 +6,12 @@ from typing import Any, Callable, Dict, Iterable, List, Literal, Optional, Tuple
 
 import h5py
 import numpy as np
-from pedestrians_video_2_carla.data.base.cross_datamodule_mixin import CrossDataModuleMixin
+from pedestrians_video_2_carla.data.base.mixins.datamodule.cross_datamodule_mixin import CrossDataModuleMixin
 import torch.multiprocessing
 import yaml
 from pedestrians_video_2_carla.data import (DATASETS_BASE, DEFAULT_ROOT,
                                             OUTPUTS_BASE, SUBSETS_BASE)
-from pedestrians_video_2_carla.data.base.projection_2d_mixin import \
+from pedestrians_video_2_carla.data.base.mixins.dataset.projection_2d_mixin import \
     Projection2DMixin
 from pedestrians_video_2_carla.data.base.skeleton import (
     Skeleton, get_skeleton_type_by_name)

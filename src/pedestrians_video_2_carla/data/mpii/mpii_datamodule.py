@@ -8,7 +8,7 @@ import pandas
 import torch
 from tqdm.auto import tqdm
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
-from pedestrians_video_2_carla.data.base.pandas_datamodule_mixin import \
+from pedestrians_video_2_carla.data.base.mixins.datamodule.pandas_datamodule_mixin import \
     PandasDataModuleMixin
 from scipy.io import loadmat
 

@@ -1,7 +1,7 @@
 import os
-from pedestrians_video_2_carla.data.openpose.constants import (JAAD_USECOLS,
-                                                               JAAD_DIR)
-from pedestrians_video_2_carla.data.openpose.yorku_openpose_datamodule import YorkUOpenPoseDataModule
+from ..constants import (JAAD_USECOLS,
+                         JAAD_DIR)
+from .yorku_openpose_datamodule import YorkUOpenPoseDataModule
 
 
 class JAADOpenPoseDataModule(YorkUOpenPoseDataModule):

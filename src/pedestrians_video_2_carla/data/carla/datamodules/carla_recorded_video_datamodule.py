@@ -1,7 +1,7 @@
 from typing import Callable
 
-from pedestrians_video_2_carla.data.base.video_mixin import VideoMixin
-from .carla_recorded_video_dataset import CarlaRecordedVideoDataset
+from pedestrians_video_2_carla.data.base.mixins.dataset.video_mixin import VideoMixin
+from pedestrians_video_2_carla.data.carla.datasets.carla_recorded_video_dataset import CarlaRecordedVideoDataset
 from .carla_recorded_datamodule import CarlaRecordedDataModule
 
 

@@ -4,9 +4,9 @@ from typing import Any, Dict, Iterable, Optional, Tuple, Type
 import numpy as np
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton
 from torch.utils.data import Dataset, IterableDataset
-from pedestrians_video_2_carla.data.base.confidence_mixin import ConfidenceMixin
-from pedestrians_video_2_carla.data.base.graph_mixin import GraphMixin
-from pedestrians_video_2_carla.data.base.projection_2d_mixin import Projection2DMixin
+from pedestrians_video_2_carla.data.base.mixins.dataset.confidence_mixin import ConfidenceMixin
+from pedestrians_video_2_carla.data.base.mixins.dataset.graph_mixin import GraphMixin
+from pedestrians_video_2_carla.data.base.mixins.dataset.projection_2d_mixin import Projection2DMixin
 import torch
 import h5py
 

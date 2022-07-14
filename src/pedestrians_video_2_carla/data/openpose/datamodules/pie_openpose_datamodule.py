@@ -1,7 +1,7 @@
 import os
-from pedestrians_video_2_carla.data.openpose.constants import (PIE_USECOLS,
-                                                               PIE_DIR)
-from pedestrians_video_2_carla.data.openpose.yorku_openpose_datamodule import YorkUOpenPoseDataModule
+from ..constants import (PIE_USECOLS,
+                         PIE_DIR)
+from .yorku_openpose_datamodule import YorkUOpenPoseDataModule
 
 
 class PIEOpenPoseDataModule(YorkUOpenPoseDataModule):

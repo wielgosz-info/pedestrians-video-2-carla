@@ -1,4 +1,4 @@
-from pedestrians_video_2_carla.data.openpose.annotations_xml_2_csv import AnnotationsXml2Csv
+from .annotations_xml_2_csv import AnnotationsXml2Csv
 
 
 class JAADAnnotationsXml2Csv(AnnotationsXml2Csv):

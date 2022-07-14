@@ -2,19 +2,19 @@ from typing import Any, Callable, Dict, List, Tuple
 import os
 import numpy as np
 import pandas as pd
-from pedestrians_video_2_carla.data.base.cross_datamodule_mixin import CrossDataModuleMixin
+from pedestrians_video_2_carla.data.base.mixins.datamodule.cross_datamodule_mixin import CrossDataModuleMixin
 
 import torch
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
-from pedestrians_video_2_carla.data.base.pandas_datamodule_mixin import PandasDataModuleMixin
+from pedestrians_video_2_carla.data.base.mixins.datamodule.pandas_datamodule_mixin import PandasDataModuleMixin
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
-from pedestrians_video_2_carla.data.carla.carla_recorded_dataset import CarlaRecordedDataset
+from pedestrians_video_2_carla.data.carla.datasets.carla_recorded_dataset import CarlaRecordedDataset
 import pandas as pd
 import ast
 from pytorch3d.transforms import euler_angles_to_matrix
 
 from pedestrians_video_2_carla.utils.tensors import get_bboxes
-from .constants import CARLA_RECORDED_DIR, CARLA_RECORDED_DEFAULT_SET_NAME
+from ..constants import CARLA_RECORDED_DIR, CARLA_RECORDED_DEFAULT_SET_NAME
 
 
 def convert_to_list(x):
