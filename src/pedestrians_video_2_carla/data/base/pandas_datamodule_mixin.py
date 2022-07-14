@@ -16,7 +16,8 @@ class PandasDataModuleMixin:
     def __init__(
         self,
         data_filepath: str,
-        primary_index: List[str],
+        video_index: List[str],
+        pedestrian_index: List[str],
         clips_index: List[str],
         df_usecols: List[str] = None,
         df_filters: Dict[str, Iterable] = None,
@@ -45,9 +46,12 @@ class PandasDataModuleMixin:
             raise FileNotFoundError(
                 "Could not find data file '{}'".format(data_filepath))
 
-        self.primary_index = primary_index
+        self.video_index = video_index
+        self.pedestrian_index = pedestrian_index
         self.clips_index = clips_index
-        self.full_index = primary_index + clips_index
+
+        self.primary_index = video_index + pedestrian_index
+        self.full_index = self.primary_index + clips_index
 
         self.extra_cols = extra_cols if extra_cols is not None else {}
 
@@ -163,7 +167,7 @@ class PandasDataModuleMixin:
         return frame_counts
 
     def _get_video(self, annotations_df, idx):
-        video = annotations_df.loc[idx].sort_values(self.clips_index[-1])
+        video = annotations_df.loc[[idx]].sort_values(self.clips_index[-1])
 
         # if video is too short, skip it
         if len(video) < self.min_video_length:
@@ -221,31 +225,25 @@ class PandasDataModuleMixin:
         """
         Splits the DataFrame-based clips into train, val and test sets.
 
-        :param clips: Full list of clips in a format hat can be fed into pandas.concat() to get a single dataframe.
+        :param clips: Full list of clips in a format that can be fed into pandas.concat() to get a single dataframe.
         :type clips: List[Any]
-        :param primary_index: Names of the primary index columns. Usually those will allow to identify a single skeleton.
-        :type primary_index: List[str]
-        :param clips_index: Names of the index columns that will be used to group the clips.
-        :type clips_index: List[str]
-        :param test_split: Testing split as a fraction of the whole dataset, defaults to 0.2
-        :type test_split: float, optional
-        :param val_split: Validation split as a fraction of (total - test) dataset, defaults to 0.2
-        :type val_split: float, optional
         """
 
         set_size = {}
-        clips = pandas.concat(clips).set_index(self.full_index)
-        clips.sort_index(inplace=True)
+        clips = self._concat_and_sort_clips(clips)
+        clips.reset_index(drop=False, inplace=True)
 
         # aaaand finally we have what we need in "clips" to create our dataset
         # how many clips do we have?
-        clip_counts = clips.reset_index(level=self.clips_index).groupby(self.primary_index).agg(
-            clips_count=pandas.NamedAgg(column=self.clips_index[0], aggfunc='nunique')).sort_values('clips_count', ascending=False)
+        clip_counts = clips.loc[:, self.primary_index + self.clips_index[0:1]].drop_duplicates().groupby(self.video_index).agg(
+            clips_count=pandas.NamedAgg(self.clips_index[0], 'count')).sort_values('clips_count', ascending=False)
         clip_counts = clip_counts.assign(clips_cumsum=clip_counts.cumsum())
         total = clip_counts['clips_count'].sum()
 
-        test_count = max(math.floor(total*self.test_set_frac), 1)
-        val_count = max(math.floor((total-test_count)*self.val_set_frac), 1)
+        test_count = max(math.floor(total*self.test_set_frac),
+                         1) if self.test_set_frac > 0 else 0
+        val_count = max(math.floor((total-test_count)*self.val_set_frac),
+                        1) if self.val_set_frac > 0 else 0
         train_count = total - test_count - val_count
 
         # we do not want to assign clips from the same video/pedestrian combination to different datasets,
@@ -288,6 +286,7 @@ class PandasDataModuleMixin:
                 break
 
         # now we need to dump the actual clips info
+        clips.set_index(self.video_index, inplace=True)
         names = ['train', 'val', 'test']
         for (i, name) in tqdm(enumerate(names), desc='Saving clips', leave=False):
             if not len(sets[i]):
@@ -301,8 +300,14 @@ class PandasDataModuleMixin:
 
         return set_size
 
+    def _concat_and_sort_clips(self, clips):
+        clips = pandas.concat(clips).set_index(self.full_index)
+        clips.sort_index(inplace=True)
+        return clips
+
     def _process_clips_set(self, name, clips_set):
-        clips_set.reset_index(level=self.clips_index[-1], inplace=True, drop=False)
+        clips_set.reset_index(inplace=True, drop=False)
+        clips_set.set_index(self.primary_index, inplace=True)
 
         # shuffle the clips so that for val/test we have more variety when utilizing only part of the dataset
         index = pandas.MultiIndex.from_frame(clips_set.index.to_frame(

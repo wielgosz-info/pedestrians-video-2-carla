@@ -273,7 +273,7 @@ class PedestrianWriter(object):
 
         for vid_idx, vids in enumerate(zip(*output_videos)):
             # TODO: generating each item in vids should be done in parallel somehow
-            # altough the output_videos itself contains generators...
+            # although the output_videos itself contains generators...
 
             merged_rows = []
             # for each row in the output
@@ -291,7 +291,10 @@ class PedestrianWriter(object):
                     batch_idx,
                     vid_idx
                 ),
-                'pedestrian_id': '{}_{}'.format(meta['age'][vid_idx], meta['gender'][vid_idx]),
+                'pedestrian_id': '{}_{}'.format(
+                    meta['age'][vid_idx] if 'age' in meta else 'adult',
+                    meta['gender'][vid_idx] if 'gender' in meta else 'female'
+                ),
                 'clip_id': 0
             }
             vid_meta.update({

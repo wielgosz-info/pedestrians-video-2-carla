@@ -27,7 +27,8 @@ class AMASSDataModule(PandasDataModuleMixin, BaseDataModule):
 
         super().__init__(
             data_filepath=None,
-            primary_index=['dataset', 'id'],
+            video_index=['dataset', 'id'],
+            pedestrian_index=[],
             clips_index=['clip', 'frame'],
             **{
                 **kwargs,

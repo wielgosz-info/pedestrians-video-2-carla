@@ -12,7 +12,8 @@ class PIEOpenPoseDataModule(YorkUOpenPoseDataModule):
             set_name=PIE_DIR,
             cross_label='crossing',
             data_filepath=os.path.join(PIE_DIR, 'annotations.csv'),
-            primary_index=['set_name', 'video', 'id'],
+            video_index=['set_name', 'video'],
+            pedestrian_index=['id'],
             clips_index=['clip', 'frame'],
             df_usecols=PIE_USECOLS,
             converters={

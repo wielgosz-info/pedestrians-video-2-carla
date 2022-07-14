@@ -57,7 +57,7 @@ class ReferenceSkeletonsDeNormalizer(DeNormalizer):
 
         frame_projections = torch.stack([
             reference_projections[(AGE_MAPPINGS[age], GENDER_MAPPINGS[gender])]
-            for (age, gender) in zip(meta['age'], meta['gender'])
+            for (age, gender) in zip(meta.get('age', ['adult']*len(frames)), meta.get('gender', ['female']*len(frames)))
         ], dim=0)
 
         return self.from_reference(self._extractor, frame_projections[..., :2])(frames, dim=2)

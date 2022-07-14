@@ -44,7 +44,7 @@ class LitClassificationFlow(pl.LightningModule):
     def __init__(self,
                  classification_model: ClassificationModel,
                  classification_targets_key: str,
-                 classification_average: Union[str, Dict[str,str]] = 'macro',
+                 classification_average: Union[str, Dict[str, str]] = 'macro',
                  **kwargs: Any) -> None:
         super().__init__()
 

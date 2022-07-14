@@ -36,7 +36,8 @@ class CarlaRecordedDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseD
             cross_label='frame.pedestrian.is_crossing',
             data_filepath=os.path.join(
                 source_videos_dir, 'data.csv'),
-            primary_index=['id', 'camera.idx', 'pedestrian.idx'],
+            video_index=['id', 'camera.idx'],
+            pedestrian_index=['pedestrian.idx'],
             clips_index=['clip', 'frame.idx'],
             converters={
                 'camera.transform': convert_to_list,

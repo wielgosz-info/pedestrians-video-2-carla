@@ -27,6 +27,9 @@ class Extractor(object):
         scale = torch.linalg.norm(scale_points - shift_points,
                                   dim=shift_points.ndim - 1, ord=2)
 
+        atleast_2d = (slice(None), ) * scale.ndim + (None, ) * 2
+        scale = scale[atleast_2d[:(sample.ndim-2)]]
+
         if return_scale_point:
             return shift_points, scale, scale_points
 
