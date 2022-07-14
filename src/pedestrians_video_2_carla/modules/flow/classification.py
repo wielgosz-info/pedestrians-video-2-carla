@@ -57,12 +57,20 @@ class LitClassificationFlow(pl.LightningModule):
         self._num_classes = 2
 
         if isinstance(classification_average, str):
-            self._average = {
-                'Accuracy': classification_average,
-                'Precision': classification_average,
-                'Recall': classification_average,
-                'F1Score': classification_average,
-            }
+            if classification_average == 'benchmark':
+                self._average = {
+                    'Accuracy': 'micro',
+                    'Precision': 'none',  # binary
+                    'Recall': 'none',  # binary
+                    'F1Score': 'none',  # binary
+                }
+            else:
+                self._average = {
+                    'Accuracy': classification_average,
+                    'Precision': classification_average,
+                    'Recall': classification_average,
+                    'F1Score': classification_average,
+                }
         else:
             self._average = classification_average
 
@@ -216,7 +224,7 @@ class LitClassificationFlow(pl.LightningModule):
         parser.add_argument(
             '--classification_average',
             type=str,
-            choices=['micro', 'macro', 'weighted', 'none'],
+            choices=['micro', 'macro', 'weighted', 'none', 'benchmark'],
             default='macro',
         )
 

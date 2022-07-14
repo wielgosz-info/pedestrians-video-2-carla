@@ -57,13 +57,13 @@ class GraphMixin:
             x=projection_2d[i],
             edge_index=self.edge_index,
             **{
-                f'targets_{k}': v[i] for k, v in targets.items() if v.shape[0] == self.clip_length
+                f'targets_{k}': v[i] for k, v in targets.items() if len(v.shape) and v.shape[0] == self.clip_length
             }
         ) for i in range(self.clip_length)])
 
         # 'weird' targets
         for k, v in targets.items():
-            if v.shape[0] != self.clip_length:
+            if not len(v.shape) or v.shape[0] != self.clip_length:
                 graph_batch[f'targets_{k}'] = v
 
         graph_batch.meta = meta
