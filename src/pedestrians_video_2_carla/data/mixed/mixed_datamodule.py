@@ -45,11 +45,11 @@ class MixedDataModule(LightningDataModule):
         self._uses_projection_mixin = all(uses_projection_mixin)
 
         if kwargs.get('flow', 'pose_lifting') == 'classification':
-            uses_cross_mixin = [dm_cls.uses_cross_mixin()
-                                for dm_cls in all_data_modules]
-            assert all(uses_cross_mixin) or not any(
-                uses_cross_mixin), 'All data modules must use cross mixin or none of them can.'
-            self._uses_cross_mixin = all(uses_cross_mixin)
+            uses_classification_mixin = [dm_cls.uses_classification_mixin()
+                                         for dm_cls in all_data_modules]
+            assert all(uses_classification_mixin) or not any(
+                uses_classification_mixin), 'All data modules must use cross mixin or none of them can.'
+            self._uses_classification_mixin = all(uses_classification_mixin)
 
         self._skip_metadata = kwargs.get('skip_metadata', False)
 
@@ -152,7 +152,8 @@ class MixedDataModule(LightningDataModule):
         return class_counts
 
     def _validate_proportions(self, proportions: Iterable[float]) -> None:
-        assert len(proportions) == len(self._data_modules), 'Proportions must be specified for each data module.'
+        assert len(proportions) == len(
+            self._data_modules), 'Proportions must be specified for each data module.'
         assert (all(0 <= p <= 1 for p in proportions) and sum(proportions)
                 == 1) or all((p == 0 or p == -1) for p in proportions)
         return proportions
@@ -160,7 +161,7 @@ class MixedDataModule(LightningDataModule):
     @classmethod
     def add_data_specific_args(cls, parent_parser):
         parent_parser = BaseDataModule.add_data_specific_args(
-            parent_parser, add_projection_2d_args=True, add_cross_args=True)
+            parent_parser, add_projection_2d_args=True, add_classification_args=True)
 
         for dm_cls in cls.data_modules:
             dm_cls: Type[BaseDataModule]

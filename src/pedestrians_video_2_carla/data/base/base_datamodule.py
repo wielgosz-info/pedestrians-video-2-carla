@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, Iterable, List, Literal, Optional, Tuple
 
 import h5py
 import numpy as np
-from pedestrians_video_2_carla.data.base.mixins.datamodule.cross_datamodule_mixin import CrossDataModuleMixin
+from pedestrians_video_2_carla.data.base.mixins.datamodule.classification_datamodule_mixin import ClassificationDataModuleMixin
 import torch.multiprocessing
 import yaml
 from pedestrians_video_2_carla.data import (DATASETS_BASE, DEFAULT_ROOT,
@@ -51,8 +51,8 @@ def set_worker_sharing_strategy(worker_id: int) -> None:
 
 class BaseDataModule(LightningDataModule):
     def __init__(self,
-                 input_nodes: Type[Skeleton],
-                 data_nodes: Type[Skeleton] = None,
+                 data_nodes: Type[Skeleton],
+                 input_nodes: Type[Skeleton] = None,
                  root_dir: Optional[str] = DEFAULT_ROOT,
                  clip_length: Optional[int] = 30,
                  batch_size: Optional[int] = 64,
@@ -83,8 +83,8 @@ class BaseDataModule(LightningDataModule):
         self.min_video_length = min_video_length if min_video_length is not None else clip_length
         self.batch_size = batch_size
         self.num_workers = num_workers
-        self.data_nodes = data_nodes if data_nodes is not None else input_nodes
-        self.input_nodes = input_nodes
+        self.data_nodes = data_nodes
+        self.input_nodes = input_nodes if input_nodes is not None else data_nodes
         self.return_graph = return_graph
         self.val_set_frac = val_set_frac
         self.test_set_frac = test_set_frac
@@ -96,7 +96,9 @@ class BaseDataModule(LightningDataModule):
         self._fast_dev_run = kwargs.get('fast_dev_run', False) != False
 
         if self.uses_clip_offset():
-            self.clip_offset = kwargs.get('clip_offset', self.clip_length)
+            self.clip_offset = kwargs.get('clip_offset', None)
+            if self.clip_offset is None:
+                self.clip_offset = self.clip_length
             assert self.clip_offset > 0, 'clip_offset must be greater than 0'
         else:
             self.clip_offset = None
@@ -214,16 +216,21 @@ class BaseDataModule(LightningDataModule):
         return False
 
     @classmethod
-    def uses_cross_mixin(cls):
+    def uses_classification_mixin(cls):
         return False
 
     @classmethod
-    def add_data_specific_args(cls, parent_parser, add_projection_2d_args=False, add_cross_args=False):
+    def uses_infinite_train_set(cls):
+        return False
+
+    @classmethod
+    def add_data_specific_args(cls, parent_parser, add_projection_2d_args=False, add_classification_args=False):
         parser = parent_parser.add_argument_group('Base DataModule')
         parser.add_argument(
             '--data_nodes',
             type=get_skeleton_type_by_name,
-            default=None
+            default=None,
+            help='Skeleton type to use for data nodes. If not specified, the default skeleton type for the dataset will be used.'
         )
         parser.add_argument(
             "--clip_length",
@@ -277,8 +284,8 @@ class BaseDataModule(LightningDataModule):
         )
         if cls.uses_projection_mixin() or add_projection_2d_args:
             Projection2DMixin.add_cli_args(parser)
-        if cls.uses_cross_mixin() or add_cross_args:
-            CrossDataModuleMixin.add_cli_args(parser)
+        if cls.uses_classification_mixin() or add_classification_args:
+            ClassificationDataModuleMixin.add_cli_args(parser)
 
         parent_parser = cls.add_subclass_specific_args(parent_parser)
 

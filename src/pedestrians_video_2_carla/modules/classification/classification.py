@@ -9,18 +9,10 @@ import torch
 class ClassificationModel(BaseModel):
     def __init__(self,
                  num_classes: int = 2,
-                 input_nodes: Union[Type[Skeleton], str] = CARLA_SKELETON,
                  **kwargs):
-        self._num_classes = num_classes
-        self._input_nodes = get_skeleton_type_by_name(
-            input_nodes) if isinstance(input_nodes, str) else input_nodes
+        self.num_classes = num_classes
 
         super().__init__(prefix='classification', **kwargs)
-
-        self._hparams.update({
-            'num_classes': self._num_classes,
-            'input_nodes': get_skeleton_name_by_type(self._input_nodes),
-        })
 
     @property
     def output_type(self):
@@ -28,14 +20,4 @@ class ClassificationModel(BaseModel):
 
     @staticmethod
     def add_model_specific_args(parent_parser):
-        BaseModel.add_model_specific_args(parent_parser, 'classification')
-
-        parser = parent_parser.add_argument_group("Classification Model")
-        parser.add_argument(
-            '--num_classes',
-            default=2,
-            type=int,
-        )
-
-        return parent_parser
-
+        return BaseModel.add_model_specific_args(parent_parser, prefix='classification')

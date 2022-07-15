@@ -4,13 +4,14 @@ from typing import Dict, List, Literal, Tuple
 import numpy as np
 import pandas
 from tqdm.auto import tqdm
+from pedestrians_video_2_carla.data.base.mixins.datamodule.benchmark_datamodule_mixin import BenchmarkDataModuleMixin
 
 from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON, COCO_SKELETON
 
 from .yorku_openpose_datamodule import YorkUOpenPoseDataModule
 
 
-class YorkUBenchmarkDataModule(YorkUOpenPoseDataModule):
+class YorkUBenchmarkDataModule(BenchmarkDataModuleMixin, YorkUOpenPoseDataModule):
     """
     Datamodule that attempts to follow the train/val/test split & labeling conventions as set in:
 
@@ -29,18 +30,15 @@ class YorkUBenchmarkDataModule(YorkUOpenPoseDataModule):
 
     def __init__(self,
                  pose_pickles_dir: str,
-                 tte: Tuple[int, int] = (30, 60),
                  pose_data: str = 'pickle',
                  **kwargs
                  ):
-        self.tte = sorted(tte) if len(tte) else [30, 60]
         self.pose_data = pose_data
 
-        super().__init__(**{
-            **kwargs,
-            'data_nodes': COCO_SKELETON if self.pose_data == 'pickle' else BODY_25_SKELETON,
-            'min_video_length': kwargs.get('clip_length', 16) + self.tte[1],
-        })
+        # update the 'data_nodes' kwargs **IN PLACE** so that it is correct when determining input_nodes
+        kwargs['data_nodes'] = COCO_SKELETON if self.pose_data == 'pickle' else BODY_25_SKELETON
+
+        super().__init__(**kwargs)
 
         self._pose_pickles_dir = os.path.join(self.datasets_dir, pose_pickles_dir)
 
@@ -51,49 +49,27 @@ class YorkUBenchmarkDataModule(YorkUOpenPoseDataModule):
     def settings(self):
         return {
             **super().settings,
-            'tte': self.tte,
             'pose_data': self.pose_data,
         }
 
     @classmethod
     def add_subclass_specific_args(cls, parent_parser):
         parser = parent_parser.add_argument_group('YorkUBenchmark Data Module')
-        parser.add_argument('--tte', type=int, nargs='+', default=[],
-                            help='Time to event. Values are in frames. Clips will be generated if they end in this window. Default is [30, 60].')
+        parser = BenchmarkDataModuleMixin.add_cli_args(parser)
         parser.add_argument('--pose_data', type=str, choices=['pickle', 'json'], default='pickle',
                             help='''Type of pose data to use.
                                     "pickle" are data provided in https://github.com/ykotseruba/PedestrianActionBenchmark,
                                     "json" are our OpenPose JSON files. Default is "pickle".
+                                    Remember to set data_nodes to the correct skeleton (BODY_25_SKELETON for "json").
                             ''')
 
         # update default settings
         parser.set_defaults(
-            clip_length=16,
             clip_offset=6,
-            classification_average='benchmark'
+            data_nodes=COCO_SKELETON,
         )
 
         return parent_parser
-
-    def _get_video(self, annotations_df, idx):
-        video = annotations_df.loc[idx].sort_values(self.clips_index[-1])
-
-        video = video.loc[(video.frame <= video.crossing_point)
-                          | (video.crossing_point < 0)]
-
-        # leave only relevant frames
-        event_frame = video.iloc[-1].frame - \
-            3 if video.iloc[-1].crossing_point < 0 else video.iloc[-1].crossing_point
-        start_frame = max(0, event_frame - self.clip_length - self.tte[1])
-        end_frame = event_frame - self.tte[0]
-
-        video = video[(video.frame >= start_frame) & (video.frame <= end_frame)]
-
-        # if video is too short, skip it
-        if len(video) < self.clip_length:
-            return None
-
-        return video
 
     def _extract_additional_data_pickle(self, clips: List[pandas.DataFrame]):
         """
@@ -154,7 +130,7 @@ class YorkUBenchmarkDataModule(YorkUOpenPoseDataModule):
 
         splits = self._get_splits()
         for name, split_list in tqdm(splits.items(), desc='Saving clips', leave=False):
-            mask = clips.index.get_level_values(self.primary_index[0]).isin(split_list)
+            mask = clips.index.get_level_values(self.video_index[0]).isin(split_list)
             clips_set = clips[mask]
 
             set_size[name] = self._process_clips_set(name, clips_set)

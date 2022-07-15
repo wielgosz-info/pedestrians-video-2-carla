@@ -12,21 +12,20 @@ class LSTM(ClassificationModel):
     """
 
     def __init__(self,
-                 input_nodes: Type[Skeleton] = CARLA_SKELETON,
                  hidden_size: int = 64,
                  num_layers: int = 2,
                  embeddings_size: int = None,
                  p_dropout: float = 0.25,
-                 input_features = 2,  # (x, y) points
+                 input_features=2,  # (x, y) points
                  **kwargs
                  ):
         super().__init__(**kwargs)
 
-        self.__input_nodes_len = len(input_nodes)
+        self.__input_nodes_len = len(self.input_nodes)
         self.__input_features = input_features  # (x, y) points
 
         self.__input_size = self.__input_nodes_len * self.__input_features
-        self.__output_size = self._num_classes
+        self.__output_size = self.num_classes
         self.__p_dropout = p_dropout
 
         if embeddings_size:
@@ -80,7 +79,7 @@ class LSTM(ClassificationModel):
             default=0.25,
             type=float,
         )
-        
+
         return parent_parser
 
     def forward(self, x, *args, **kwargs):

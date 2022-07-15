@@ -2,6 +2,8 @@ from typing import Dict, List, Tuple
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
 
+from pedestrians_video_2_carla.data.base.skeleton import get_skeleton_name_by_type, get_skeleton_type_by_name
+
 
 class BaseModel(torch.nn.Module):
     """
@@ -10,7 +12,6 @@ class BaseModel(torch.nn.Module):
 
     def __init__(self,
                  prefix: str,
-                 *args,
                  **kwargs
                  ):
         super().__init__()
@@ -38,6 +39,12 @@ class BaseModel(torch.nn.Module):
             f'{self._prefix}_scheduler_cooldown', 20)
         self.lr_weight_decay = kwargs.get(f'{self._prefix}_weight_decay', 1e-8)
 
+        input_nodes = kwargs.get('input_nodes', None)
+        if input_nodes is None:
+            input_nodes = kwargs.get('data_nodes')
+        self.input_nodes = get_skeleton_type_by_name(
+            input_nodes) if isinstance(input_nodes, str) else input_nodes
+
     @property
     def hparams(self):
         return {
@@ -52,6 +59,7 @@ class BaseModel(torch.nn.Module):
             f'{self._prefix}_scheduler_patience': self.lr_scheduler_patience,
             f'{self._prefix}_scheduler_cooldown': self.lr_scheduler_cooldown,
             f'{self._prefix}_weight_decay': self.lr_weight_decay,
+            f'input_nodes': get_skeleton_name_by_type(self.input_nodes),
             **self._hparams
         }
 
@@ -123,10 +131,20 @@ class BaseModel(torch.nn.Module):
             default=1e-8,
             type=float,
         )
+        # not prefixed because virtually all models use it
+        # it is only important for the first model in the pipeline
+        # also, data modules use it to determine the output type
+        parser.add_argument(
+            '--input_nodes',
+            type=get_skeleton_type_by_name,
+            default=None,
+            help='Input nodes for the model (data module output). If not specified, the model will use data_nodes.'
+        )
         return parent_parser
 
     def configure_optimizers(self) -> Tuple[List[torch.optim.Optimizer], List[Dict[str, '_LRScheduler']]]:
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate, weight_decay=self.lr_weight_decay)
+        optimizer = torch.optim.AdamW(
+            self.parameters(), lr=self.learning_rate, weight_decay=self.lr_weight_decay)
 
         config = {
             'optimizer': optimizer,

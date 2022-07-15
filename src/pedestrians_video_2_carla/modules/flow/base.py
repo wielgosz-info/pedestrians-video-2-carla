@@ -6,9 +6,6 @@ import pytorch_lightning as pl
 import torch
 import torchmetrics
 from pedestrians_video_2_carla.data.base.base_transforms import BaseTransforms
-from pedestrians_video_2_carla.data.base.skeleton import \
-    get_skeleton_type_by_name
-from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.loss.base_pose_loss import BasePoseLoss
 from pedestrians_video_2_carla.modules.flow.output_types import TrajectoryModelOutputType
 from pedestrians_video_2_carla.loss import LossModes
@@ -173,16 +170,6 @@ class LitBaseFlow(pl.LightningModule):
         """
 
         parser = parent_parser.add_argument_group("BaseFlow Module")
-        parser.add_argument(
-            '--input_nodes',
-            type=get_skeleton_type_by_name,
-            default=CARLA_SKELETON
-        )
-        parser.add_argument(
-            '--output_nodes',
-            type=get_skeleton_type_by_name,
-            default=CARLA_SKELETON
-        )
         parser.add_argument(
             '--mask_missing_joints',
             type=boolean,

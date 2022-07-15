@@ -17,18 +17,18 @@ from pedestrians_video_2_carla.data.base.base_dataset import BaseDataset
 class SMPLDataset(BaseDataset):
     def __init__(self,
                  set_filepath,
-                 input_nodes: Union[Type[SMPL_SKELETON],
-                                    Type[CARLA_SKELETON]] = SMPL_SKELETON,
+                 data_nodes: Union[Type[SMPL_SKELETON],
+                                   Type[CARLA_SKELETON]] = SMPL_SKELETON,
                  device=torch.device('cpu'),
                  **kwargs
                  ) -> None:
         super().__init__(
             set_filepath=set_filepath,
-            input_nodes=input_nodes,
+            data_nodes=data_nodes,
             **kwargs
         )
 
-        if self.input_nodes == CARLA_SKELETON and kwargs.get('skip_metadata', False):
+        if self.data_nodes == CARLA_SKELETON and kwargs.get('skip_metadata', False):
             warnings.warn(
                 'Skipping metadata when using CARLA_SKELETON results in using female adult pose for all clips.')
 

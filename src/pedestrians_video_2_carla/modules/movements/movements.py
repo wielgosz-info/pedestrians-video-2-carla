@@ -12,20 +12,19 @@ class MovementsModel(BaseModel):
     """
 
     def __init__(self,
-                 input_nodes: Union[Type[Skeleton], str] = CARLA_SKELETON,
-                 output_nodes: Union[Type[Skeleton], str] = CARLA_SKELETON,
+                 output_nodes: Union[Type[Skeleton], str] = None,
                  *args,
                  **kwargs
                  ):
         super().__init__(prefix='movements', *args, **kwargs)
 
-        self.input_nodes = get_skeleton_type_by_name(
-            input_nodes) if isinstance(input_nodes, str) else input_nodes
+        if output_nodes is None:
+            output_nodes = self.input_nodes
+
         self.output_nodes = get_skeleton_type_by_name(
             output_nodes) if isinstance(output_nodes, str) else output_nodes
 
         self._hparams.update({
-            'input_nodes': get_skeleton_name_by_type(self.input_nodes),
             'output_nodes': get_skeleton_name_by_type(self.output_nodes),
         })
 
@@ -52,6 +51,15 @@ class MovementsModel(BaseModel):
     @staticmethod
     def add_model_specific_args(parent_parser):
         BaseModel.add_model_specific_args(parent_parser, 'movements')
+
+        parser = parent_parser.add_argument_group('Movements Model')
+        parser.add_argument(
+            '--output_nodes',
+            type=get_skeleton_type_by_name,
+            default=None,
+            help='Skeleton type to use for output nodes. If not specified, will use the same skeleton type as input_nodes.'
+        )
+
         return parent_parser
 
     def forward(self, x, *args, **kwargs):

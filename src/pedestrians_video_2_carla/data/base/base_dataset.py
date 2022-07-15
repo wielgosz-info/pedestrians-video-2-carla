@@ -29,8 +29,8 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
     def __init__(
         self,
         set_filepath,
-        input_nodes: Type[Skeleton],
-        data_nodes: Type[Skeleton] = None,
+        data_nodes: Type[Skeleton],
+        input_nodes: Type[Skeleton] = None,
         skip_metadata: bool = False,
         class_labels: Dict[str, Iterable[str]] = None,
         is_training: bool = False,
@@ -41,17 +41,17 @@ class BaseDataset(Projection2DMixin, ConfidenceMixin, GraphMixin, TorchDataset):
 
         :param set_filepath: Path to the set file
         :type set_filepath: str
-        :param input_nodes: Nodes as expected by the model
-        :type input_nodes: Type[Skeleton]
         :param data_nodes: Nodes as present in the data
         :type data_nodes: Type[Skeleton]
+        :param input_nodes: Nodes as expected by the model. Defaults to data_nodes.
+        :type input_nodes: Type[Skeleton]
         :param skip_metadata: Whether to skip the metadata (default: False). Skipping metadata loading speeds up the dataset creation.
         :type skip_metadata: bool
         :param class_labels: Labels for classification tasks
         :type class_labels: Dict[str, Iterable[str]]
         """
-        self.input_nodes = input_nodes
-        self.data_nodes = data_nodes if data_nodes is not None else input_nodes
+        self.data_nodes = data_nodes
+        self.input_nodes = input_nodes if input_nodes is not None else data_nodes
         self.num_input_joints = len(self.input_nodes)
         self.num_data_joints = len(self.data_nodes)
 

@@ -9,11 +9,12 @@ from pedestrians_video_2_carla.modules.flow.output_types import ClassificationMo
 
 # This is the model from the paper: https://ieeexplore.ieee.org/document/8917118
 
+
 class GCNBestPaperTransformer(ClassificationModel):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        self._num_input_nodes = len(self._input_nodes)
+        self._num_input_nodes = len(self.input_nodes)
         self._n_heads = 1
         # self._out_channels = [64, 32]
         self._out_channels = [8, 4]
@@ -23,13 +24,13 @@ class GCNBestPaperTransformer(ClassificationModel):
             out_channels=self._out_channels[0],
             heads=self._n_heads,
             bias=True
-            )
+        )
         self.conv2 = TransformerConv(
             in_channels=self._n_heads * self._out_channels[0],
-            out_channels=self._out_channels[-1], 
+            out_channels=self._out_channels[-1],
             heads=self._n_heads,
             bias=True
-            )
+        )
         self.relu = torch.nn.ReLU()
         self.dropout = torch.nn.Dropout(p=0.5)
         self.linear = torch.nn.Linear(self._num_input_nodes, 1)
@@ -48,7 +49,7 @@ class GCNBestPaperTransformer(ClassificationModel):
         x = torch.mean(x, dim=-1)
 
         x = self.linear(x)
-        
+
         return x
 
     @property

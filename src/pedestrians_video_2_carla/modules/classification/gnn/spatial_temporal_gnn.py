@@ -20,7 +20,7 @@ class SpatialTemporalGNN(ClassificationModel):
 
         self._input_features = input_features
         self._num_classes = self._num_classes
-        self._num_input_nodes = len(self._input_nodes)
+        self._num_input_nodes = len(self.input_nodes)
 
         # Definition of Conv layers:
 

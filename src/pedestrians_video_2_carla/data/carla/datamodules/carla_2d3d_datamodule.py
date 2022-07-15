@@ -22,10 +22,7 @@ class Carla2D3DDataModule(BaseDataModule):
         self.val_set_size = val_set_size
         self.test_set_size = test_set_size
 
-        super().__init__(**{
-            **kwargs,
-            'data_nodes': CARLA_SKELETON
-        })
+        super().__init__(**kwargs)
 
     @property
     def settings(self):
@@ -95,7 +92,16 @@ class Carla2D3DDataModule(BaseDataModule):
             metavar='NUM_SAMPLES',
             help="Number of samples (clips) to use for testing."
         )
+
+        parser.set_defaults(
+            data_nodes=CARLA_SKELETON
+        )
+
         return parent_parser
+
+    @classmethod
+    def uses_infinite_train_set(cls):
+        return True
 
     def prepare_data(self) -> None:
         if not self._needs_preparation:

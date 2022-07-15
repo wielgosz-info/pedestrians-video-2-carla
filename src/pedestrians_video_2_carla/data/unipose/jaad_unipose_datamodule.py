@@ -13,12 +13,9 @@ from pedestrians_video_2_carla.data.base.mixins.dataset.video_mixin import Video
 from pedestrians_video_2_carla.transforms.video.video_to_resnet import VideoToResNet
 
 from pedestrians_video_2_carla.data.openpose.skeleton import COCO_SKELETON
-from pedestrians_video_2_carla.data.openpose.jaad_openpose_datamodule import JAADOpenPoseDataModule
+from pedestrians_video_2_carla.data.openpose.datamodules.jaad_openpose_datamodule import JAADOpenPoseDataModule
 from pedestrians_video_2_carla.data.openpose.constants import JAAD_DIR
 from pedestrians_video_2_carla.data.unipose.constants import UNIPOSE_MODEL_DIR
-
-from PIL import Image
-from pedestrians_scenarios.karma.renderers.points_renderer import PointsRenderer
 
 
 class JAADUniPoseDataModule(JAADOpenPoseDataModule):
@@ -38,19 +35,24 @@ class JAADUniPoseDataModule(JAADOpenPoseDataModule):
     def __init__(self,
                  **kwargs
                  ):
-        super().__init__(
-            **{
-                **kwargs,
-                'data_nodes': kwargs.get('data_nodes', COCO_SKELETON) or COCO_SKELETON,
-                'fast_dev_run': True
-            }
-        )
+        super().__init__(**kwargs)
 
         # override openpose dir with unipose dumped data
         self._unipose_model_path = os.path.join(UNIPOSE_MODEL_DIR, 'UniPose_COCO.pth')
 
         self._target_size = 368
         self._video_transform = VideoToResNet(target_size=self._target_size)
+
+    @staticmethod
+    def add_subclass_specific_args(parent_parser):
+        parent_parser = super().add_subclass_specific_args(parent_parser)
+
+        parser = parent_parser.add_argument_group('JAADUniPose DataModule')
+        parser.set_defaults(
+            data_nodes=COCO_SKELETON
+        )
+
+        return parent_parser
 
     def _extract_additional_data(self, clips: List[DataFrame]):
         """
@@ -125,26 +127,6 @@ class JAADUniPoseDataModule(JAADOpenPoseDataModule):
         for idx, keypoints in enumerate(clip_keypoints):
             pedestrian_info.at[pedestrian_info.index[idx],
                                'keypoints'] = keypoints
-
-            # debug
-            # pth = os.path.join(
-            #     '/outputs/', '{}_{}_{}'.format(video_id, pedestrian_id, clip_id))
-            # if not os.path.exists(pth):
-            #     os.makedirs(pth)
-            # kp = np.array(keypoints)[..., :2]
-            # bbox_img = PointsRenderer.draw_projection_points(
-            #     (tensor_canvas[idx]*128 + 127).numpy().transpose((1, 2, 0)
-            #                                                      ).round().clip(0,255).astype(np.uint8),
-            #     kp - shifts[idx], COCO_SKELETON, lines=True)
-            # Image.fromarray(canvas[idx]).save(
-            #     os.path.join(pth, 'bbox_{}.png'.format(idx)))
-            # Image.fromarray(bbox_img).save(
-            #     os.path.join(pth, 'bbox_{}_sk.png'.format(idx)))
-
-            # frame_img = PointsRenderer.draw_projection_points(
-            #     clip[idx], kp, COCO_SKELETON, lines=True)
-            # Image.fromarray(frame_img).save(
-            #     os.path.join(pth, 'frame_{}_sk.png'.format(idx)))
 
         # everything went well, append the clip to the list
         return pedestrian_info

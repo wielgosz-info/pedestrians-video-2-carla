@@ -45,6 +45,7 @@ class LitClassificationFlow(pl.LightningModule):
                  classification_model: ClassificationModel,
                  classification_targets_key: str,
                  classification_average: Union[str, Dict[str, str]] = 'macro',
+                 num_classes: int = 2,
                  **kwargs: Any) -> None:
         super().__init__()
 
@@ -53,8 +54,7 @@ class LitClassificationFlow(pl.LightningModule):
         self._targets_key = classification_targets_key
         self._outputs_key = classification_targets_key + '_logits'
 
-        # TODO: get it from somewhere - datamodule only knows this after setup has been called
-        self._num_classes = 2
+        self._num_classes = num_classes
 
         if isinstance(classification_average, str):
             if classification_average == 'benchmark':
@@ -83,9 +83,7 @@ class LitClassificationFlow(pl.LightningModule):
 
         self.save_hyperparameters({
             'host': platform.node(),
-            'classification_targets_key': self._targets_key,
             'classification_average': self._average,
-            'num_classes': self._num_classes,
             **self.classification_model.hparams,
         })
 
@@ -104,7 +102,7 @@ class LitClassificationFlow(pl.LightningModule):
             'Accuracy': MultiinputWrapper(
                 Accuracy(dist_sync_on_step=True,
                          average=self._average['Accuracy'],
-                         num_classes=num_classes if self._average['Accuracy'] != 'none' else self._num_classes,
+                         num_classes=self._num_classes if self._average['Accuracy'] != 'micro' else num_classes,
                          multiclass=multiclass if self._average['Accuracy'] != 'none' else True),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
@@ -112,7 +110,7 @@ class LitClassificationFlow(pl.LightningModule):
             'Precision': MultiinputWrapper(
                 Precision(dist_sync_on_step=True,
                           average=self._average['Precision'],
-                          num_classes=num_classes if self._average['Precision'] != 'none' else self._num_classes,
+                          num_classes=self._num_classes if self._average['Precision'] != 'micro' else num_classes,
                           multiclass=multiclass if self._average['Precision'] != 'none' else True),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
@@ -120,7 +118,7 @@ class LitClassificationFlow(pl.LightningModule):
             'Recall': MultiinputWrapper(
                 Recall(dist_sync_on_step=True,
                        average=self._average['Recall'],
-                       num_classes=num_classes if self._average['Recall'] != 'none' else self._num_classes,
+                       num_classes=self._num_classes if self._average['Recall'] != 'micro' else num_classes,
                        multiclass=multiclass if self._average['Recall'] != 'none' else True),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
@@ -128,7 +126,7 @@ class LitClassificationFlow(pl.LightningModule):
             'F1Score': MultiinputWrapper(
                 F1Score(dist_sync_on_step=True,
                         average=self._average['F1Score'],
-                        num_classes=num_classes if self._average['F1Score'] != 'none' else self._num_classes,
+                        num_classes=self._num_classes if self._average['F1Score'] != 'micro' else num_classes,
                         multiclass=multiclass if self._average['F1Score'] != 'none' else True),
                 self._outputs_key, self._targets_key,
                 input_nodes=None, output_nodes=None,
@@ -211,16 +209,6 @@ class LitClassificationFlow(pl.LightningModule):
         If overriding, remember to call super().
         """
         parser = parent_parser.add_argument_group("Classification Module")
-        parser.add_argument(
-            '--input_nodes',
-            type=get_skeleton_type_by_name,
-            default=CARLA_SKELETON
-        )
-        parser.add_argument(
-            '--classification_targets_key',
-            type=str,
-            default='cross',
-        )
         parser.add_argument(
             '--classification_average',
             type=str,

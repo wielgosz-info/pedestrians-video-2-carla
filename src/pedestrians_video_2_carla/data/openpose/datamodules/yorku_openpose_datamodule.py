@@ -7,15 +7,21 @@ from .openpose_datamodule import OpenPoseDataModule
 
 class YorkUOpenPoseDataModule(OpenPoseDataModule):
     def __init__(self, converters=None, **kwargs):
+        nc = kwargs.get('num_classes', 2)
+        if nc == 2:
+            def cross_converter(x): return x == '1'
+        else:
+            def cross_converter(x): return int(x) % nc
+
         super().__init__(
             converters=converters if converters is not None else {
-                'crossing': lambda x: x == '1',
+                # single label in whole video telling if pedestrian will cross at some point:
+                'crossing': cross_converter,
+                # is pedestrian crossing in this particular frame:
+                'cross': cross_converter,
             },
-            **{
-                'cross_label': 'crossing',
-                **kwargs,
-                'label_frames': -1,  # in JAAD and PIE 'crossing' label is set the same for the whole video
-            })
+            **kwargs
+        )
 
     def _get_raw_data(self, grouped: pandas.DataFrame) -> Tuple[np.ndarray, Dict[str, np.ndarray], Dict[str, Any]]:
         # projections
@@ -54,7 +60,7 @@ class YorkUOpenPoseDataModule(OpenPoseDataModule):
             'clip_height': grouped_tail.loc[:, 'video_height'].to_numpy().astype(np.int32),
         }
 
-        self._add_cross_to_meta(grouped, grouped_tail, meta)
+        self._add_classification_to_meta(grouped, grouped_tail, meta)
 
         return meta, grouped_head, grouped_tail
 
@@ -67,5 +73,5 @@ class YorkUOpenPoseDataModule(OpenPoseDataModule):
         """
         self._class_labels = {
             # explicitly set crossing to be 1, so it potentially can be used in a binary classifier
-            self._cross_label: ['not-crossing', 'crossing'],
+            self._classification_targets_key: ['not-crossing', 'crossing'],
         }

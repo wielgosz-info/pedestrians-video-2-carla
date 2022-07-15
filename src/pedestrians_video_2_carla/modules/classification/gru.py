@@ -17,7 +17,7 @@ class GRU(ClassificationModel):
                  num_layers: int = 2,
                  embeddings_size: int = None,
                  p_dropout: float = 0.25,
-                 input_features = 2,  # (x, y) points
+                 input_features=2,  # (x, y) points
                  **kwargs
                  ):
         super().__init__(**kwargs)
@@ -26,7 +26,7 @@ class GRU(ClassificationModel):
         self.__input_features = input_features  # (x, y) points
 
         self.__input_size = self.__input_nodes_len * self.__input_features
-        self.__output_size = self._num_classes
+        self.__output_size = self.num_classes
         self.__p_dropout = p_dropout
 
         if embeddings_size:
@@ -80,7 +80,7 @@ class GRU(ClassificationModel):
             default=0.25,
             type=float,
         )
-        
+
         return parent_parser
 
     def forward(self, x, *args, **kwargs):

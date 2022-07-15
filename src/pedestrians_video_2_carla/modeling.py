@@ -32,8 +32,6 @@ from pytorch_lightning.utilities.warnings import rank_zero_warn
 from pedestrians_video_2_carla import __version__
 from pedestrians_video_2_carla.data import discover as discover_datamodules
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
-from pedestrians_video_2_carla.data.carla.carla_2d3d_datamodule import \
-    Carla2D3DDataModule
 from pedestrians_video_2_carla.loggers.pedestrian import PedestrianLogger
 
 # global registry of available classes
@@ -366,7 +364,7 @@ def setup_flow(args, parser: argparse.ArgumentParser):
     setup_logging(args.loglevel)
 
     # prevent accidental infinite training
-    if data_module_cls == Carla2D3DDataModule:
+    if data_module_cls.uses_infinite_train_set():
         if args.limit_train_batches < 0:
             args.limit_train_batches = 1.0
         elif (

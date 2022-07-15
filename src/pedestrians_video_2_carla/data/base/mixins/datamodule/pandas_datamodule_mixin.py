@@ -307,7 +307,7 @@ class PandasDataModuleMixin:
 
     def _process_clips_set(self, name, clips_set):
         clips_set.reset_index(inplace=True, drop=False)
-        clips_set.set_index(self.primary_index, inplace=True)
+        clips_set.set_index(self.primary_index + self.clips_index[:-1], inplace=True)
 
         # shuffle the clips so that for val/test we have more variety when utilizing only part of the dataset
         index = pandas.MultiIndex.from_frame(clips_set.index.to_frame(
@@ -315,7 +315,7 @@ class PandasDataModuleMixin:
         shuffled_clips = clips_set.loc[index.values, :]
 
         grouped = shuffled_clips.groupby(level=list(
-            range(len(self.full_index) - 1)), sort=False)
+            range(len(self.video_index) + len(self.pedestrian_index) + len(self.clips_index) - 1)), sort=False)
         self._set_class_counts(name, grouped)
         projection_2d, targets, meta = self._get_raw_data(grouped)
 

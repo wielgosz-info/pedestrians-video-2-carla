@@ -33,12 +33,7 @@ class MPIIDataModule(PandasDataModuleMixin, BaseDataModule):
             pedestrian_index=['image', 'rect_idx'],
             clips_index=['frame_sec'],
             df_usecols=MPII_USECOLS,
-            **{
-                **kwargs,
-                'clip_length': 1,  # MPII is 1 frame long (images)
-                'clip_offset': 1,
-                'test_set_frac': 0  # MPII has dedicated test set, but no ground truth for it
-            }
+            **kwargs
         )
 
     @property
@@ -61,6 +56,7 @@ class MPIIDataModule(PandasDataModuleMixin, BaseDataModule):
             clip_length=1,
             clip_offset=1,
             test_set_frac=0,
+            data_nodes=MPII_SKELETON
         )
 
         return parent_parser

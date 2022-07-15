@@ -30,10 +30,7 @@ class AMASSDataModule(PandasDataModuleMixin, BaseDataModule):
             video_index=['dataset', 'id'],
             pedestrian_index=[],
             clips_index=['clip', 'frame'],
-            **{
-                **kwargs,
-                'data_nodes': SMPL_SKELETON
-            }
+            **kwargs
         )
 
         self.amass_dir = os.path.join(self.datasets_dir, AMASS_DIR)
@@ -54,6 +51,18 @@ class AMASSDataModule(PandasDataModuleMixin, BaseDataModule):
             **super().settings,
             'datasets': self.available_datasets
         }
+
+    @staticmethod
+    def add_subclass_specific_args(parent_parser):
+        parent_parser = super().add_subclass_specific_args(parent_parser)
+
+        parser = parent_parser.add_argument_group('AMASS DataModule')
+
+        parser.set_defaults(
+            data_nodes=SMPL_SKELETON
+        )
+
+        return parent_parser
 
     def _read_data(self) -> pandas.DataFrame:
         # find out how many unique mocaps we have available

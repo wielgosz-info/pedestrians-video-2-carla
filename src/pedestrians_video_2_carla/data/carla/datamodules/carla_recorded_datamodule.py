@@ -2,7 +2,7 @@ from typing import Any, Callable, Dict, List, Tuple
 import os
 import numpy as np
 import pandas as pd
-from pedestrians_video_2_carla.data.base.mixins.datamodule.cross_datamodule_mixin import CrossDataModuleMixin
+from pedestrians_video_2_carla.data.base.mixins.datamodule.classification_datamodule_mixin import ClassificationDataModuleMixin
 
 import torch
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
@@ -25,7 +25,7 @@ def convert_to_list(x):
         return str(x)
 
 
-class CarlaRecordedDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseDataModule):
+class CarlaRecordedDataModule(ClassificationDataModuleMixin, PandasDataModuleMixin, BaseDataModule):
     def __init__(self,
                  data_variant: str = CARLA_RECORDED_DEFAULT_SET_NAME,
                  **kwargs):
@@ -33,7 +33,7 @@ class CarlaRecordedDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseD
         source_videos_dir = os.path.join(CARLA_RECORDED_DIR, self.data_variant)
 
         super().__init__(
-            cross_label='frame.pedestrian.is_crossing',
+            classification_targets_key='frame.pedestrian.is_crossing',
             data_filepath=os.path.join(
                 source_videos_dir, 'data.csv'),
             video_index=['id', 'camera.idx'],
@@ -49,11 +49,8 @@ class CarlaRecordedDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseD
                 'frame.pedestrian.pose.relative': convert_to_list,
                 'frame.pedestrian.pose.camera': convert_to_list
             },
-            **{
-                **kwargs,
-                'source_videos_dir': source_videos_dir,
-                'data_nodes': CARLA_SKELETON
-            }
+            source_videos_dir=source_videos_dir,
+            **kwargs
         )
 
     @property
@@ -68,6 +65,11 @@ class CarlaRecordedDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseD
         parser = parent_parser.add_argument_group('CarlaRec Data Module')
         parser.add_argument('--data_variant', type=str,
                             default=CARLA_RECORDED_DEFAULT_SET_NAME)
+
+        parser.set_defaults(
+            data_nodes=CARLA_SKELETON
+        )
+
         return parent_parser
 
     def _clean_filter_sort_data(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -148,7 +150,7 @@ class CarlaRecordedDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseD
             'clip_height': grouped_head.loc[:, 'camera.height'].to_numpy().astype(np.int32),
         }
 
-        self._add_cross_to_meta(grouped, grouped_tail, meta)
+        self._add_classification_to_meta(grouped, grouped_tail, meta)
 
         return projection_2d, targets, meta
 
@@ -171,5 +173,5 @@ class CarlaRecordedDataModule(CrossDataModuleMixin, PandasDataModuleMixin, BaseD
         """
         self._class_labels = {
             # explicitly set crossing to be 1, so it potentially can be used in a binary classifier
-            self._cross_label: ['not-crossing', 'crossing'],
+            self._classification_targets_key: ['not-crossing', 'crossing'],
         }

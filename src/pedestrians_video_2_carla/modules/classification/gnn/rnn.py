@@ -9,7 +9,7 @@ class GRNNModel(ClassificationModel):
     def __init__(self,
                  hidden_size: int = 128,
                  p_dropout: float = 0.2,
-                 input_features: int = 2, # (x, y) points
+                 input_features: int = 2,  # (x, y) points
                  **kwargs
                  ):
         super().__init__(**kwargs)
@@ -20,7 +20,7 @@ class GRNNModel(ClassificationModel):
 
         self.setup_input_layers()
 
-        self.lin = Linear(self._hidden_size, self._num_classes)
+        self.lin = Linear(self._hidden_size, self.num_classes)
 
         self._hparams.update({
             'hidden_size': self._hidden_size,
@@ -42,7 +42,7 @@ class GRNNModel(ClassificationModel):
             default=0.2,
             type=float,
         )
-        
+
         return parent_parser
 
     @property
