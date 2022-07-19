@@ -16,6 +16,14 @@ class CarlaBenchmarkDataModule(BenchmarkDataModuleMixin, CarlaRecordedDataModule
             'extra_cols': {'crossing_point': int, 'crossing': int},
         })
 
+    @classmethod
+    def add_subclass_specific_args(cls, parent_parser):
+        parent_parser = super().add_subclass_specific_args(parent_parser)
+        parser = parent_parser.add_argument_group('CarlaBenchmark Data Module')
+        parser = BenchmarkDataModuleMixin.add_cli_args(parser)
+
+        return parent_parser
+
     def _clean_filter_sort_data(self, df: pd.DataFrame) -> pd.DataFrame:
         filtered_data = super()._clean_filter_sort_data(df)
 
