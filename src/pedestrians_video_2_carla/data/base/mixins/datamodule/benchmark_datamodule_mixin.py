@@ -43,8 +43,9 @@ class BenchmarkDataModuleMixin:
         # update default settings
         parser.set_defaults(
             clip_length=16,
-            clip_offset=None,  # we have a lot of data, overlap is not necessary
-            classification_average='benchmark'
+            clip_offset=None,  # no overlap
+            classification_average='benchmark',
+            classification_targets_key='crossing',
         )
 
         return parser
@@ -52,16 +53,17 @@ class BenchmarkDataModuleMixin:
     def _get_video(self, annotations_df, idx):
         video = annotations_df.loc[idx].sort_values(self.clips_index[-1])
 
-        video = video.loc[(video.frame <= video.crossing_point)
+        video = video.loc[(video[self.clips_index[-1]] <= video.crossing_point)
                           | (video.crossing_point < 0)]
 
         # leave only relevant frames
-        event_frame = video.iloc[-1].frame - \
+        event_frame = video.iloc[-1][self.clips_index[-1]] - \
             3 if video.iloc[-1].crossing_point < 0 else video.iloc[-1].crossing_point
         start_frame = max(0, event_frame - self.clip_length - self.tte[1])
         end_frame = event_frame - self.tte[0]
 
-        video = video[(video.frame >= start_frame) & (video.frame <= end_frame)]
+        video = video[(video[self.clips_index[-1]] >= start_frame)
+                      & (video[self.clips_index[-1]] <= end_frame)]
 
         # if video is too short, skip it
         if len(video) < self.clip_length:

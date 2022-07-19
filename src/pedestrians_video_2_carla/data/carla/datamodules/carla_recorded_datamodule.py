@@ -33,7 +33,6 @@ class CarlaRecordedDataModule(ClassificationDataModuleMixin, PandasDataModuleMix
         source_videos_dir = os.path.join(CARLA_RECORDED_DIR, self.data_variant)
 
         super().__init__(
-            classification_targets_key='frame.pedestrian.is_crossing',
             data_filepath=os.path.join(
                 source_videos_dir, 'data.csv'),
             video_index=['id', 'camera.idx'],
@@ -49,8 +48,10 @@ class CarlaRecordedDataModule(ClassificationDataModuleMixin, PandasDataModuleMix
                 'frame.pedestrian.pose.relative': convert_to_list,
                 'frame.pedestrian.pose.camera': convert_to_list
             },
-            source_videos_dir=source_videos_dir,
-            **kwargs
+            **{
+                'source_videos_dir': source_videos_dir,
+                **kwargs
+            }
         )
 
     @property
@@ -67,7 +68,8 @@ class CarlaRecordedDataModule(ClassificationDataModuleMixin, PandasDataModuleMix
                             default=CARLA_RECORDED_DEFAULT_SET_NAME)
 
         parser.set_defaults(
-            data_nodes=CARLA_SKELETON
+            data_nodes=CARLA_SKELETON,
+            classification_targets_key='frame.pedestrian.is_crossing',
         )
 
         return parent_parser

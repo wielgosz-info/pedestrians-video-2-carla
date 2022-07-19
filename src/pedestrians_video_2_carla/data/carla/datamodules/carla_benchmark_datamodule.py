@@ -1,41 +1,34 @@
 from typing import Tuple
+import numpy as np
+
+import pandas as pd
+from pedestrians_video_2_carla.data.base.mixins.datamodule.benchmark_datamodule_mixin import BenchmarkDataModuleMixin
 from pedestrians_video_2_carla.data.carla.datamodules.carla_recorded_datamodule import CarlaRecordedDataModule
 
 
-class CarlaBenchmarkDataModule(CarlaRecordedDataModule):
+class CarlaBenchmarkDataModule(BenchmarkDataModuleMixin, CarlaRecordedDataModule):
     def __init__(
         self,
-        tte: Tuple[int, int] = (30, 60),
         **kwargs
     ):
-        self.tte = sorted(tte) if len(tte) else [30, 60]
-
         super(CarlaBenchmarkDataModule, self).__init__(**{
             **kwargs,
             'extra_cols': {'crossing_point': int, 'crossing': int},
-            'min_video_length': kwargs.get('clip_length', 16) + self.tte[1],
-            'cross_label': 'crossing',
-            'label_frames': -1,
         })
 
-    @property
-    def settings(self):
-        return {
-            **super().settings,
-            'tte': self.tte,
-        }
+    def _clean_filter_sort_data(self, df: pd.DataFrame) -> pd.DataFrame:
+        filtered_data = super()._clean_filter_sort_data(df)
 
-    @classmethod
-    def add_subclass_specific_args(cls, parent_parser):
-        parser = parent_parser.add_argument_group('CarlaBenchmark Data Module')
-        parser.add_argument('--tte', type=int, nargs='+', default=[],
-                            help='Time to event. Values are in frames. Clips will be generated if they end in this window. Default is [30, 60].')
+        # add extra columns
+        filtered_data['crossing_point'] = np.array(
+            (-1,) * len(filtered_data))  # never crosses by default
+        filtered_data['crossing'] = np.array(
+            (2 if self._num_classes > 2 else 0,) * len(filtered_data))  # irrelevant or non-crossing by default
 
-        # update default settings
-        parser.set_defaults(
-            clip_length=16,
-            clip_offset=None,  # we have a lot of data, overlap is not necessary
-            classification_average='benchmark'
-        )
+        crossing_groups = filtered_data.loc[filtered_data['frame.pedestrian.is_crossing']].groupby(
+            self.primary_index)
+        for name, group in crossing_groups:
+            filtered_data.loc[name, 'crossing_point'] = group.head(1)['frame.idx']
+            filtered_data.loc[name, 'crossing'] = 1
 
-        return parent_parser
+        return filtered_data
