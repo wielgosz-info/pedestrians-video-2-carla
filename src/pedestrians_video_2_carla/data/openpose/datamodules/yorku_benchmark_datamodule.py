@@ -65,8 +65,6 @@ class YorkUBenchmarkDataModule(BenchmarkDataModuleMixin, YorkUOpenPoseDataModule
 
         # update default settings
         parser.set_defaults(
-            clip_length=16,
-            clip_offset=6,
             data_nodes=COCO_SKELETON,
         )
 

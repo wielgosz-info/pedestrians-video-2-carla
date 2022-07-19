@@ -43,7 +43,7 @@ class BenchmarkDataModuleMixin:
         # update default settings
         parser.set_defaults(
             clip_length=16,
-            clip_offset=None,  # no overlap
+            clip_offset=6,
             classification_average='benchmark',
             classification_targets_key='crossing',
         )
