@@ -129,6 +129,7 @@ class BaseDataModule(LightningDataModule):
 
         # each dataset may provide its own classification labels
         # they are saved in a settings file during the subsets creation
+        # TODO: move this to ClassificationDataModuleMixin
         self._class_labels = None
         self._class_counts = {
             'train': {},

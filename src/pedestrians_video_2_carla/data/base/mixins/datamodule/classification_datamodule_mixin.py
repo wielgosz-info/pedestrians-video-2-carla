@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Dict, Iterable, Tuple
 import numpy as np
 import pandas
 
@@ -81,6 +81,30 @@ class ClassificationDataModuleMixin:
             self._classification_targets_key: self._label_mapping,
         }
 
+    def _set_class_counts(self, set_name: str, meta: Dict[str, Iterable]) -> None:
+        """
+        Helper function to set the class counts.
+        Should set self._class_counts dict if required.
+        By default it extracts one class per clip
+        for each type of class in self.class_labels.keys().
+
+        :param set_name: Name of the set
+        :type set_name: str
+        :param meta: Metadata
+        :type meta: Dict[str, Iterable]
+        """
+        if self.class_labels is None:
+            # not every dataset has class labels
+            return
+
+        for class_key, class_labels in self.class_labels.items():
+            numeric_classes = np.array([class_labels.index(
+                key) for key in meta[class_key]])
+            counts = np.bincount(numeric_classes, minlength=self._num_classes)
+            self._class_counts[set_name][class_key] = {
+                label: counts[i] for i, label in enumerate(class_labels)
+            }
+
     def _add_classification_to_meta(self, grouped, grouped_tail, meta):
         """
         Add cross data to meta. Needs to be called in the appropriate
@@ -124,6 +148,11 @@ class ClassificationDataModuleMixin:
             balanced_meta = {key: np.array(value)[samples_mask]
                              for key, value in meta.items()}
 
-            return super()._save_subset(name, balanced_projection_2d, balanced_targets, balanced_meta, save_dir)
+            set_size = super()._save_subset(name, balanced_projection_2d,
+                                            balanced_targets, balanced_meta, save_dir)
+            self._set_class_counts(name, balanced_meta)
         else:
-            return super()._save_subset(name, projection_2d, targets, meta, save_dir)
+            set_size = super()._save_subset(name, projection_2d, targets, meta, save_dir)
+            self._set_class_counts(name, meta)
+
+        return set_size

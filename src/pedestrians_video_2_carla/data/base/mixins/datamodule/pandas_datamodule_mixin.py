@@ -118,29 +118,6 @@ class PandasDataModuleMixin:
         """
         pass
 
-    def _set_class_counts(self, set_name: str, grouped: 'pandas.DataFrameGroupBy') -> None:
-        """
-        Helper function to set the class counts.
-        Should set self._class_counts dict if required.
-        By default it extracts one class per clip
-        for each type of class in self.class_labels.keys().
-
-        :param set_name: Name of the set
-        :type set_name: str
-        :param grouped: Grouped data
-        :type grouped: pandas.DataFrameGroupBy
-        """
-        if self.class_labels is None:
-            # not every dataset has class labels
-            return
-
-        grouped_tail = grouped.tail(1).reset_index(drop=False)
-        for class_key, class_labels in self.class_labels.items():
-            counts = grouped_tail[class_key].value_counts().to_dict()
-            self._class_counts[set_name][class_key] = {
-                label: counts.get(label, counts.get(i, 0)) for i, label in enumerate(class_labels)
-            }
-
     def _clean_filter_sort_data(self, df: pandas.DataFrame) -> pandas.DataFrame:
         if self.df_filters is not None:
             filtering_results = df.isin(self.df_filters)[
@@ -316,7 +293,6 @@ class PandasDataModuleMixin:
 
         grouped = shuffled_clips.groupby(level=list(
             range(len(self.video_index) + len(self.pedestrian_index) + len(self.clips_index) - 1)), sort=False)
-        self._set_class_counts(name, grouped)
         projection_2d, targets, meta = self._get_raw_data(grouped)
 
         return self._save_subset(name, projection_2d, targets, meta)
