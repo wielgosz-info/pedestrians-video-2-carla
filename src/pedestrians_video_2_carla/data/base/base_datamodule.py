@@ -479,7 +479,7 @@ class BaseDataModule(LightningDataModule):
                                  chunks=(1, *v.shape[1:]))
 
             for k, v in meta.items():
-                if isinstance(v, np.ndarray) and v.dtype != np.dtype('object'):
+                if isinstance(v, np.ndarray) and v.dtype.kind != 'U':
                     f.create_dataset(f"meta/{k}", data=v,
                                      chunks=(1, *v.shape[1:]))
                 else:
