@@ -39,6 +39,7 @@ class PedestrianWriter(object):
                  body_model_dir: str = None,
                  source_videos_overlay_skeletons: bool = False,
                  source_videos_overlay_bboxes: bool = False,
+                 source_videos_overlay_classes: bool = False,
                  **kwargs) -> None:
         self._log_dir = log_dir
 
@@ -95,7 +96,8 @@ class PedestrianWriter(object):
             PedestrianRenderers.source_videos: SourceVideosRenderer(
                 data_dir=source_videos_dir,
                 overlay_skeletons=source_videos_overlay_skeletons,
-                overlay_bboxes=source_videos_overlay_bboxes
+                overlay_bboxes=source_videos_overlay_bboxes,
+                overlay_labels=source_videos_overlay_classes,
             ) if PedestrianRenderers.source_videos in self._used_renderers else zeros_renderer,
             PedestrianRenderers.source_carla: CarlaRenderer(
                 fps=self._fps
@@ -307,6 +309,10 @@ class PedestrianWriter(object):
     def _prepare_overlays(self, targets, orig_meta, projection_2d, projection_2d_transformed):
         meta = {k: v.clone() if hasattr(v, 'clone') else copy.deepcopy(v)
                 for k, v in orig_meta.items()}
+
+        if self.__renderers[PedestrianRenderers.source_videos].overlay_labels:
+            # TODO: get this from classification_targets_key
+            meta['labels'] = {'crossing': meta['crossing']}
 
         deaugmented_input_pose, new_targets = self.__deaugment_input(
             pose=targets['projection_2d'],

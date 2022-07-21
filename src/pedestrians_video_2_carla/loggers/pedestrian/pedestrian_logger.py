@@ -181,6 +181,13 @@ class PedestrianLogger(LightningLoggerBase):
             default=False,
             action='store_true'
         )
+        parser.add_argument(
+            "--source_videos_overlay_classes",
+            dest="source_videos_overlay_classes",
+            help="Write class labels on top of source video. Default: False",
+            default=False,
+            action='store_true'
+        )
 
         return parent_parser
 
