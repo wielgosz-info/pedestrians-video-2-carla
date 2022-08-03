@@ -101,10 +101,8 @@ def test_convert_smpl_to_carla(test_data_dir, test_outputs_dir, device):
             None
         ):
             for i in range(batch_size):
-                carla_canvas = carla_renderer.points_to_image(carla_proj[i, :, :2].cpu().numpy(),
-                                                              image_id=None)
-                smpl_canvas = smpl_renderer.points_to_image(smpl_proj[i, :, :2].cpu().numpy(),
-                                                            image_id=None)
+                carla_canvas = carla_renderer.render_frame(carla_proj[i, :, :2].cpu().numpy())
+                smpl_canvas = smpl_renderer.render_frame(smpl_proj[i, :, :2].cpu().numpy())
 
                 modifications[i].append(np.concatenate(
                     (smpl_canvas, carla_canvas), axis=1))

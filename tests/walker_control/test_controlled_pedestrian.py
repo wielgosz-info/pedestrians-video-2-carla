@@ -194,8 +194,8 @@ def test_carla_rendering(carla_world, carla_pedestrian, test_outputs_dir):
             # we need to adjust the projection to have the same offset
             assert False
             points = base_projection.current_pose_to_points()
-            renderer.points_to_image(points, os.path.join(
-                test_outputs_dir, '{:06d}'.format(sensor_data.frame)))
+            rendered_points = renderer.render_frame(points)
+            renderer.save(rendered_points, '{:06d}'.format(sensor_data.frame), test_outputs_dir)
             ticks += 1
         except Empty:
             print("Some sensor information is missed in frame {:06d}".format(w_frame))
