@@ -178,20 +178,20 @@ class PandasDataModuleMixin:
                 continue
 
             frame_diffs_min = video[1:][[self.clips_index[-1]]].assign(
-                frame_diff=video[1:].frame - video[0:-1].frame)
-            frame_min = [video.frame[0]] + \
+                frame_diff=video[1:][self.clips_index[-1]] - video[0:-1][self.clips_index[-1]])
+            frame_min = [video[self.clips_index[-1]][0]] + \
                 list(frame_diffs_min[frame_diffs_min.frame_diff > 1]
                      [self.clips_index[-1]].values)
             frame_diffs_max = video[0:-1][[self.clips_index[-1]]
-                                          ].assign(frame_diff=video[1:].frame - video[0:-1].frame)
+                                          ].assign(frame_diff=video[1:][self.clips_index[-1]] - video[0:-1][self.clips_index[-1]])
             frame_max = list(frame_diffs_max[frame_diffs_max.frame_diff > 1]
-                             [self.clips_index[-1]].values) + [video.frame[-1]]
+                             [self.clips_index[-1]].values) + [video[self.clips_index[-1]][-1]]
 
             ci = 0  # continuous for all clips
 
             for (fmin, fmax) in zip(frame_min, frame_max):
                 while (fmin + ci*self.clip_offset + self.clip_length) <= fmax:
-                    clip = video.loc[video.frame >= ci*self.clip_offset +
+                    clip = video.loc[video[self.clips_index[-1]] >= ci*self.clip_offset +
                                      fmin][:self.clip_length].reset_index().loc[:, self.copied_columns].assign(clip=ci)
                     ci += 1
                     clips.append(clip)
