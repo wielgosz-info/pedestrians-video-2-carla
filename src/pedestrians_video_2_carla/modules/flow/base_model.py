@@ -1,3 +1,5 @@
+from enum import Enum
+import logging
 from typing import Dict, List, Tuple
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
@@ -47,7 +49,7 @@ class BaseModel(torch.nn.Module):
 
     @property
     def hparams(self):
-        return {
+        base_hparams = {
             f'{self._prefix}_model_name': self.__class__.__name__,
             f'{self._prefix}_output_type': self.output_type.name,
             f'{self._prefix}_enable_lr_scheduler': self.enable_lr_scheduler,
@@ -59,12 +61,19 @@ class BaseModel(torch.nn.Module):
             f'{self._prefix}_scheduler_patience': self.lr_scheduler_patience,
             f'{self._prefix}_scheduler_cooldown': self.lr_scheduler_cooldown,
             f'{self._prefix}_weight_decay': self.lr_weight_decay,
-            f'input_nodes': get_skeleton_name_by_type(self.input_nodes),
-            **self._hparams
+            f'input_nodes': get_skeleton_name_by_type(self.input_nodes) if self.input_nodes is not None else None,
         }
+        try:
+            return {
+                **base_hparams,
+                **self._hparams
+            }
+        except AttributeError as e:
+            logging.getLogger(__name__).warn('AttributeError: {}. Skipping non-base hparams.'.format(e))
+            return base_hparams
 
     @property
-    def output_type(self):
+    def output_type(self) -> Enum:
         raise NotImplementedError()
 
     @property

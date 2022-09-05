@@ -17,4 +17,3 @@ class TrajectoryModel(BaseModel):
     @property
     def output_type(self) -> TrajectoryModelOutputType:
         return TrajectoryModelOutputType.changes
-
