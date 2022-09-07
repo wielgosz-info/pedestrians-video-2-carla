@@ -143,12 +143,14 @@ class BaseModel(torch.nn.Module):
         # not prefixed because virtually all models use it
         # it is only important for the first model in the pipeline
         # also, data modules use it to determine the output type
-        parser.add_argument(
-            '--input_nodes',
-            type=get_skeleton_type_by_name,
-            default=None,
-            help='Input nodes for the model (data module output). If not specified, the model will use data_nodes.'
-        )
+        # We need to ensure it is added to the parser only once; TODO: is this the best way?
+        if not 'input_nodes' in [action.dest for action in parser._actions]:
+            parser.add_argument(
+                '--input_nodes',
+                type=get_skeleton_type_by_name,
+                default=None,
+                help='Input nodes for the model (data module output). If not specified, the model will use data_nodes.'
+            )
         return parent_parser
 
     def configure_optimizers(self) -> Tuple[List[torch.optim.Optimizer], List[Dict[str, '_LRScheduler']]]:

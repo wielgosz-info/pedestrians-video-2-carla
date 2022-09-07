@@ -1,7 +1,6 @@
 from typing import Dict
 from pedestrians_video_2_carla.modules.trajectory.zero import ZeroTrajectory
 import torch
-from torchmetrics import MetricCollection
 from pedestrians_video_2_carla.metrics.fb.fb_mpjpe import FB_MPJPE
 from pedestrians_video_2_carla.metrics.fb.fb_mpjve import FB_MPJVE
 from pedestrians_video_2_carla.metrics.fb.fb_n_mpjpe import FB_N_MPJPE
@@ -87,23 +86,23 @@ class LitPoseLiftingFlow(LitBaseFlow):
         }
 
     def get_metrics(self):
-        return [
-            MPJPE(
+        return {
+            'MPJPE':MPJPE(
                 dist_sync_on_step=True,
                 input_nodes=self.movements_model.input_nodes
             ),
-            MRPE(
+            'MRPE':MRPE(
                 dist_sync_on_step=True,
                 input_nodes=self.movements_model.input_nodes,
                 output_nodes=self.movements_model.output_nodes
             ),
-            FB_MPJPE(dist_sync_on_step=True),
+            'FB_MPJPE':FB_MPJPE(dist_sync_on_step=True),
             # FB_WeightedMPJPE should be same as FB_MPJPE since we provide no weights:
-            FB_WeightedMPJPE(dist_sync_on_step=True),
-            FB_PA_MPJPE(dist_sync_on_step=True),
-            FB_N_MPJPE(dist_sync_on_step=True),
-            FB_MPJVE(dist_sync_on_step=True),
-        ]
+            'FB_WeightedMPJPE':FB_WeightedMPJPE(dist_sync_on_step=True),
+            'FB_PA_MPJPE':FB_PA_MPJPE(dist_sync_on_step=True),
+            'FB_N_MPJPE':FB_N_MPJPE(dist_sync_on_step=True),
+            'FB_MPJVE':FB_MPJVE(dist_sync_on_step=True),
+        }
 
     def _get_crucial_keys(self):
         return [

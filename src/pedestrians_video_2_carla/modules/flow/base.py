@@ -1,6 +1,7 @@
 
 import platform
 from typing import Any, Dict, List, Tuple, Union
+from types import FunctionType
 
 import pytorch_lightning as pl
 import torch
@@ -79,6 +80,7 @@ class LitBaseFlow(pl.LightningModule):
                     modes.append(LossModes[k])
             modes.append(mode)
         # TODO: resolve requirements chain and put modes in correct order, not just 'hopefully correct' one
+        # TODO: convert all losses to classes
         self._losses_to_calculate = [
             (mode.name, mode.value[0](
                 criterion=mode.value[1],
@@ -86,7 +88,7 @@ class LitBaseFlow(pl.LightningModule):
                 output_nodes=self.movements_model.output_nodes,
                 mask_missing_joints=self.mask_missing_joints,
                 loss_params=flat_args_as_list_arg(kwargs, 'loss_params'),
-            ), None, mode.value[2] if len(mode.value) > 2 else tuple()) if issubclass(mode.value[0], BasePoseLoss) else (mode.name, *mode.value)
+            ), None, mode.value[2] if len(mode.value) > 2 else tuple()) if not isinstance(mode.value[0], FunctionType) else (mode.name, *mode.value)
             for mode in list(dict.fromkeys(modes))
         ]
 
@@ -449,10 +451,10 @@ class LitBaseFlow(pl.LightningModule):
                 output_nodes=self.movements_model.output_nodes,
                 mask_missing_joints=self.mask_missing_joints,
                 requirements={
-                    k.name: v
+                    k: v
                     for k, v in loss_dict.items()
-                    if k.name in mode[2]
-                } if len(mode) > 2 else None,
+                    if k in mode[3]
+                } if len(mode) > 3 else None,
                 loss_weights=self.loss_weights,
                 **sliced
             )
