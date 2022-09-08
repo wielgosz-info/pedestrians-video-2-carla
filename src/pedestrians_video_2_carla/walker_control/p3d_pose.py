@@ -240,7 +240,7 @@ class P3dPose(Pose, torch.nn.Module):
 
         return self._deepcopy_pose_dict(self._last_abs)
 
-    def move(self, rotations: Dict[str, carla.Rotation]):
+    def move(self, rotations: Dict[str, 'carla.Rotation']):
         # we need correct bones indexes
         bone_names = list(self.empty.keys())
         # and default no-change for each bone

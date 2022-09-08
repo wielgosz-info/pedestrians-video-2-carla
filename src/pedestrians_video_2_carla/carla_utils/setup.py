@@ -34,7 +34,7 @@ def setup_client_and_world(fps=30.0) -> Tuple['carla.Client', 'carla.World']:
     return client, world
 
 
-def get_camera_transform(pedestrian: Any, distance=3.1, elevation=1.2) -> carla.Transform:
+def get_camera_transform(pedestrian: Any, distance=3.1, elevation=1.2) -> 'carla.Transform':
     """
     Calculates the transform in front of the pedestrian.
 

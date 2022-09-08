@@ -146,7 +146,7 @@ class ControlledPedestrian(Generic[P]):
 
         return relative_pose, root_hips_transform
 
-    def teleport_by(self, transform: carla.Transform, cue_tick=False, from_initial=False) -> int:
+    def teleport_by(self, transform: 'carla.Transform', cue_tick=False, from_initial=False) -> int:
         """
         Teleports the pedestrian in the world.
 
@@ -187,7 +187,7 @@ class ControlledPedestrian(Generic[P]):
 
         return 0
 
-    def update_pose(self, rotations: Dict[str, carla.Rotation], cue_tick=False) -> int:
+    def update_pose(self, rotations: Dict[str, 'carla.Rotation'], cue_tick=False) -> int:
         """
         Apply the movement specified as change in local rotations for selected bones.
         For example `pedestrian.update_pose({ 'crl_foreArm__L': carla.Rotation(pitch=60) })`
@@ -205,7 +205,7 @@ class ControlledPedestrian(Generic[P]):
         self._current_pose.move(rotations)
         return self.apply_pose(cue_tick)
 
-    def apply_pose(self, cue_tick: bool = False, pose_snapshot: PoseDict = None, root_hips_transform: carla.Transform = None) -> int:
+    def apply_pose(self, cue_tick: bool = False, pose_snapshot: PoseDict = None, root_hips_transform: 'carla.Transform' = None) -> int:
         """
         Applies the current absolute pose to the carla.Walker if it exists.
 
@@ -265,7 +265,7 @@ class ControlledPedestrian(Generic[P]):
         return self._walker
 
     @ property
-    def world_transform(self) -> carla.Transform:
+    def world_transform(self) -> 'carla.Transform':
         if self._walker is not None:
             # if possible, get it from CARLA
             # don't ask me why Z is is some 0.91m above the actual root sometimes
@@ -273,13 +273,13 @@ class ControlledPedestrian(Generic[P]):
         return self._world_transform
 
     @world_transform.setter
-    def world_transform(self, transform: carla.Transform):
+    def world_transform(self, transform: 'carla.Transform'):
         if self._walker is not None:
             self._walker.set_transform(transform)
         self._world_transform = transform
 
     @ property
-    def transform(self) -> carla.Transform:
+    def transform(self) -> 'carla.Transform':
         """
         Current pedestrian transform relative to the position it was spawned at.
         """
@@ -298,7 +298,7 @@ class ControlledPedestrian(Generic[P]):
         )
 
     @ property
-    def initial_transform(self) -> carla.Transform:
+    def initial_transform(self) -> 'carla.Transform':
         return deepcopy_transform(self._initial_transform)
 
     @ property
@@ -311,7 +311,7 @@ class ControlledPedestrian(Generic[P]):
         return self._current_pose
 
     @ property
-    def spawn_shift(self) -> carla.Location:
+    def spawn_shift(self) -> 'carla.Location':
         """
         Difference between spawn point and actual spawn location
         """

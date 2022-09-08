@@ -93,12 +93,3 @@ class Baseline3DPose(MovementsModel):
         x = x.view(*original_shape[0:2],
                    self.__output_nodes_len, self.__output_features)
         return x
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
-
-        config = {
-            'optimizer': optimizer,
-        }
-
-        return config

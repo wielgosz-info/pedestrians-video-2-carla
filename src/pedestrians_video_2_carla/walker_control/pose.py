@@ -50,7 +50,7 @@ class Pose(object):
                                 absolute_pose: OrderedDict,
                                 relative_pose: OrderedDict,
                                 substructure: Dict[str, Any],
-                                prev_transform: carla.Transform
+                                prev_transform: 'carla.Transform'
                                 ):
         # we shouldn't have more than one item here
         (bone_name, subsubstructures) = list(substructure.items())[0]
@@ -153,7 +153,7 @@ class Pose(object):
 
         return self._deepcopy_pose_dict(self._last_abs)
 
-    def move(self, rotations: Dict[str, carla.Rotation]):
+    def move(self, rotations: Dict[str, 'carla.Rotation']):
         # use getter to ensure we have a copy of self._relative_pose
         new_pose = self.relative
 
