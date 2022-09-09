@@ -20,9 +20,9 @@ from pytorch3d.transforms.rotation_conversions import matrix_to_euler_angles
 
 try:
     import carla
-except ImportError:
+except (ImportError, ModuleNotFoundError) as e:
     import pedestrians_video_2_carla.carla_utils.mock_carla as carla
-    warnings.warn("Using mock carla.", ImportWarning)
+    warnings.warn("Using mock carla.", source=e)
 
 
 class CarlaRenderer(Renderer):

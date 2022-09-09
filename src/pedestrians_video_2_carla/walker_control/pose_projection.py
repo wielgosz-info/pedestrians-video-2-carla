@@ -10,9 +10,9 @@ from pedestrians_video_2_carla.carla_utils.setup import get_camera_transform
 
 try:
     import carla
-except ImportError:
+except (ImportError, ModuleNotFoundError) as e:
     import pedestrians_video_2_carla.carla_utils.mock_carla as carla
-    warnings.warn("Using mock carla.", ImportWarning)
+    warnings.warn("Using mock carla.", source=e)
 
 
 class RGBCameraMock(object):

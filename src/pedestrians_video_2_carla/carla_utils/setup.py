@@ -4,9 +4,9 @@ import warnings
 
 try:
     import carla
-except ImportError:
+except (ImportError, ModuleNotFoundError) as e:
     import pedestrians_video_2_carla.carla_utils.mock_carla as carla
-    warnings.warn("Using mock carla.", ImportWarning)
+    warnings.warn("Using mock carla.", source=e)
 
 
 def setup_client_and_world(fps=30.0) -> Tuple['carla.Client', 'carla.World']:

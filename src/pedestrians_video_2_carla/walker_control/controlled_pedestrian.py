@@ -8,9 +8,9 @@ from pedestrians_video_2_carla.walker_control.pose import Pose, PoseDict
 
 try:
     import carla
-except ImportError:
+except (ImportError, ModuleNotFoundError) as e:
     import pedestrians_video_2_carla.carla_utils.mock_carla as carla
-    warnings.warn("Using mock carla.", ImportWarning)
+    warnings.warn("Using mock carla.", source=e)
 
 from pedestrians_scenarios.karma.utils.deepcopy import deepcopy_location, deepcopy_rotation, deepcopy_transform
 

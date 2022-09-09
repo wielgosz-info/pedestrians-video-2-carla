@@ -5,7 +5,6 @@ from pedestrians_video_2_carla.third_party.baseline_3d_pose.model import \
     LinearModel as Baseline3DPoseModel
 from torch import nn
 from pytorch3d.transforms.rotation_conversions import rotation_6d_to_matrix
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 
 class Baseline3DPoseRot(MovementsModel):
@@ -97,19 +96,3 @@ class Baseline3DPoseRot(MovementsModel):
         x = x.view(*original_shape[0:2],
                    self.__output_nodes_len, self.__output_features)
         return x[..., :3], rotation_6d_to_matrix(x[..., 3:])
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
-
-        lr_scheduler = {
-            'scheduler': ReduceLROnPlateau(optimizer, mode='min', factor=0.2, patience=5, cooldown=10),
-            'interval': 'epoch',
-            'monitor': 'train_loss/primary'
-        }
-
-        config = {
-            'optimizer': optimizer,
-            # 'lr_scheduler': lr_scheduler,
-        }
-
-        return config

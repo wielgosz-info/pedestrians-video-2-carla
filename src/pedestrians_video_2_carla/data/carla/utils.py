@@ -8,9 +8,9 @@ from pedestrians_video_2_carla.data.base.utils import load_reference_file
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 try:
     import carla
-except ImportError:
+except (ImportError, ModuleNotFoundError) as e:
     import pedestrians_video_2_carla.carla_utils.mock_carla as carla
-    warnings.warn("Using mock carla.", ImportWarning)
+    warnings.warn("Using mock carla.", source=e)
 
 
 @lru_cache(maxsize=10)
