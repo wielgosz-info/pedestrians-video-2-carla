@@ -89,7 +89,7 @@ class MovementsModelOutputTypeMixin:
         return self.movements_output_type
 
     @staticmethod
-    def add_model_specific_args(parser):
+    def add_cli_args(parser):
         parser.add_argument(
             '--movements_output_type',
             help="""

@@ -58,49 +58,47 @@ Please note that data module and model specific options may change if you switch
 
 ```sh
 python -m pedestrians_video_2_carla \
-  --data_module_name=Carla2D3D \
-  --model_movements_name=LinearAE \
+  --flow=pose_lifting \
+  --mode=train \
+  --data_module_name=CarlaRecorded \
+  --movements_model_name=LinearAE \
   --batch_size=256 \
   --num_workers=32 \
-  --clip_length=180 \
+  --clip_length=16 \
+  --data_nodes=CARLA_SKELETON \
   --input_nodes=CARLA_SKELETON \
   --output_nodes=CARLA_SKELETON \
   --max_epochs=500 \
   --loss_modes=loc_2d_3d \
   --renderers none \
-  --check_val_every_n_epoch=10 \
   --gpus=0,1 \
-  --accelerator=ddp \
-  --limit_train_batches=32 \
-  --log_every_n_steps=16 \
-  --flush_logs_every_n_steps=64
+  --accelerator=ddp
 ```
 
 ### Example run with rendering
 
 ```sh
 python -m pedestrians_video_2_carla \
-  --data_module_name=Carla2D3D \
+  --flow=autoencoder \
+  --mode=train \
+  --data_module_name=CarlaRecorded \
   --batch_size=256 \
   --num_workers=32 \
+  --data_nodes=CARLA_SKELETON \
   --input_nodes=CARLA_SKELETON \
   --output_nodes=CARLA_SKELETON \
   --loss_modes=loc_2d_3d \
-  --check_val_every_n_epoch=10 \
   --gpus=0,1 \
   --accelerator=ddp \
-  --limit_train_batches=1 \
-  --limit_val_batches=1 \
   --log_every_n_steps=16 \
-  --renderers source_carla input_points projection_points carla \
+  --renderers source_videos input_points projection_points carla \
+  --source_videos_dir=/datasets/CARLA/BinarySinglePedestrian \
+  --source_videos_overlay_skeletons \
   \
   --movements_model_name=Seq2SeqEmbeddings \
+  --movements_output_type=pose_2d \
   --max_epochs=200 \
-  --clip_length=10 \
-  --val_batches=32 \
-  --test_batches=32 \
-  --resume_from_checkpoint=/runs/Seq2SeqEmbeddings/version_8/checkpoints/epoch=199-step=6399.ckpt \
-
+  --clip_length=16
 ```
 
 ## Reference skeletons
