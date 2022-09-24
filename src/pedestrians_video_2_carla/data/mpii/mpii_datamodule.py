@@ -45,7 +45,6 @@ class MPIIDataModule(PandasDataModuleMixin, BaseDataModule):
 
     @classmethod
     def add_subclass_specific_args(cls, parent_parser):
-        BaseDataModule.add_subclass_specific_args(parent_parser)
         parser = parent_parser.add_argument_group('MPII Data Module')
         parser.add_argument('--data_variant', type=str,
                             choices=['single', 'multiple'],

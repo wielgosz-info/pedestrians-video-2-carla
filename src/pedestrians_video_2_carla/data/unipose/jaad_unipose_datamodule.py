@@ -45,7 +45,7 @@ class JAADUniPoseDataModule(JAADOpenPoseDataModule):
 
     @staticmethod
     def add_subclass_specific_args(parent_parser):
-        parent_parser = super().add_subclass_specific_args(parent_parser)
+        parent_parser = JAADOpenPoseDataModule.add_subclass_specific_args(parent_parser)
 
         parser = parent_parser.add_argument_group('JAADUniPose DataModule')
         parser.set_defaults(

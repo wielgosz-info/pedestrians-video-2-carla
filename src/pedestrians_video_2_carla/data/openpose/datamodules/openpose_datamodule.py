@@ -45,8 +45,6 @@ class OpenPoseDataModule(ClassificationDataModuleMixin, PandasDataModuleMixin, B
 
     @staticmethod
     def add_subclass_specific_args(parent_parser):
-        parent_parser = super().add_subclass_specific_args(parent_parser)
-
         parser = parent_parser.add_argument_group('OpenPose DataModule')
         parser.add_argument(
             '--strong_points',
