@@ -1,7 +1,6 @@
 import copy
 import os
 from typing import Any, Callable, Dict, Iterator, List, Tuple, Type
-from cv2 import rotate
 
 import numpy as np
 import torch
@@ -312,7 +311,8 @@ class PedestrianWriter(object):
 
         if self.__renderers[PedestrianRenderers.source_videos].overlay_labels:
             # TODO: get this from classification_targets_key
-            meta['labels'] = {'crossing': meta['crossing']}
+            # meta['labels'] = {'crossing': meta['crossing']}
+            pass
 
         deaugmented_input_pose, new_targets = self.__deaugment_input(
             pose=targets['projection_2d'],
