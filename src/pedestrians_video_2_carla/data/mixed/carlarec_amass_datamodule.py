@@ -1,5 +1,5 @@
 from pedestrians_video_2_carla.data.mixed.mixed_datamodule import MixedDataModule
-from pedestrians_video_2_carla.data.carla.carla_recorded_datamodule import CarlaRecordedDataModule
+from pedestrians_video_2_carla.data.carla.datamodules.carla_recorded_datamodule import CarlaRecordedDataModule
 from pedestrians_video_2_carla.data.smpl.amass_datamodule import AMASSDataModule
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.data.smpl.skeleton import SMPL_SKELETON

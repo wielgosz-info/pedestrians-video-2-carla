@@ -1,7 +1,7 @@
 import logging
 from pedestrians_video_2_carla.data.mixed.mixed_datamodule import MixedDataModule
-from pedestrians_video_2_carla.data.openpose.jaad_openpose_datamodule import JAADOpenPoseDataModule
-from pedestrians_video_2_carla.data.carla.carla_recorded_datamodule import CarlaRecordedDataModule
+from pedestrians_video_2_carla.data.openpose.datamodules.jaad_openpose_datamodule import JAADOpenPoseDataModule
+from pedestrians_video_2_carla.data.carla.datamodules.carla_recorded_datamodule import CarlaRecordedDataModule
 from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON
 from pedestrians_video_2_carla.data.carla.skeleton import CARLA_SKELETON
 from pedestrians_video_2_carla.utils.argparse import flat_args_as_list_arg
