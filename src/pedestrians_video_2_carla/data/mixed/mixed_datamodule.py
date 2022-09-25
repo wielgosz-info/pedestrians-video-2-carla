@@ -1,5 +1,6 @@
 import os
 from typing import Any, Dict, Iterable, List, Literal, Optional, Type, Union
+from pedestrians_scenarios.karma.pose.skeleton import CARLA_SKELETON
 from pytorch_lightning import LightningDataModule
 from pedestrians_video_2_carla.data.base.skeleton import Skeleton, get_common_indices
 from pedestrians_video_2_carla.data.base.base_datamodule import BaseDataModule
@@ -90,6 +91,9 @@ class MixedDataModule(LightningDataModule):
         self.hparams['test_proportions'] = self.requested_test_proportions
         self.hparams['mixed_datasets'] = [
             dm.__class__.__name__ for dm in self._data_modules]
+        # explicitly set this to avoid confusion
+        self.hparams['data_module_name'] = self.__class__.__name__
+        self.hparams['data_nodes'] = 'Mixed'
 
         self.train_set = None
         self.val_set = None
@@ -194,6 +198,11 @@ class MixedDataModule(LightningDataModule):
             nargs='+',
             default=cls.test_proportions,
             help='Proportions of data to use for testing. Must sum to 1 OR be a mix of -1s (all available data) and 0s (do not use this one). Order should be the same as data_modules.'
+        )
+
+        # set common input_nodes
+        parser.set_defaults(
+            input_nodes=CARLA_SKELETON,
         )
 
         return parent_parser

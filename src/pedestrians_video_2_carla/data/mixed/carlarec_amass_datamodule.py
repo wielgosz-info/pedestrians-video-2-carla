@@ -30,6 +30,7 @@ class CarlaRecAMASSDataModule(MixedDataModule):
                 'data_nodes': CARLA_SKELETON,
                 'input_nodes': CARLA_SKELETON,
                 'missing_joint_probabilities': carla_missing_joint_probabilities,
+                'classification_targets_key': 'frame.pedestrian.is_crossing'
             },
             AMASSDataModule: {
                 'data_nodes': SMPL_SKELETON,

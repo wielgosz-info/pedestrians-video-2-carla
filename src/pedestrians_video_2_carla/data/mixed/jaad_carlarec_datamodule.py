@@ -44,16 +44,18 @@ class JAADCarlaRecDataModule(MixedDataModule):
                     'input_nodes': CARLA_SKELETON,
                     'missing_joint_probabilities': jaad_missing_joint_probabilities,
                     'noise': jaad_noise,
+                    'classification_targets_key': 'crossing'
                 },
                 CarlaRecordedDataModule: {
                     'data_nodes': CARLA_SKELETON,
                     'input_nodes': CARLA_SKELETON,
                     'missing_joint_probabilities': carla_missing_joint_probabilities,
                     'noise': carla_noise,
+                    'classification_targets_key': 'frame.pedestrian.is_crossing'
                 }
             },
             mappings={
-                'frame.pedestrian.is_crossing': 'cross',
+                'frame.pedestrian.is_crossing': 'crossing',
             },
             **kwargs
         )

@@ -50,13 +50,15 @@ class JAADCarlaRecAMASSDataModule(MixedDataModule):
                 'data_nodes': BODY_25_SKELETON,
                 'input_nodes': CARLA_SKELETON,
                 'missing_joint_probabilities': jaad_missing_joint_probabilities,
-                'noise': jaad_noise
+                'noise': jaad_noise,
+                'classification_targets_key': 'crossing'
             },
             CarlaRecordedDataModule: {
                 'data_nodes': CARLA_SKELETON,
                 'input_nodes': CARLA_SKELETON,
                 'missing_joint_probabilities': carla_missing_joint_probabilities,
-                'noise': other_noise
+                'noise': other_noise,
+                'classification_targets_key': 'frame.pedestrian.is_crossing'
             },
             AMASSDataModule: {
                 'data_nodes': SMPL_SKELETON,
