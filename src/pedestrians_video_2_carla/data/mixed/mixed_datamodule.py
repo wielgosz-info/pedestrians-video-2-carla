@@ -218,8 +218,6 @@ class MixedDataModule(LightningDataModule):
             dm.setup(stage)
 
         if stage == "fit" or stage is None:
-            # TODO: for now, all sets are ConcatDataset, but this should be changed to something more flexible
-            # e.g. to train on various datasets but only validate on the one we're most interested in
             self.train_set = MixedDataset([
                 dm.train_set for dm in self._data_modules
             ],
