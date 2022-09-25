@@ -125,6 +125,11 @@ class MixedDataModule(LightningDataModule):
         else:
             return probabilities[:]
 
+    @classmethod
+    def uses_infinite_train_set(cls):
+        # Mixing infinite datasets is not supported
+        return False
+
     @property
     def subsets_dir(self) -> List[str]:
         return [dm.subsets_dir for dm in self._data_modules]
