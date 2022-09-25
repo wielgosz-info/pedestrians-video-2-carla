@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from torch import optim
-from pedestrians_video_2_carla.modules.movements.movements import MovementsModel
+from pedestrians_video_2_carla.modules.movements.movements import MovementsModel, MovementsModelOutputTypeMixin
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModelOutputType
 
 from torch.nn import TransformerEncoderLayer, TransformerEncoder
@@ -24,39 +24,11 @@ class CosineWarmupScheduler(optim.lr_scheduler._LRScheduler):
             lr_factor *= epoch * 1.0 / self.warmup
         return lr_factor
 
-
-class TransformerBase(MovementsModel):
-
-    @property
-    def needs_graph(self) -> bool:
-        return False
-
-    @property
-    def output_type(self) -> MovementsModelOutputType:
-        return MovementsModelOutputType.pose_2d
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=1e-3)
-
-        lr_scheduler = {
-            'scheduler': CosineWarmupScheduler(optimizer, warmup=30, max_iters=200),
-            'interval': 'epoch',
-            'monitor': 'val_loss/primary'
-        }
-
-        config = {
-            'optimizer': optimizer,
-            'lr_scheduler': lr_scheduler,
-        }
-
-        return config
-
-
-class SimpleTransformer(TransformerBase):
+class SimpleTransformer(MovementsModelOutputTypeMixin, MovementsModel):
     def __init__(self, n_heads=4, **kwargs):
         super().__init__(**kwargs)
 
-        self.input_size = 2 * len(self.input_nodes)
+        self.input_size = len(self.input_nodes) * self.output_features
         self.n_heads = n_heads
 
         # ensure input_size is divisible by nhead
@@ -74,18 +46,44 @@ class SimpleTransformer(TransformerBase):
         parent_parser = MovementsModel.add_model_specific_args(parent_parser)
 
         parser = parent_parser.add_argument_group("Simple Transformer Model")
+        parser = MovementsModelOutputTypeMixin.add_cli_args(parser)
+
         parser.add_argument(
             '--n_heads',
             type=int,
             default=4,
             help='the number of heads in the encoder/decoder of the transformer model'
         )
+
+        parser.set_defaults(
+            movements_output_type=MovementsModelOutputType.pose_2d
+        )
+
         return parent_parser
+
+    @property
+    def needs_graph(self) -> bool:
+        return False
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.AdamW(self.parameters(), lr=1e-3)
+
+        lr_scheduler = {
+            'scheduler': CosineWarmupScheduler(optimizer, warmup=30, max_iters=200),
+            'interval': 'epoch',
+            'monitor': 'val_loss/primary'
+        }
+
+        config = {
+            'optimizer': optimizer,
+            'lr_scheduler': lr_scheduler,
+        }
+
+        return config
 
     def forward(self, x, **kwargs):
         orig_shape = x.shape
         x = x.view(orig_shape[0], orig_shape[1], -1)
-        # print("input shape: ", x.shape)
         x = self.encoder(x)
         x = x.view(orig_shape)
         return x
