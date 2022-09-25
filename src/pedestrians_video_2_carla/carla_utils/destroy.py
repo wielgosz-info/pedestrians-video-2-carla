@@ -4,7 +4,7 @@ try:
     import carla
 except (ImportError, ModuleNotFoundError) as e:
     import pedestrians_video_2_carla.carla_utils.mock_carla as carla
-    warnings.warn("Using mock carla.", source=e)
+    warnings.warn("Using mock carla.", category=ImportWarning)
 
 
 def destroy_client_and_world(client, world, sensor_dict=None):
