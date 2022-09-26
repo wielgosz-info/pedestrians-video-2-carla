@@ -125,7 +125,7 @@ class BaseDataModule(LightningDataModule):
         else:
             self._subsets_dir = subsets_dir
 
-        print(f'{TERM_CONTROLS.BOLD}Subsets dir: {TERM_COLORS.CYAN}{self._subsets_dir}{TERM_CONTROLS.ENDC}')
+        print(f'{TERM_CONTROLS.BOLD}Subsets dir: {TERM_COLORS.CYAN}{self._subsets_dir}{TERM_CONTROLS.ENDC} ')
 
         # each dataset may provide its own classification labels
         # they are saved in a settings file during the subsets creation

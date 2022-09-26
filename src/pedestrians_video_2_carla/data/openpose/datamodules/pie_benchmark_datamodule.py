@@ -8,7 +8,7 @@ from .yorku_benchmark_datamodule import YorkUBenchmarkDataModule
 class PIEBenchmarkDataModule(YorkUBenchmarkDataModule):
     def __init__(self, **kwargs) -> None:
         super().__init__(
-            set_name=PIE_DIR,
+            dataset_dirname=PIE_DIR,
             pose_pickles_dir=os.path.join(PIE_DIR, 'poses'),
             data_filepath=os.path.join(PIE_DIR, 'annotations.csv'),
             video_index=['set_name', 'video'],

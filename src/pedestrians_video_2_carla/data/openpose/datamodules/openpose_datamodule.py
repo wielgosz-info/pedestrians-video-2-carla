@@ -19,7 +19,7 @@ from pedestrians_video_2_carla.data.openpose.skeleton import BODY_25_SKELETON
 
 class OpenPoseDataModule(ClassificationDataModuleMixin, PandasDataModuleMixin, BaseDataModule):
     def __init__(self,
-                 set_name: str,
+                 dataset_dirname: str,  # e.g. 'PIE' or 'JAAD'
                  strong_points: Optional[float] = 0,
                  iou_threshold: Optional[float] = 0.1,
                  **kwargs
@@ -33,7 +33,7 @@ class OpenPoseDataModule(ClassificationDataModuleMixin, PandasDataModuleMixin, B
             **kwargs
         )
 
-        self.openpose_dir = os.path.join(self.datasets_dir, set_name, OPENPOSE_DIR)
+        self.openpose_dir = os.path.join(self.datasets_dir, dataset_dirname, OPENPOSE_DIR)
 
     @property
     def settings(self):

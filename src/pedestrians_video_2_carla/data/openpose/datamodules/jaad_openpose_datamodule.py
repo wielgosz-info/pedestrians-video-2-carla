@@ -12,7 +12,7 @@ class JAADOpenPoseDataModule(YorkUOpenPoseDataModule):
         self.sample_type = sample_type
 
         super().__init__(
-            set_name=JAAD_DIR,
+            dataset_dirname=JAAD_DIR,
             cross_label='crossing',
             data_filepath=os.path.join(JAAD_DIR, 'annotations.csv'),
             video_index=['video'],

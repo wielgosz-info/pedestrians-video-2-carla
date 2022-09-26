@@ -222,7 +222,7 @@ def main(
         )
         log_dir = logger.log_dir
 
-    print(f"{TERM_CONTROLS.BOLD}Logging dir: {TERM_COLORS.MAGENTA}{log_dir}{TERM_CONTROLS.ENDC}")
+    print(f"{TERM_CONTROLS.BOLD}Logging dir: {TERM_COLORS.MAGENTA}{log_dir}{TERM_CONTROLS.ENDC} ")
 
     # some models support this as a CLI option
     # so we only add it if it's not already set

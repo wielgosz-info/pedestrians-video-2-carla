@@ -14,6 +14,8 @@ AGE_MAPPINGS = {
     # substitutions
     'senior': 'adult',
     'young': 'child',
+    float('nan'): 'adult',
+    'nan': 'adult'
 }
 
 GENDER_MAPPINGS = {

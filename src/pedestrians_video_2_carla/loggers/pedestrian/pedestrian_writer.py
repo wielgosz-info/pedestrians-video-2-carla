@@ -72,6 +72,7 @@ class PedestrianWriter(object):
             self._video_columns = len(self._used_renderers)
             self._video_rows = 1
 
+        # TODO: fix writer requiring explicit input/output nodes from command line
         self._input_nodes = input_nodes
         self._output_nodes = output_nodes
 

@@ -9,7 +9,7 @@ class PIEOpenPoseDataModule(YorkUOpenPoseDataModule):
                  **kwargs
                  ):
         super().__init__(
-            set_name=PIE_DIR,
+            dataset_dirname=PIE_DIR,
             cross_label='crossing',
             data_filepath=os.path.join(PIE_DIR, 'annotations.csv'),
             video_index=['set_name', 'video'],
