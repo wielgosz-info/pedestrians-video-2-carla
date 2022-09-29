@@ -23,10 +23,10 @@ def get_run_id_from_checkpoint_path(ckpt_path):
 def resolve_ckpt_path(ckpt_path):
     if ckpt_path.startswith("wandb://"):
         import wandb
-        artifact_path = ckpt_path.lstrip("wandb://")
+        artifact_path = ckpt_path[len('wandb://'):]
         artifact = wandb.run.use_artifact(artifact_path, type='model')
         artifact_dir = artifact.download()
         ckpt_path = os.path.join(artifact_dir, "model.ckpt")
     elif ckpt_path.startswith("file://"):
-        ckpt_path = ckpt_path.lstrip("file://")
+        ckpt_path = ckpt_path[len('file://'):]
     return ckpt_path
