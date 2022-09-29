@@ -1,28 +1,8 @@
-import numpy as np
-import torch
-from torch import optim
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModel, MovementsModelOutputTypeMixin
 from pedestrians_video_2_carla.modules.movements.movements import MovementsModelOutputType
 
 from torch.nn import TransformerEncoderLayer, TransformerEncoder
 
-
-class CosineWarmupScheduler(optim.lr_scheduler._LRScheduler):
-
-    def __init__(self, optimizer, warmup, max_iters):
-        self.warmup = warmup
-        self.max_num_iters = max_iters
-        super().__init__(optimizer)
-
-    def get_lr(self):
-        lr_factor = self.get_lr_factor(epoch=self.last_epoch)
-        return [base_lr * lr_factor for base_lr in self.base_lrs]
-
-    def get_lr_factor(self, epoch):
-        lr_factor = 0.5 * (1 + np.cos(np.pi * epoch / self.max_num_iters))
-        if epoch <= self.warmup:
-            lr_factor *= epoch * 1.0 / self.warmup
-        return lr_factor
 
 class SimpleTransformer(MovementsModelOutputTypeMixin, MovementsModel):
     def __init__(self, n_heads=4, **kwargs):
@@ -56,30 +36,15 @@ class SimpleTransformer(MovementsModelOutputTypeMixin, MovementsModel):
         )
 
         parser.set_defaults(
-            movements_output_type=MovementsModelOutputType.pose_2d
+            movements_output_type=MovementsModelOutputType.pose_2d,
+            movements_lr=1e-3,
+            movements_weight_decay=1e-2,
+            movements_scheduler_type='CosineAnnealingWarmRestarts',
+            movements_enable_lr_scheduler=True,
+            movements_scheduler_step_size=30  # 30 epochs
         )
 
         return parent_parser
-
-    @property
-    def needs_graph(self) -> bool:
-        return False
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=1e-3)
-
-        lr_scheduler = {
-            'scheduler': CosineWarmupScheduler(optimizer, warmup=30, max_iters=200),
-            'interval': 'epoch',
-            'monitor': 'val_loss/primary'
-        }
-
-        config = {
-            'optimizer': optimizer,
-            'lr_scheduler': lr_scheduler,
-        }
-
-        return config
 
     def forward(self, x, **kwargs):
         orig_shape = x.shape

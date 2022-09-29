@@ -2,7 +2,7 @@ from enum import Enum
 import logging
 from typing import Dict, List, Tuple
 import torch
-from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR, CosineAnnealingWarmRestarts
 
 from pedestrians_video_2_carla.data.base.skeleton import get_skeleton_name_by_type, get_skeleton_type_by_name
 
@@ -108,7 +108,7 @@ class BaseModel(torch.nn.Module):
             f'--{prefix}_scheduler_type',
             default='ReduceLROnPlateau',
             type=str,
-            choices=['ReduceLROnPlateau', 'StepLR'],  # TODO: Add more schedulers
+            choices=['ReduceLROnPlateau', 'StepLR', 'CosineAnnealingWarmRestarts'],  # TODO: Add more schedulers
         )
         parser.add_argument(
             f'--{prefix}_scheduler_gamma',
@@ -181,6 +181,14 @@ class BaseModel(torch.nn.Module):
                         optimizer,
                         step_size=self.lr_scheduler_step_size,
                         gamma=self.lr_scheduler_gamma
+                    ),
+                }
+            elif self.lr_scheduler_type == 'CosineAnnealingWarmRestarts':
+                lr_scheduler = {
+                    'scheduler': CosineAnnealingWarmRestarts(
+                        optimizer,
+                        T_0=self.lr_scheduler_step_size,
+                        eta_min=self.lr_scheduler_min_lr,
                     ),
                 }
             else:
