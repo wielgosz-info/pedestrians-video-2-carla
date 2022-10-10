@@ -29,11 +29,9 @@ def calculate_loss_loc_3d(criterion: loss._Loss, input_nodes: Type[Skeleton], ou
     try:
         output_indices, input_indices = get_common_indices(input_nodes, output_nodes)
 
-        # TODO: reuse transform from DataModule? in theory it is provided for 2D points...
-        transform = Normalizer(HipsNeckExtractor(input_nodes))
         loss = criterion(
-            transform(absolute_pose_loc, dim=3)[:, :, output_indices],
-            transform(targets['absolute_pose_loc'], dim=3)[:, :, input_indices]
+            absolute_pose_loc[:, :, output_indices],
+            targets['absolute_pose_loc'][:, :, input_indices]
         )
     except KeyError:
         rank_zero_warn(
