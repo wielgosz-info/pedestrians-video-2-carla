@@ -8,11 +8,11 @@ from ..constants import JAAD_DIR, JAAD_USECOLS
 
 class JAADBenchmarkDataModule(YorkUBenchmarkDataModule):
     def __init__(self,
-                 data_variant='default',
+                 jaad_data_variant='default',
                  sample_type='beh',
                  **kwargs
                  ):
-        self.data_variant = data_variant
+        self.jaad_data_variant = jaad_data_variant
         self.sample_type = sample_type
 
         super().__init__(
@@ -28,13 +28,13 @@ class JAADBenchmarkDataModule(YorkUBenchmarkDataModule):
         )
 
         self._splits_dir = os.path.join(
-            self.datasets_dir, JAAD_DIR, 'split_ids', self.data_variant)
+            self.datasets_dir, JAAD_DIR, 'split_ids', self.jaad_data_variant)
 
     @property
     def settings(self):
         return {
             **super().settings,
-            'data_variant': self.data_variant,
+            'jaad_data_variant': self.jaad_data_variant,
             'sample_type': self.sample_type,
         }
 
@@ -42,7 +42,7 @@ class JAADBenchmarkDataModule(YorkUBenchmarkDataModule):
     def add_subclass_specific_args(cls, parent_parser):
         YorkUBenchmarkDataModule.add_subclass_specific_args(parent_parser)
         parser = parent_parser.add_argument_group('JAADBenchmark Data Module')
-        parser.add_argument('--data_variant', type=str,
+        parser.add_argument('--jaad_data_variant', type=str,
                             choices=['default', 'high_visibility', 'all_videos'],
                             default='default')
         parser.add_argument('--sample_type', type=str,

@@ -32,21 +32,23 @@ class BenchmarkDataModuleMixin:
 
     @classmethod
     def add_cli_args(cls, parser):
-        parser.add_argument(
-            '--tte',
-            type=int,
-            nargs='+',
-            default=[],
-            help='Time to event. Values are in frames. Clips will be generated if they end in this window. Default is [30, 60].'
-        )
+        # if tte is not added as an argument already, add it
+        if not any([arg.dest == 'tte' for arg in parser._actions]):
+            parser.add_argument(
+                '--tte',
+                type=int,
+                nargs='+',
+                default=[],
+                help='Time to event. Values are in frames. Clips will be generated if they end in this window. Default is [30, 60].'
+            )
 
-        # update default settings
-        parser.set_defaults(
-            clip_length=16,
-            clip_offset=6,
-            classification_average='benchmark',
-            classification_targets_key='crossing',
-        )
+            # update default settings
+            parser.set_defaults(
+                clip_length=16,
+                clip_offset=6,
+                classification_average='benchmark',
+                classification_targets_key='crossing',
+            )
 
         return parser
 

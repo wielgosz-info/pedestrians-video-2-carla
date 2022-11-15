@@ -45,28 +45,32 @@ class ClassificationDataModuleMixin:
 
     @classmethod
     def add_cli_args(cls, parser):
-        parser.add_argument(
-            '--label_frames',
-            type=float,
-            default=-1,
-            help='Fraction of last frames to search for "positive" labels. -1 means to check only the last frame.'
-        )
-        parser.add_argument(
-            '--num_classes',
-            default=2,
-            type=int,
-        )
-        parser.add_argument(
-            '--classification_targets_key',
-            type=str,
-            default='cross',
-        )
-        parser.add_argument(
-            "--balance_classes",
-            help="If True, will balance the classes in the train dataset.",
-            default=False,
-            type=boolean
-        )
+        if not any([arg.dest == 'label_frames' for arg in parser._actions]):
+            parser.add_argument(
+                '--label_frames',
+                type=float,
+                default=-1,
+                help='Fraction of last frames to search for "positive" labels. -1 means to check only the last frame.'
+            )
+        if not any([arg.dest == 'num_classes' for arg in parser._actions]):
+            parser.add_argument(
+                '--num_classes',
+                default=2,
+                type=int,
+            )
+        if not any([arg.dest == 'classification_targets_key' for arg in parser._actions]):
+            parser.add_argument(
+                '--classification_targets_key',
+                type=str,
+                default='cross',
+            )
+        if not any([arg.dest == 'balance_classes' for arg in parser._actions]):
+            parser.add_argument(
+                "--balance_classes",
+                help="If True, will balance the classes in the train dataset.",
+                default=False,
+                type=boolean
+            )
         return parser
 
     def _set_class_labels(self, df: pandas.DataFrame) -> None:

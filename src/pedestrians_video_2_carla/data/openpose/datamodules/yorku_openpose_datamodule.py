@@ -49,7 +49,7 @@ class YorkUOpenPoseDataModule(OpenPoseDataModule):
             drop=False), grouped.tail(1).reset_index(drop=False)
 
         meta = {
-            'set_name': grouped_tail.loc[:, 'set_name'].to_list(),
+            'set_name': grouped_tail.loc[:, 'set_name'].to_list() if 'set_name' in grouped_tail.columns else [''] * len(grouped_tail),
             'video_id': grouped_tail.loc[:, 'video'].to_list(),
             'pedestrian_id': grouped_tail.loc[:, 'id'].to_list(),
             'clip_id': grouped_tail.loc[:, 'clip'].to_numpy().astype(np.int32),
