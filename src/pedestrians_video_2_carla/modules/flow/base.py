@@ -506,5 +506,6 @@ class LitBaseFlow(pl.LightningModule):
                 stage=stage,
                 vid_callback=vid_callback,
                 force=(stage != 'train' and batch_idx == 0),
+                eval_slice=self.movements_model.eval_slice,
                 **kwargs
             )

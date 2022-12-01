@@ -1,8 +1,12 @@
 lightning_logs/
 core.*
 .git
+.pytest_cache
+.vscode
 artifacts/
 wandb/
 models/**/*.*
 !models/**/.gitkeep
 !models/**/*.md
+*.trace.json
+__pycache__/

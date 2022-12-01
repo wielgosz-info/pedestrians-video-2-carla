@@ -115,7 +115,7 @@ class CarlaRenderer(Renderer):
         )
         camera_queue = Queue()
         camera_rgb = setup_camera(
-            world, camera_queue, bound_pedestrian, self._image_size, self.__fov)
+            world, camera_queue, bound_pedestrian, self.image_size, self.__fov)
 
         if relative_pose_loc_clip is None or relative_pose_rot_clip is None:
             ref_abs_pose_loc, ref_abs_pose_rot = bound_pedestrian.current_pose.pose_to_tensors(
@@ -188,7 +188,7 @@ class CarlaRenderer(Renderer):
         sensor_data = None
 
         carla_img = torch.zeros(
-            (self._image_size[1], self._image_size[0], 3), dtype=torch.uint8)
+            (self.image_size[1], self.image_size[0], 3), dtype=torch.uint8)
         if world_frame:
             # drain the sensor queue
             try:

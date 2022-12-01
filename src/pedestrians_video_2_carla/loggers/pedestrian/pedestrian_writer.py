@@ -127,6 +127,7 @@ class PedestrianWriter(object):
                    stage: str,
                    vid_callback: Callable = None,
                    force: bool = False,
+                   eval_slice: slice = slice(None),
                    # data that is passed from various inputs/outputs:
                    inputs: Tensor = None,
                    targets: Dict[str, Tensor] = None,
@@ -152,7 +153,8 @@ class PedestrianWriter(object):
                 relative_pose_rot[self.__videos_slice] if relative_pose_rot is not None else None,
                 world_loc[self.__videos_slice] if world_loc is not None else None,
                 world_rot[self.__videos_slice] if world_rot is not None else None,
-                batch_idx)), desc="Rendering clips", total=self._max_videos, leave=False):
+                batch_idx,
+                eval_slice)), desc="Rendering clips", total=self._max_videos, leave=False):
             video_dir = os.path.join(self._log_dir, stage, meta.get(
                 'set_name', ''), meta['video_id'])
             os.makedirs(video_dir, exist_ok=True)
@@ -181,7 +183,8 @@ class PedestrianWriter(object):
                 relative_pose_rot: Tensor,
                 world_loc: Tensor,
                 world_rot: Tensor,
-                batch_idx: int
+                batch_idx: int,
+                eval_slice: slice = slice(None),
                 ) -> Iterator[Tuple[Tensor, Tuple[str, str, int]]]:
         """
         Prepares video data. **It doesn't save anything!**
@@ -244,7 +247,8 @@ class PedestrianWriter(object):
             ),
             PedestrianRenderers.source_videos: lambda: self.__renderers[PedestrianRenderers.source_videos].render(
                 meta=source_videos_meta,
-                bboxes=source_videos_bboxes
+                bboxes=source_videos_bboxes,
+                eval_slice=eval_slice
             ),
             PedestrianRenderers.source_carla: lambda: self.__renderers[PedestrianRenderers.source_carla].render(
                 targets['relative_pose_loc'], targets['relative_pose_rot'],
