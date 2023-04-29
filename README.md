@@ -1,7 +1,7 @@
-# pedestrians-video-2-carla
+# Pedestrians Video2CARLA
 
 This is a part of the bigger project to bring the more realistic pedestrian movements to CARLA.
-It isn't intended for fully standalone use. Please see the [main project README.md](https://github.com/wielgosz-info/carla-pedestrians/blob/main/README.md) for details.
+It isn't intended for fully standalone use. Please see the [main project README.md](https://github.com/wielgosz-info/carla-pedestrians/blob/main/README.md) or [Adversarial Cases for Autonomous Vehicles (ARCANE) project website](https://project-arcane.eu/) for details.
 
 ## Setup
 
