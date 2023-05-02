@@ -104,6 +104,21 @@ python -m pedestrians_video_2_carla \
 ## Reference skeletons
 Reference skeleton data in `src/pedestrians_video_2_carla/data/carla/files` are extracted form [CARLA project Walkers *.uasset files](https://bitbucket.org/carla-simulator/carla-content).
 
+## Cite
+If you use this repo please cite:
+
+```
+@misc{wielgosz2023carlabsp,
+      title={{CARLA-BSP}: a simulated dataset with pedestrians}, 
+      author={Maciej Wielgosz and Antonio M. López and Muhammad Naveed Riaz},
+      month={May},
+      year={2023},
+      eprint={2305.00204},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
+}
+```
+
 ## License
 Our code is released under [MIT License](https://github.com/wielgosz-info/pedestrians-video-2-carla/blob/main/LICENSE).
 
