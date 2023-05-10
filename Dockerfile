@@ -31,6 +31,7 @@ USER root
 # Get OpenGL working for off-screen rendering
 # https://gitlab.com/nvidia/container-images/opengl/blob/ubuntu20.04/glvnd/runtime/Dockerfile
 # extras: libglu1, libgl1-mesa-glx
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A4B469963BF863CC
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libglvnd0 \
     libgl1 \
