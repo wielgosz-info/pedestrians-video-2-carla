@@ -10,7 +10,7 @@ services:
         GROUP_ID: ${GROUP_ID:-1000}
         USERNAME: carla
         PLATFORM: ${PLATFORM:-cpu}
-    image: wielgoszinfo/pedestrians-video-2-carla:${PLATFORM:-cpu}-latest
+    image: ${IMAGES_NAMESPACE:-wielgoszinfo}/pedestrians-video-2-carla:${PLATFORM:-cpu}-latest
     user: ${USER_ID}:${GROUP_ID}
     volumes:
       - /etc/localtime:/etc/localtime:ro

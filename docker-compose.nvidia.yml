@@ -5,7 +5,7 @@ services:
     build:
       args:
         PLATFORM: ${PLATFORM:-nvidia}
-    image: wielgoszinfo/pedestrians-video-2-carla:${PLATFORM:-nvidia}-latest
+    image: ${IMAGES_NAMESPACE:-wielgoszinfo}/pedestrians-video-2-carla:${PLATFORM:-nvidia}-latest
     user: ${USER_ID}:${GROUP_ID}
     environment:
       NVIDIA_VISIBLE_DEVICES: all

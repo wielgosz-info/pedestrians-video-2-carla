@@ -1,13 +1,14 @@
 ARG PLATFORM=nvidia
+ARG IMAGES_NAMESPACE=wielgoszinfo
 
 # Reuse the pedestrians-scenarios code
 # TODO: pedestrians-scenarios should be publicly avaliable and a dependency of pedestrians-video-2-carla
-FROM wielgoszinfo/pedestrians-scenarios:${PLATFORM}-latest AS scenarios
+FROM ${IMAGES_NAMESPACE}/pedestrians-scenarios:${PLATFORM}-latest AS scenarios
 RUN /venv/bin/python -m pip install --no-cache-dir build
 WORKDIR /app
 RUN SETUPTOOLS_SCM_PRETEND_VERSION=0.0.1 /venv/bin/python -m build
 
-FROM wielgoszinfo/carla-common:${PLATFORM}-latest AS base
+FROM ${IMAGES_NAMESPACE}/carla-common:${PLATFORM}-latest AS base
 
 ENV PACKAGE=pedestrians-video-2-carla
 
