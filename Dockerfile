@@ -31,7 +31,12 @@ USER root
 # Get OpenGL working for off-screen rendering
 # https://gitlab.com/nvidia/container-images/opengl/blob/ubuntu20.04/glvnd/runtime/Dockerfile
 # extras: libglu1, libgl1-mesa-glx
-RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys A4B469963BF863CC
+RUN apt-get update && apt-get install -y curl gnupg
+
+# Replace deprecated apt-key usage
+RUN curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub \
+    | gpg --dearmor -o /usr/share/keyrings/nvidia-keyring.gpg
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libglvnd0 \
     libgl1 \
@@ -40,6 +45,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgles2 \
     libglu1 \
     && rm -rf /var/lib/apt/lists/*
+
 COPY --from=nvidia/cudagl:11.1.1-base-ubuntu20.04 /usr/share/glvnd/egl_vendor.d/10_nvidia.json /usr/share/glvnd/egl_vendor.d/10_nvidia.json
 USER ${USERNAME}
 
@@ -91,6 +97,20 @@ FROM torch-${PLATFORM} as torch
 # PyTorch3D (need to compile to get newer version, wheels are up to 0.3.0)
 RUN /venv/bin/python -m pip install --no-cache-dir \
     "git+https://github.com/facebookresearch/pytorch3d.git@v${pytorch3d_version}"
+    
+# 🛠 Install system packages required to build PyAV
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libavcodec-dev \
+    libavformat-dev \
+    libavdevice-dev \
+    libavutil-dev \
+    libswscale-dev \
+    libavresample-dev \
+    libavfilter-dev \
+    && rm -rf /var/lib/apt/lists/*
+USER ${USERNAME}
 
 # Direct project dependencies are defined in pedestrians-video-2-carla/setup.cfg
 # However, we want to leverage the cache, so we're going to specify them (and some of their dependencies) here
