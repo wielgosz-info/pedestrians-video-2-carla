@@ -5,7 +5,7 @@ It isn't intended for fully standalone use. Please see the [main project README.
 
 ## Setup
 
-Copy the `.env.template` file to `.env` and edit the values as required.
+Rename the `.env.template` file to `.env` and edit the values as required.
 
 Run the CARLA server (optional) & the containers with our code as described in [Step 2 of main project README.md](https://github.com/wielgosz-info/carla-pedestrians/blob/main/README.md#Step 2). This should result in the `carla-pedestrians_video2carla_1` container running.
 
